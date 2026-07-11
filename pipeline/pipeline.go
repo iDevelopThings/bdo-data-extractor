@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 
@@ -92,6 +94,10 @@ type Options struct {
 	DataDir string
 	Lang    string // defaults to "en"
 	Pretty  bool
+	// AppVersion is the embedding app's version, recorded in the data dir's
+	// manifest so a stale-data check (NeedsExtraction) can tell when the app that
+	// produced the data has since updated. Empty for the CLI.
+	AppVersion string
 }
 
 // RunAll runs the complete pipeline (build → localization → icons → knowledge
@@ -110,6 +116,16 @@ func RunAll(o Options) error {
 	// Populate the single source of truth; every step below reads it.
 	config.Set(o.GameDir, o.DataDir, o.Lang, o.Pretty)
 
+	// Extraction allocates hundreds of MB (item/enhancement maps, the loc tables,
+	// the PAZ index). In a long-running embedder those would stay resident via the
+	// package globals, so release them and hand the heap back to the OS on the way
+	// out — the CLI just exits, but an app (the viewer) gets its memory back.
+	defer func() {
+		build.Release()
+		runtime.GC()
+		debug.FreeOSMemory()
+	}()
+
 	rep := progress.Default()
 	const steps = 5
 
@@ -117,6 +133,7 @@ func RunAll(o Options) error {
 	if err := build.Run(filepath.Join(o.DataDir, "items.json")); err != nil {
 		return err
 	}
+	build.Release() // free the Builder's item/enhancement/loc maps before later steps
 	rep.Step(2, steps, "localization")
 	if err := Loc(); err != nil {
 		return err
@@ -132,6 +149,10 @@ func RunAll(o Options) error {
 	rep.Step(5, steps, "region maps")
 	if err := RegionMaps(); err != nil {
 		return err
+	}
+
+	if err := writeManifest(o.DataDir, o.GameDir, o.AppVersion, o.Lang); err != nil {
+		return fmt.Errorf("write manifest: %w", err)
 	}
 
 	return nil

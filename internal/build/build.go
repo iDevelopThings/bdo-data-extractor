@@ -46,6 +46,13 @@ type Builder struct {
 // code (and callers) can reach the shared state without it being threaded through.
 var Active *Builder
 
+// Release drops the finished Builder so the item/enhancement maps, localization
+// tables, and PAZ index it holds become garbage. A long-running embedder should
+// call it after a run to reclaim the memory; the CLI needn't bother (it exits).
+func Release() {
+	Active = nil
+}
+
 // Run reads every source table once, merges by item id, and writes outPath plus
 // the sidecar JSON files. lang selects the localization (e.g. "en"); pretty
 // indents the JSON output.
