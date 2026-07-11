@@ -1,0 +1,31 @@
+# Build output
+*.exe
+/dist/
+
+# Generated data (run `bdo-data-extractor build` locally — never commit game-derived data)
+/data/
+/data_previous_version/
+/scripts/
+
+/.claude/
+/.agents/
+AGENTS.md
+CLAUDE.md
+
+# Never commit any game files / assets pulled from a Black Desert install
+*.paz
+*.meta
+*.loc
+*.dbss
+*.bss
+*.dds
+
+# Go
+/vendor/
+*.test
+*.out
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
