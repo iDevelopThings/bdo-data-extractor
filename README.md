@@ -94,9 +94,8 @@ learn from it, extend it.
   in the standard Steam path
   (`C:\Program Files (x86)\Steam\steamapps\common\Black Desert Online`); override
   with `--game <dir>`. Default paths are Windows; pass `--game` elsewhere.
-- Prefer not to build? Grab the prebuilt **Windows** extractor from the
-  [Releases](../../releases) page. Windows is the supported target (it's where BDO
-  runs); other platforms build from source — PRs to support them are welcome.
+- **Windows** is the supported target (it's where BDO runs); other platforms build
+  from source — PRs to support them are welcome.
 
 ## Build & run
 
