@@ -265,7 +265,11 @@ func (b *Builder) finalizeItems(maxlv map[uint32]int) (untradable, caphras, vari
 			ghosts++
 			continue
 		}
-		k := vkey{it.Name, it.ItemType, it.Category, it.Grade, it.Icon}
+		slot := ""
+		if it.EquipInfo != nil {
+			slot = it.EquipInfo.Slot
+		}
+		k := vkey{it.Name, it.ItemType, it.Category, it.Grade, it.Icon, slot}
 		groups[k] = append(groups[k], it)
 	}
 	variants = assignVariants(groups)
@@ -466,8 +470,11 @@ func (b *Builder) writeItems() (count int, size int64, err error) {
 // vkey is the strict identity that reissued copies of one item share (the bound
 // reward/season/box duplicates the game mints under new ids). Name alone would
 // conflate genuinely different items — 1,800+ same-name groups differ in icon or
-// grade — so the key includes itemType, category, grade and icon.
-type vkey struct{ name, typ, cat, grade, icon string }
+// grade — so the key includes itemType, category, grade and icon. It also includes
+// the equip slot: a Pearl-shop appearance costume ("Costume: Armor") reuses the
+// real gear's name and icon, but an item worn in a different slot is never a
+// reissue of the combat piece, so the two must stay separate records.
+type vkey struct{ name, typ, cat, grade, icon, slot string }
 
 // assignVariants picks the canonical record in each multi-copy group and points the
 // others at it via VariantOf, returning the number of copies linked. The canonical

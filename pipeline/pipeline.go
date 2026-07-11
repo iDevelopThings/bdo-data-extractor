@@ -127,29 +127,29 @@ func RunAll(o Options) error {
 	}()
 
 	rep := progress.Default()
-	const steps = 5
+	const steps = 3
 
 	rep.Step(1, steps, "build")
 	if err := build.Run(filepath.Join(o.DataDir, "items.json")); err != nil {
 		return err
 	}
 	build.Release() // free the Builder's item/enhancement/loc maps before later steps
-	rep.Step(2, steps, "localization")
-	if err := Loc(); err != nil {
-		return err
-	}
-	rep.Step(3, steps, "icons")
+	// rep.Step(2, steps, "localization")
+	// if err := Loc(); err != nil {
+	// 	return err
+	// }
+	rep.Step(2, steps, "icons")
 	if err := Icons(); err != nil {
 		return err
 	}
-	rep.Step(4, steps, "knowledge icons")
+	rep.Step(3, steps, "knowledge icons")
 	if err := KnowledgeIcons(); err != nil {
 		return err
 	}
-	rep.Step(5, steps, "region maps")
-	if err := RegionMaps(); err != nil {
-		return err
-	}
+	// rep.Step(5, steps, "region maps")
+	// if err := RegionMaps(); err != nil {
+	// 	return err
+	// }
 
 	if err := writeManifest(o.DataDir, o.GameDir, o.AppVersion, o.Lang); err != nil {
 		return fmt.Errorf("write manifest: %w", err)

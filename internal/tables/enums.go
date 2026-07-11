@@ -11,7 +11,7 @@ import (
 // Note: the central-market category names (item bytes @188/@189) are NOT here —
 // they come straight from the client loc table 44 (see loc.LoadGame).
 
-var gradeNames = map[byte]string{0: "white", 1: "green", 2: "blue", 3: "yellow", 4: "orange"}
+var gradeNames = map[byte]string{0: "white", 1: "green", 2: "blue", 3: "yellow", 4: "red", 5: "purple"}
 
 // classBitNames maps a bit of the item class-restriction mask (itemenchant @77) to
 // the class that can use the item. The mask is a u64 — newer classes live in the high

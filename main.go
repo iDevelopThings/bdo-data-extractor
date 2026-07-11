@@ -1,11 +1,5 @@
 // Command bdo-data-extractor is a single-entry CLI for reading Black Desert Online's
-// PAZ game data (read-only) and decoding its .bss/.dbss tables.
-//
-//	bdo-data-extractor meta                       # parse pad00000.meta, print a summary
-//	bdo-data-extractor extract <substr> <outDir>  # extract decoded files whose path contains substr
-//	bdo-data-extractor table <name> [--limit N]   # decode one table (uses a known schema) -> JSON
-//
-// Flags: --game <dir> (default Steam path), --out <dir> (default ./data).
+// PAZ game data (read-only) and decoding its .bss/.dbss tables — see README.md for subcommands and flags.
 package main
 
 import (
