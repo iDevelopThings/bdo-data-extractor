@@ -188,8 +188,7 @@ by field walk:
   crystal transfusion group (name + max count from loc table 121).
 
 The ~700–1300-byte binary tail after the icon (per-slot stat arrays, price/tax rates,
-scripts, embedded description) is otherwise unmapped; a `seqtail` diagnostic exists for
-exploring it (§15).
+scripts, embedded description) is otherwise unmapped (§15).
 
 ---
 
@@ -650,8 +649,7 @@ PR or an issue — even partial notes help.
 
 - **`itemenchant` post-icon tail (~185 columns).** ~700–1300 bytes after the icon:
   per-slot stat arrays, detailed price/tax rates, pet-feed slots, trade/bind/expiry
-  flags, an embedded description, and scripts. Everything before it is read positionally;
-  a `seqtail` diagnostic explores it.
+  flags, an embedded description, and scripts. Everything before it is read positionally.
 - **`itemenchant` pre-name variant block (gear).** A type-dependent block between the
   fixed header and the name; ~744 set/boss pieces carry a larger `count`+entries block.
   The entry layout and its trigger sub-type are unmapped (Name/Icon/EnchantKey are
