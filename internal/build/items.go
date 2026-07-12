@@ -3,9 +3,11 @@ package build
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+	"path"
 	"slices"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/config"
 	"github.com/idevelopthings/bdo-data-extractor/internal/jsonio"
@@ -88,6 +90,7 @@ func (b *Builder) buildItems() error {
 	b.logf(fmt.Sprintf("enchant curves: %d, item->enchant links: %d", len(curves), len(links)))
 
 	b.items = b.mergeItems(stats, maxlv, buffs, skills, curves, links)
+	b.logf(fmt.Sprintf("icons: backfilled %d name-only items from id-named archive icons", b.backfillShellIcons()))
 	b.scanItemInfo() // populates b.recipes (needed to tell raw mats from processed)
 
 	gathered := b.flagGathered()
@@ -130,7 +133,7 @@ func (b *Builder) awaitWrite() error {
 	if res.err != nil {
 		return res.err
 	}
-	b.logf(fmt.Sprintf("wrote %d items -> %s (%.1f MB)", res.n, b.itemsPath, float64(res.size)/1e6))
+	b.logf(fmt.Sprintf("wrote %d items -> %s (%.1f MB)", res.n, "items.json", float64(res.size)/1e6))
 
 	return nil
 }
@@ -245,6 +248,40 @@ func (b *Builder) mergeItems(
 		}
 	}
 	return items
+}
+
+// backfillShellIcons fills Icon for items the stat table gave no icon — mostly
+// name-only shells that have a localized name but no itemenchant.dbss record — from
+// the archive's id-named icons at ui_texture/icon/new_icon/<...>/<zero-padded id>.dds.
+// The path stored is relative to ui_texture/icon/, matching the stat-record icons the
+// icon extractor already resolves. Items with no such archive icon stay iconless.
+// Returns the number backfilled.
+func (b *Builder) backfillShellIcons() int {
+	const prefix = "ui_texture/icon/"
+	byID := map[uint32]string{}
+	for i := range b.src.Index.Files {
+		p := strings.ToLower(b.src.Index.Path(i))
+		if !strings.HasPrefix(p, prefix+"new_icon/") || !strings.HasSuffix(p, ".dds") {
+			continue
+		}
+		n, err := strconv.ParseUint(strings.TrimSuffix(path.Base(p), ".dds"), 10, 32)
+		if err != nil {
+			continue
+		}
+		if _, ok := byID[uint32(n)]; !ok {
+			byID[uint32(n)] = p[len(prefix):]
+		}
+	}
+	filled := 0
+	for id, it := range b.items {
+		if it.Icon == "" {
+			if rel, ok := byID[id]; ok {
+				it.Icon = rel
+				filled++
+			}
+		}
+	}
+	return filled
 }
 
 // finalizeItems runs the post-merge item pipeline in two passes over b.items
@@ -404,8 +441,8 @@ func (b *Builder) writeItems() (count int, size int64, err error) {
 	timed := utils.Timed(fmt.Sprintf("writeItems: %d items + %d enhancements", len(b.items), len(b.enhancements)))
 	defer timed()
 
-	outPath := b.itemsPath
-	outEnhancementsPath := filepath.Join(b.dir, "item_enhancements.json")
+	_, itemsPath := b.outFilePath("items.json")
+	_, enhancementsPath := b.outFilePath("item_enhancements.json")
 
 	ids := make([]uint32, 0, len(b.items))
 	eIds := make([]uint32, 0, len(b.enhancements))
@@ -446,17 +483,17 @@ func (b *Builder) writeItems() (count int, size int64, err error) {
 		enhancements[i] = b.enhancements[id]
 	}
 
-	if err := jsonio.WriteArray(outPath, list, *config.GlobalConfig.Pretty); err != nil {
+	if err := jsonio.WriteArray(itemsPath, list, *config.GlobalConfig.Pretty); err != nil {
 		return 0, 0, err
 	}
-	if err := jsonio.WriteArray(outEnhancementsPath, enhancements, *config.GlobalConfig.Pretty); err != nil {
+	if err := jsonio.WriteArray(enhancementsPath, enhancements, *config.GlobalConfig.Pretty); err != nil {
 		return 0, 0, err
 	}
-	fi, _ := os.Stat(outPath)
-	efi, _ := os.Stat(outEnhancementsPath)
+	fi, _ := os.Stat(itemsPath)
+	efi, _ := os.Stat(enhancementsPath)
 
 	if len(toDump) > 0 {
-		dumpPath := filepath.Join(b.dir, "dumped_items.json")
+		_, dumpPath := b.outFilePath("dumped_items.json")
 		if err := jsonio.WriteFile(dumpPath, toDump, *config.GlobalConfig.Pretty); err != nil {
 			return 0, 0, err
 		}

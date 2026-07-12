@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -83,17 +84,25 @@ func DumpUsageAndExit() {
 }
 
 func usage() {
-	fmt.Fprintln(
-		os.Stderr, `bdo-data-extractor <command> [flags] [args]    (flags precede positional args)
+	_, err := fmt.Fprintln(
+		os.Stderr,
+		`bdo-data-extractor <command> [flags] [args]    (flags precede positional args)
 
+  build [outPath]            collects all possible data, items, recipes, territories etc...
   meta                       parse pad00000.meta, print summary
   extract <substr> <outDir>  extract decoded files whose path contains substr
   table <name>               decode one table via a known schema -> JSON (stdout)
-  build [outPath]            merge all item data -> cached items.json (default <out>/items.json)
   icons [outDir]             decode each item's icon to <id>.png (default <out>/icons)
   loc [outPath]              dump the ENTIRE localization file (all tables) -> JSON
+  regionmaps                 decode each region map to <out>/regionmaps/<map>.png
+  worldmap                   decode the world map to <out>/worldmap.png
+  knowledge-icons            decode each knowledge card's encyclopedia image to <out>/knowledge_icons/<image>
 
 flags: --game DIR (game install, read-only)  --out DIR (output, default "data")
        --lang en|de|fr|sp   --pretty (indent JSON)`,
 	)
+	if err != nil {
+		log.Fatalf("failed to write usage: %v", err)
+		return
+	}
 }

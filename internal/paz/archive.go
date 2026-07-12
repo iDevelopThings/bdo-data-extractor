@@ -2,6 +2,7 @@ package paz
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +45,11 @@ func (a *Archive) paz(n uint32) (*os.File, error) {
 // Close releases all cached .paz handles.
 func (a *Archive) Close() {
 	for _, fh := range a.handles {
-		fh.Close()
+		err := fh.Close()
+		if err != nil {
+			log.Printf("warning: failed to close %s: %v", fh.Name(), err)
+			continue
+		}
 	}
 	a.handles = map[uint32]*os.File{}
 }

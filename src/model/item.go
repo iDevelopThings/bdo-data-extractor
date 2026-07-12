@@ -3,7 +3,6 @@ package model
 
 import (
 	"reflect"
-	"slices"
 	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/src/models"
@@ -300,31 +299,19 @@ func (b BindType) String() string {
 	return "unknown"
 }
 
-// EquipInfo groups an equippable item's slot taxonomy. Kind is the broad gear class
-// (Weapon/Armor/Other, itemenchant @15); Slot is the normalized, class-independent
-// equip slot (@14) — the only slot source for artifacts, life/gathering tools and
-// costume accessories whose Type is blank; Type is the specific EquipType (@7), the
-// weapon class for weapons. Slots lists every slot the item occupies (@14 + @16-18)
-// for multi-slot items like functional costumes; absent = single-slot.
+// EquipInfo groups an equippable item's slot taxonomy.
 type EquipInfo struct {
-	Slot  string   `json:"slot,omitempty"`
-	Kind  string   `json:"kind,omitempty"`
-	Type  string   `json:"type,omitempty"`
+	// Slot is the normalized, class-independent
+	// equip slot (@14) — the only slot source for artifacts, life/gathering tools and
+	// costume accessories whose Type is blank;
+	Slot string `json:"slot,omitempty"`
+	// Kind is the broad gear class (Weapon/Armor/Other, itemenchant @15);
+	Kind string `json:"kind,omitempty"`
+	// Type is the specific EquipType (@7), the weapon class for weapons.
+	Type string `json:"type,omitempty"`
+	// Slots lists every slot the item occupies (@14 + @16-18)
+	// for multi-slot items like functional costumes; absent = single-slot.
 	Slots []string `json:"slots,omitempty"`
-}
-
-func (e *EquipInfo) AllSlots() []string {
-	slots := []string{e.Slot}
-	slots = append(slots, e.Slots...)
-	return slots
-}
-func (e *EquipInfo) ContainsSlot(slot ...string) bool {
-	slots := e.AllSlots()
-	return slices.ContainsFunc(
-		slots, func(s string) bool {
-			return slices.Contains(slot, s)
-		},
-	)
 }
 
 // CrystalGroup is a socket crystal's transfusion group: at most Max crystals of

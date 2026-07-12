@@ -2,6 +2,7 @@ package paz
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
@@ -14,13 +15,27 @@ type Source struct {
 	Archive *Archive
 }
 
+var (
+	isOpen     atomic.Bool
+	openSource *Source
+)
+
 // OpenSource loads pad00000.meta and opens the archive (read-only).
 func OpenSource(gameDir string) (*Source, error) {
+	if isOpen.Load() {
+		return openSource, nil
+	}
+
 	ix, err := LoadMeta(gameDir)
 	if err != nil {
 		return nil, fmt.Errorf("load meta: %w", err)
 	}
-	return &Source{Index: ix, Archive: Open(gameDir)}, nil
+	s := &Source{Index: ix, Archive: Open(gameDir)}
+
+	isOpen.Store(true)
+	openSource = s
+
+	return s, nil
 }
 
 // Read returns the decoded bytes of the file whose basename is name.
@@ -48,4 +63,8 @@ func (s *Source) ReadAny(names ...string) ([]byte, string, error) {
 }
 
 // Close releases the archive's open file handles.
-func (s *Source) Close() { s.Archive.Close() }
+func (s *Source) Close() {
+	s.Archive.Close()
+
+	isOpen.Store(false)
+}

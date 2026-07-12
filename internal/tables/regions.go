@@ -54,8 +54,7 @@ func attrFloat(se xml.StartElement, name string) float64 {
 }
 
 // DecodeRegions parses regionclientdata.xml: a flat stream of
-// <RegionInfo Key="N"> elements, each containing <SpawnInfo key="<charId>"
-// dialogIndex="i" position="{x,y,z}"/> children.
+// <RegionInfo Key="N"> elements, each containing <SpawnInfo key="<charId>" dialogIndex="i" position="{x,y,z}"/> children.
 func DecodeRegions(data []byte) ([]model.Region, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	dec.Strict = false

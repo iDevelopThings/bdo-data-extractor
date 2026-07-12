@@ -15,18 +15,18 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
 	"github.com/idevelopthings/bdo-data-extractor/internal/progress"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
+	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
 // Builder holds the shared state every build stage needs, so stage methods read
 // from fields instead of threading long argument lists. Stages run in order:
 // each produces some state (items, regions, …) that later stages consume.
 type Builder struct {
-	src       *paz.Source
-	gs        *loc.GameStrings
-	dir       string // output directory (sidecar JSON lands here)
-	itemsPath string // items.json path (may be overridden on the CLI)
-	lang      string
-	t0        time.Time
+	src  *paz.Source
+	gs   *loc.GameStrings
+	dir  string // output directory (sidecar JSON lands here)
+	lang string
+	t0   time.Time
 
 	// cross-stage state, set by an earlier stage and read by later ones
 	items        map[uint32]*model.Item
@@ -56,24 +56,31 @@ func Release() {
 // Run reads every source table once, merges by item id, and writes outPath plus
 // the sidecar JSON files. lang selects the localization (e.g. "en"); pretty
 // indents the JSON output.
-func Run(outPath string) error {
+func Run() error {
 	src, err := paz.OpenSource(*config.GlobalConfig.GameDir)
 	if err != nil {
 		return err
 	}
 	defer src.Close()
-	if err := src.Archive.AssertSafeOut(outPath); err != nil {
+
+	outDir := *config.GlobalConfig.Out
+	err = utils.EnsureDirCreated(outDir)
+	if err != nil {
+		return err
+	}
+
+	if err := src.Archive.AssertSafeOut(*config.GlobalConfig.Out); err != nil {
 		return err
 	}
 
 	b := &Builder{
-		src:       src,
-		dir:       filepath.Dir(outPath),
-		itemsPath: outPath,
-		lang:      *config.GlobalConfig.Lang,
-		t0:        time.Now(),
+		src:  src,
+		lang: *config.GlobalConfig.Lang,
+		t0:   time.Now(),
 	}
 	Active = b
+
+	b.logf(fmt.Sprintf("[INIT] Writing all files to: '%s'", outDir))
 
 	for _, stage := range []struct {
 		name string
@@ -106,11 +113,23 @@ func (b *Builder) logf(msg string) {
 	progress.Default().Log(fmt.Sprintf("  [%5.1fs] %s", time.Since(b.t0).Seconds(), msg))
 }
 
+func (b *Builder) outFilePath(name string) (dir, filePath string) {
+	dir = *config.GlobalConfig.Out
+	filePath = filepath.Join(dir, name)
+	return
+}
+
 // write emits one sidecar JSON file into the output directory and returns its path.
 func (b *Builder) write(name string, v any) (string, error) {
-	p := filepath.Join(b.dir, name)
+	_, p := b.outFilePath(name)
+	fn := filepath.Base(name)
 
-	return p, jsonio.WriteFile(p, v, *config.GlobalConfig.Pretty)
+	// err := utils.EnsureDirCreated(d)
+	// if err != nil {
+	// 	return "", err
+	// }
+
+	return fn, jsonio.WriteFile(p, v, *config.GlobalConfig.Pretty)
 }
 
 // loadStrings decodes the localization tables (names, descriptions, market cats,

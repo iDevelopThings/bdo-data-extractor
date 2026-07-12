@@ -5,9 +5,11 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"log"
 	"os"
 	"runtime"
-	"sync"
+
+	"github.com/dgravesa/go-parallel/parallel"
 )
 
 // ReadFile decodes the JSON file at path into v.
@@ -40,6 +42,22 @@ func WriteFile(path string, v any, pretty bool) error {
 	return bw.Flush()
 }
 
+// Marshal encodes v the same way WriteFile does (HTML escaping off, optional
+// indent) but returns the bytes, for callers that hand the JSON to something other
+// than a file. The output matches WriteFile(path, v, pretty) byte-for-byte.
+func Marshal(v any, pretty bool) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if pretty {
+		enc.SetIndent("", "  ")
+	}
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 // parallelArrayMin is the element count above which WriteArray splits the encode
 // across goroutines; below it the one-shot encoder is already cheap.
 const parallelArrayMin = 4096
@@ -62,23 +80,13 @@ func WriteArray[T any](path string, items []T, pretty bool) error {
 	errs := make([]error, workers)
 	sz := (len(items) + workers - 1) / workers
 
-	var wg sync.WaitGroup
-	for w := 0; w < workers; w++ {
+	parallel.WithNumGoroutines(workers).For(workers, func(w, _ int) {
 		lo := w * sz
-		hi := lo + sz
-		if hi > len(items) {
-			hi = len(items)
-		}
-		if lo >= hi {
-			continue
-		}
-		wg.Add(1)
-		go func(w, lo, hi int) {
-			defer wg.Done()
+		hi := min(lo+sz, len(items))
+		if lo < hi {
 			chunks[w], errs[w] = encodeElems(items[lo:hi])
-		}(w, lo, hi)
-	}
-	wg.Wait()
+		}
+	})
 	for _, err := range errs {
 		if err != nil {
 			return err
@@ -89,22 +97,42 @@ func WriteArray[T any](path string, items []T, pretty bool) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Fatalf("[JsonIO.WriteArray] failed to close %s: %v", path, err)
+		}
+	}(f)
 	bw := bufio.NewWriterSize(f, 1<<20)
-	bw.WriteByte('[')
+	err = bw.WriteByte('[')
+	if err != nil {
+		return err
+	}
 	first := true
 	for _, c := range chunks {
 		if len(c) == 0 {
 			continue
 		}
 		if !first {
-			bw.WriteByte(',')
+			err = bw.WriteByte(',')
+			if err != nil {
+				return err
+			}
 		}
 		first = false
-		bw.Write(c)
+		_, err = bw.Write(c)
+		if err != nil {
+			return err
+		}
 	}
-	bw.WriteByte(']')
-	bw.WriteByte('\n')
+	err = bw.WriteByte(']')
+	if err != nil {
+		return err
+	}
+	err = bw.WriteByte('\n')
+	if err != nil {
+		return err
+	}
 	return bw.Flush()
 }
 

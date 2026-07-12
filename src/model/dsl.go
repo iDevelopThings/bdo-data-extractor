@@ -1,8 +1,10 @@
 package model
 
 import (
+	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
@@ -57,19 +59,41 @@ var EffectSectionMarker = map[string]string{
 	"SET_DECORATE_TERMIAN": "Summer Outfit Set Effect",
 }
 
+// setPieceCount pulls the piece-count tier out of a set-effect marker func —
+// NO_2_SET_EFFECT, ANCIENT_NO_2_SET_EFFECT, BLACKSTAR_NO_3_SET_EFFECT_1,
+// NO_6_WEAR_EFFECT, NO_8_CASH_UP all encode it as NO_<n>_ — or 0 if none.
+var setPieceCountRe = regexp.MustCompile(`NO_(\d+)_`)
+
+func setPieceCount(fn string) int {
+	if m := setPieceCountRe.FindStringSubmatch(fn); m != nil {
+		if n, err := strconv.Atoi(m[1]); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
 // sectionMarkerFor resolves the display section a marker func starts, if any.
 // SET_EFFECT/WEAR_EFFECT/CASH_UP match by substring (not just the exact keys
 // above) since boss and costume gear mint per-item variants —
 // ANCIENT_NO_2_SET_EFFECT, BLACKSTAR_NO_3_SET_EFFECT_1, NO_6_WEAR_EFFECT,
-// NO_8_CASH_UP, ... — that all belong under the same "Set Effect" section.
+// NO_8_CASH_UP, ... — that all belong under the "Set Effect" family. The piece
+// count (2/4/6/8) is kept in the title so an item's tiers stay distinct sections
+// instead of collapsing into one repeated "Set Effect".
 func sectionMarkerFor(fn string) (string, bool) {
-	if title, ok := EffectSectionMarker[fn]; ok {
-		return title, true
+	title, exact := EffectSectionMarker[fn]
+	if !exact && (strings.Contains(fn, "SET_EFFECT") || strings.Contains(fn, "WEAR_EFFECT") || strings.Contains(fn, "CASH_UP")) {
+		title, exact = "Set Effect", true
 	}
-	if strings.Contains(fn, "SET_EFFECT") || strings.Contains(fn, "WEAR_EFFECT") || strings.Contains(fn, "CASH_UP") {
-		return "Set Effect", true
+	if !exact {
+		return "", false
 	}
-	return "", false
+	if title == "Set Effect" {
+		if n := setPieceCount(fn); n > 0 {
+			return fmt.Sprintf("Set Effect (%d-piece)", n), true
+		}
+	}
+	return title, true
 }
 
 // EffectFuncInfo is a DSL func's display info; only what formatting needs

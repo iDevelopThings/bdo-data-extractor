@@ -144,3 +144,44 @@ func TerritoryIconFile(ddsPath string) string {
 func TerritoryIconArchivePath(ddsPath string) string {
 	return "ui_texture/" + strings.ToLower(strings.ReplaceAll(ddsPath, "\\", "/"))
 }
+
+// TerritoryIconFiles resolves each distinct raw territory-mark path to its output
+// PNG name. A basename is kept as-is when it's unique; when two territories carry a
+// mark with the same filename from different folders (Valencia and The Great Ocean
+// both use a "valencia" mark, stored in different UI folders with different art), the
+// shared name is disambiguated by its parent folder so both survive as distinct
+// files. Both the build (world.json) and the icon extractor call this so the paths
+// they record and write agree.
+func TerritoryIconFiles(raws []string) map[string]string {
+	base := map[string]int{}
+	uniq := map[string]bool{}
+	for _, r := range raws {
+		if r == "" || uniq[r] {
+			continue
+		}
+		uniq[r] = true
+		base[TerritoryIconFile(r)]++
+	}
+	out := make(map[string]string, len(uniq))
+	for r := range uniq {
+		name := TerritoryIconFile(r)
+		if base[name] > 1 {
+			name = parentFolder(r) + "_" + name
+		}
+		out[r] = name
+	}
+	return out
+}
+
+// parentFolder returns the immediate parent directory segment of a territory-mark
+// path (e.g. ".../wordmap/mark.dds" -> "wordmap"), lowercased with backslashes
+// normalized, or "" if there is none.
+func parentFolder(ddsPath string) string {
+	p := strings.ReplaceAll(strings.ToLower(ddsPath), "\\", "/")
+	i := strings.LastIndexByte(p, '/')
+	if i < 0 {
+		return ""
+	}
+	j := strings.LastIndexByte(p[:i], '/')
+	return p[j+1 : i]
+}

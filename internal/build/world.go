@@ -2,6 +2,7 @@ package build
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
@@ -20,6 +21,11 @@ func (b *Builder) buildTerritories() error {
 	if err != nil {
 		return err
 	}
+	var iconRaws []string
+	for i := range terrs {
+		iconRaws = append(iconRaws, terrs[i].IconLarge, terrs[i].IconSmall)
+	}
+	iconNames := tables.TerritoryIconFiles(iconRaws)
 	for i := range terrs {
 		id := uint32(terrs[i].Index)
 		if en := b.gs.TerritoryNames[id]; en != "" {
@@ -29,10 +35,10 @@ func (b *Builder) buildTerritories() error {
 			terrs[i].Nation = en
 		}
 		if terrs[i].IconLarge != "" {
-			terrs[i].IconLarge = "icons/territories/" + tables.TerritoryIconFile(terrs[i].IconLarge)
+			terrs[i].IconLarge = "icons/territories/" + iconNames[terrs[i].IconLarge]
 		}
 		if terrs[i].IconSmall != "" {
-			terrs[i].IconSmall = "icons/territories/" + tables.TerritoryIconFile(terrs[i].IconSmall)
+			terrs[i].IconSmall = "icons/territories/" + iconNames[terrs[i].IconSmall]
 		}
 	}
 
@@ -169,7 +175,9 @@ func (b *Builder) buildWorld() error {
 
 	// node/region spawn data: region -> NPC/monster placements + world positions.
 	// Publisher variants are more complete than the base; fall back to base.
-	regionXML, _, err := b.src.ReadAny("regionclientdata_en_.xml", "regionclientdata_na_.xml", "regionclientdata.xml")
+
+	regionFileName := fmt.Sprintf("regionclientdata_%s_.xml", strings.ToLower(b.lang))
+	regionXML, _, err := b.src.ReadAny(regionFileName, "regionclientdata.xml")
 	if err != nil {
 		return err
 	}

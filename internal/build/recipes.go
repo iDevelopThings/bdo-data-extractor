@@ -2,11 +2,10 @@ package build
 
 import (
 	"fmt"
-	"runtime"
 	"sort"
 	"strings"
-	"sync"
 
+	"github.com/dgravesa/go-parallel/parallel"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 	"github.com/idevelopthings/bdo-data-extractor/src/models"
@@ -136,25 +135,17 @@ func (b *Builder) scanItemInfo() {
 // stays serial and in order, so the merged output is unchanged.
 func (b *Builder) parseItemInfos(indices []int, keep func(path string) bool) []*tables.ItemInfo {
 	out := make([]*tables.ItemInfo, len(indices))
-	sem := make(chan struct{}, runtime.GOMAXPROCS(0))
-	var wg sync.WaitGroup
-	for k, idx := range indices {
+	parallel.For(len(indices), func(k, _ int) {
+		idx := indices[k]
 		if !keep(b.src.Index.Path(idx)) {
-			continue
+			return
 		}
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(k, idx int) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			data, err := b.src.Archive.Content(b.src.Index.Files[idx])
-			if err != nil {
-				return
-			}
-			out[k] = tables.ParseItemInfo(data, b.houseName)
-		}(k, idx)
-	}
-	wg.Wait()
+		data, err := b.src.Archive.Content(b.src.Index.Files[idx])
+		if err != nil {
+			return
+		}
+		out[k] = tables.ParseItemInfo(data, b.houseName)
+	})
 	return out
 }
 

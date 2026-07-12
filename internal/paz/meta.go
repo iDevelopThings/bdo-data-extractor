@@ -154,6 +154,7 @@ func LoadMeta(gameDir string) (*Index, error) {
 	ice := NewICE(BDOICEKey)
 	ix.FolderNames = parseFolderTable(ice.Decrypt(folderRaw))
 	ix.FileNames = parseNameTable(ice.Decrypt(fileRaw))
+
 	return ix, nil
 }
 

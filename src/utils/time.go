@@ -7,6 +7,46 @@ import (
 	"time"
 )
 
+type TimeTrack struct {
+	Start time.Time
+	End   time.Time
+}
+
+func (t *TimeTrack) StartTrack() {
+	t.Start = time.Now()
+	t.End = time.Time{}
+}
+
+func (t *TimeTrack) EndTrack() {
+	t.End = time.Now()
+}
+
+func (t *TimeTrack) Duration() time.Duration {
+	if t.End.IsZero() {
+		return time.Since(t.Start)
+	}
+	return t.End.Sub(t.Start)
+}
+
+func TimedTrack(infoStr string, onEnd func(t *TimeTrack)) func() {
+	tt := &TimeTrack{}
+	tt.StartTrack()
+
+	return func() {
+		tt.EndTrack()
+		d := tt.Duration()
+		s := FormatDuration(d)
+		if d == 0 {
+			s = "<" + unit(clockResolution())
+		}
+		fmt.Printf("\t\t[%s] %s\n", s, infoStr)
+
+		if onEnd != nil {
+			onEnd(tt)
+		}
+	}
+}
+
 // Timed returns a function that, when called, prints the time elapsed since Timed
 // was called alongside infoStr. The duration is rendered in whichever unit keeps
 // it readable (s / ms / µs / ns), so sub-second calls don't collapse to "0.0s".

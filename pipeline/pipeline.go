@@ -28,6 +28,10 @@ const DefaultGameDir = paz.DefaultGameDir
 // without importing internal/progress (which they cannot, being a separate module).
 type Reporter = progress.Reporter
 
+func GetLogReporter() Reporter {
+	return progress.Log{}
+}
+
 // SetReporter installs r as the process-wide progress sink. Runs are not
 // concurrency-safe (the sink and config.GlobalConfig are globals) — serialize them.
 func SetReporter(r Reporter) {
@@ -100,8 +104,8 @@ type Options struct {
 	AppVersion string
 }
 
-// RunAll runs the complete pipeline (build → localization → icons → knowledge
-// icons → region maps), reporting five top-level steps through the current sink.
+// RunAll runs the pipeline the embedder needs (build → icons), reporting two
+// top-level steps through the current sink.
 func RunAll(o Options) error {
 	if o.Lang == "" {
 		o.Lang = "en"
@@ -127,29 +131,28 @@ func RunAll(o Options) error {
 	}()
 
 	rep := progress.Default()
-	const steps = 3
+	const steps = 2
 
 	rep.Step(1, steps, "build")
-	if err := build.Run(filepath.Join(o.DataDir, "items.json")); err != nil {
+	if err := build.Run(); err != nil {
 		return err
 	}
 	build.Release() // free the Builder's item/enhancement/loc maps before later steps
-	// rep.Step(2, steps, "localization")
-	// if err := Loc(); err != nil {
-	// 	return err
-	// }
+
 	rep.Step(2, steps, "icons")
-	if err := Icons(); err != nil {
-		return err
+	// Icons depend only on the game art + icon code, not the app version, so reuse
+	// them across an app-only update; a game patch or an IconCodecVersion bump moves
+	// the key and forces a rebuild.
+	if IconsFresh(o.DataDir, o.GameDir) {
+		rep.Log("icons up to date for this game version — skipping icon decode")
+	} else {
+		if err := Icons(); err != nil {
+			return err
+		}
+		if err := writeIconProvenance(o.DataDir, o.GameDir); err != nil {
+			return fmt.Errorf("write icon provenance: %w", err)
+		}
 	}
-	rep.Step(3, steps, "knowledge icons")
-	if err := KnowledgeIcons(); err != nil {
-		return err
-	}
-	// rep.Step(5, steps, "region maps")
-	// if err := RegionMaps(); err != nil {
-	// 	return err
-	// }
 
 	if err := writeManifest(o.DataDir, o.GameDir, o.AppVersion, o.Lang); err != nil {
 		return fmt.Errorf("write manifest: %w", err)

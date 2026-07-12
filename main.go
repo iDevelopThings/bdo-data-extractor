@@ -35,14 +35,18 @@ func main() {
 		}
 		err = cmdTable(*conf.GameDir, *conf.Out, rest[0])
 	case "build":
-		var out string
-		if out, err = outFile(filepath.Join(*conf.Out, "items.json"), rest); err == nil {
-			err = build.Run(out)
-		}
+		// var out string
+		// if out, err = outFile(filepath.Join(*conf.Out, "items.json"), rest); err == nil {
+		err = build.Run()
+		// }
 	case "icons":
 		err = pipeline.Icons()
+	case "maps":
+		err = pipeline.Maps()
 	case "regionmaps":
 		err = pipeline.RegionMaps()
+	case "worldmap":
+		err = pipeline.WorldMap()
 	case "knowledge-icons":
 		err = pipeline.KnowledgeIcons()
 	case "loc":

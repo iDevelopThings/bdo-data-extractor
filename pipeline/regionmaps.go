@@ -2,82 +2,123 @@ package pipeline
 
 import (
 	"bytes"
-	"fmt"
 	"image"
 	"image/color"
 	"image/png"
-	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/idevelopthings/bdo-data-extractor/internal/config"
 	"github.com/idevelopthings/bdo-data-extractor/internal/jsonio"
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
-	"github.com/idevelopthings/bdo-data-extractor/internal/progress"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 )
 
-// RegionMaps decodes every ui_texture/minimap/area/*.bmp.bkd region mask into a
-// downscaled colored PNG + a per-region metadata JSON. Game dir and output dir
-// come from the global config.
-func RegionMaps() error {
-	gameDir := *config.GlobalConfig.GameDir
-	outDir := filepath.Join(*config.GlobalConfig.Out, "regionmaps")
+// --- region maps ------------------------------------------------------------
 
-	src, err := paz.OpenSource(gameDir)
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return err
-	}
+// regionMap decodes every ui_texture/minimap/area/*.bmp.bkd region mask into a
+// downscaled colored PNG plus a per-region metadata JSON under regionmaps/.
+type regionMap struct {
+	base
+}
 
-	total := int64(0)
-	for i := range src.Index.Files {
-		p := src.Index.Path(i)
-		if strings.Contains(p, "minimap/area") && strings.HasSuffix(p, ".bmp.bkd") {
-			total++
-		}
-	}
+func regionMaps() imageSource {
+	return &regionMap{}
+}
 
-	rep := progress.Default()
-	n := int64(0)
-	for i, f := range src.Index.Files {
-		p := src.Index.Path(i)
-		if !strings.Contains(p, "minimap/area") || !strings.HasSuffix(p, ".bmp.bkd") {
-			continue
-		}
-		bkd, err := src.Archive.Content(f)
-		if err != nil {
-			continue
-		}
-		name := strings.TrimSuffix(filepath.Base(p), ".bmp.bkd")
-		rid, _ := src.Read(name + ".bmp.rid")
+func (s *regionMap) Name() string { return "region maps" }
+func (s *regionMap) Dir() string  { return "regionmaps" }
 
-		rm := tables.DecodeRegionMap(name, bkd, rid)
-		if rm == nil || len(rm.Regions) == 0 {
-			continue
-		}
-
-		img := renderRegionMap(rm, 2048)
-		var buf bytes.Buffer
-		if err := png.Encode(&buf, img); err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(outDir, name+".png"), buf.Bytes(), 0o644); err != nil {
-			return err
-		}
-		rm.Pixels = nil // don't serialize the raw grid
-		if err := jsonio.WriteFile(filepath.Join(outDir, name+".json"), rm, true); err != nil {
-			return err
-		}
-		n++
-		rep.Progress(n, total)
-	}
-	rep.Log(fmt.Sprintf("region maps: %d -> %s", n, outDir))
-
+func (s *regionMap) Prepare(src *paz.Source, dataDir string) error {
+	s.src = src
 	return nil
+}
+
+func (s *regionMap) Wants(path string) bool {
+	return strings.Contains(path, "minimap/area") && strings.HasSuffix(path, ".bmp.bkd")
+}
+
+func (s *regionMap) Convert(path string, f paz.PazFile) ([]output, error) {
+	bkd, err := s.src.Archive.Content(f)
+	if err != nil {
+		return nil, err
+	}
+	name := strings.TrimSuffix(filepath.Base(path), ".bmp.bkd")
+	rid, _ := s.src.Read(name + ".bmp.rid")
+
+	rm := tables.DecodeRegionMap(name, bkd, rid)
+	if rm == nil || len(rm.Regions) == 0 {
+		return nil, nil
+	}
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, renderRegionMap(rm, 2048)); err != nil {
+		return nil, err
+	}
+	rm.Pixels = nil // don't serialize the raw grid
+	meta, err := jsonio.Marshal(rm, true)
+	if err != nil {
+		return nil, err
+	}
+	return []output{
+		{Rel: name + ".png", Data: buf.Bytes()},
+		{Rel: name + ".json", Data: meta},
+	}, nil
+}
+
+// --- world map --------------------------------------------------------------
+
+// worldMap decodes every minimap_data radar tile (.dds) to a PNG under worldmap/,
+// laid out as <layer>/<x>_<y>.png. The three layers — world (the base grid), pack
+// (an alternate tile set at the same coords) and morningland (a separate region) —
+// come from the archive subpath; the file name is just the chunk coordinate.
+type worldMap struct {
+	base
+}
+
+func worldMaps() imageSource {
+	return &worldMap{}
+}
+
+func (s *worldMap) Name() string  { return "world map" }
+func (s *worldMap) Dir() string   { return "worldmap" }
+func (s *worldMap) Rebuild() bool { return true }
+
+func (s *worldMap) Prepare(src *paz.Source, dataDir string) error {
+	s.src = src
+	return nil
+}
+
+func (s *worldMap) Wants(path string) bool {
+	return strings.Contains(path, "minimap_data") && strings.HasSuffix(path, ".dds")
+}
+
+func (s *worldMap) Convert(path string, f paz.PazFile) ([]output, error) {
+	data := encodeIcon(s.src.Archive, f)
+	if data == nil {
+		return nil, nil
+	}
+	return []output{{Rel: worldTile(path), Data: data}}, nil
+}
+
+// worldTile maps a minimap_data archive path to its <layer>/<x>_<y>.png output. The
+// leaf is always Rader_<x>_<y>.dds and the coordinate is kept verbatim as the file
+// name so consumers parse it with a single split. The layer comes from the parent
+// folder: the base grid lives in minimap_data/, the alternate tile set in the
+// sibling minimap_data_pack/, and the separate region under minimap_data/_morningland/.
+func worldTile(path string) string {
+	p := strings.ToLower(strings.ReplaceAll(path, "\\", "/"))
+	i := strings.LastIndexByte(p, '/')
+	dir, leaf := p[:i], p[i+1:]
+	coord := strings.TrimPrefix(strings.TrimSuffix(leaf, ".dds"), "rader_")
+
+	layer := "world"
+	switch {
+	case strings.HasSuffix(dir, "_morningland"):
+		layer = "morningland"
+	case strings.HasSuffix(dir, "minimap_data_pack"):
+		layer = "pack"
+	}
+	return layer + "/" + coord + ".png"
 }
 
 // renderRegionMap downscales a RegionMap to at most maxW wide, coloring each region

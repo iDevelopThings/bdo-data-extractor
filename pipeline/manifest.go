@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -46,6 +48,57 @@ func GameFingerprint(gameDir string) (string, error) {
 	}
 
 	return hex.EncodeToString(h.Sum(nil))[:16], nil
+}
+
+// IconCodecVersion identifies the icon-producing logic (which items get icons, the
+// icon paths, the DDS decode). It feeds the icon-freshness key so RunAll can reuse
+// icons across an app update that didn't touch the game or icon code. BUMP IT
+// whenever a change alters icon output — otherwise stale icons are kept.
+const IconCodecVersion = 1
+
+// iconProvenanceFile records the icon key the current icons/ were produced for. It
+// lives beside the icon output and is written only after a successful icon pass, so
+// a crashed run doesn't leave a key claiming the icons are complete.
+const iconProvenanceFile = ".icon_provenance"
+
+// iconKey identifies the icon output valid for a game install: the game fingerprint
+// (archive art) plus IconCodecVersion (icon code). It deliberately excludes the app
+// version — icons don't change just because the embedding app updated.
+func iconKey(gameDir string) (string, error) {
+	fp, err := GameFingerprint(gameDir)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256([]byte(fp + "|icons|" + strconv.Itoa(IconCodecVersion)))
+	return hex.EncodeToString(h[:])[:16], nil
+}
+
+// IconsFresh reports whether dataDir already holds icons produced for the current
+// game + icon-codec version, so RunAll can skip re-decoding them. It is false if the
+// provenance is missing or mismatched, or if the icons dir itself is gone.
+func IconsFresh(dataDir, gameDir string) bool {
+	key, err := iconKey(gameDir)
+	if err != nil {
+		return false
+	}
+	got, err := os.ReadFile(filepath.Join(dataDir, iconProvenanceFile))
+	if err != nil || strings.TrimSpace(string(got)) != key {
+		return false
+	}
+	if fi, err := os.Stat(filepath.Join(dataDir, "icons")); err != nil || !fi.IsDir() {
+		return false
+	}
+	return true
+}
+
+// writeIconProvenance stamps dataDir with the current icon key, marking the icon
+// output complete for this game + codec version. Call it only after Icons succeeds.
+func writeIconProvenance(dataDir, gameDir string) error {
+	key, err := iconKey(gameDir)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dataDir, iconProvenanceFile), []byte(key), 0o644)
 }
 
 // writeManifest records an extraction's provenance in dataDir/manifest.json.

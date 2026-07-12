@@ -93,10 +93,12 @@ func DecodeCaphras(data []byte) ([]model.CaphrasCategory, error) {
 				var effects []model.EffectDsl
 				for k, fn := range caphrasEffectFuncs {
 					v := bss.F32(data, o+7+4*k)
-					effects = append(effects, model.EffectDsl{
-						Func: fn,
-						Args: []float64{v},
-					})
+					if v > 0.1 {
+						effects = append(effects, model.EffectDsl{
+							Func: fn,
+							Args: []float64{v},
+						})
+					}
 				}
 				enh.Steps = append(enh.Steps, model.CaphrasLevel{
 					Level:       e + 1,
