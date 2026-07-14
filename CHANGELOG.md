@@ -99,6 +99,12 @@ acquisition resolves to entity refs instead of loose strings. Icons are now WebP
 
 ### Fixed
 
+- **The extractor now works on Linux and other case-sensitive filesystems.** The PAZ archives
+  ship uppercase (`PAD00001.PAZ`) while the meta beside them is lowercase (`pad00000.meta`); we
+  opened the archives as `pad%05d.paz`, which only ever resolved because Windows ignores case.
+  Every archive open failed on a case-sensitive filesystem, so nothing extracted. Thanks to
+  [@OniHil](https://github.com/OniHil) for reporting and fixing it
+  ([#2](https://github.com/iDevelopThings/bdo-data-extractor/pull/2)).
 - Region spawn layering now **replaces** a region wholesale instead of appending, so placements
   that a later layer removes or moves are no longer retained from an earlier one.
 - A malformed row in a `*_offset.dbss` index (zero size, out of bounds, overlapping) is logged

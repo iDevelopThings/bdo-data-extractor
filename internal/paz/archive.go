@@ -1,7 +1,9 @@
 package paz
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -34,9 +36,12 @@ func (a *Archive) paz(n uint32) (*os.File, error) {
 	if fh, ok := a.handles[n]; ok {
 		return fh, nil
 	}
-	fh, err := os.Open(filepath.Join(PazDir(a.GameDir), fmt.Sprintf("pad%05d.paz", n))) // READ-ONLY
-	if err != nil && os.IsNotExist(err) {
-		fh, err = os.Open(filepath.Join(PazDir(a.GameDir), fmt.Sprintf("PAD%05d.PAZ", n))) // READ-ONLY
+	// The game ships these uppercase (PAD00001.PAZ) but the meta beside them
+	// lowercase; the lowercase fallback is for installs that don't. Case only
+	// matters on a case-sensitive filesystem — on Windows either name opens.
+	fh, err := os.Open(filepath.Join(PazDir(a.GameDir), fmt.Sprintf("PAD%05d.PAZ", n))) // READ-ONLY
+	if errors.Is(err, fs.ErrNotExist) {
+		fh, err = os.Open(filepath.Join(PazDir(a.GameDir), fmt.Sprintf("pad%05d.paz", n))) // READ-ONLY
 	}
 	if err != nil {
 		return nil, err
