@@ -35,6 +35,9 @@ func (a *Archive) paz(n uint32) (*os.File, error) {
 		return fh, nil
 	}
 	fh, err := os.Open(filepath.Join(PazDir(a.GameDir), fmt.Sprintf("pad%05d.paz", n))) // READ-ONLY
+	if err != nil && os.IsNotExist(err) {
+		fh, err = os.Open(filepath.Join(PazDir(a.GameDir), fmt.Sprintf("PAD%05d.PAZ", n))) // READ-ONLY
+	}
 	if err != nil {
 		return nil, err
 	}
