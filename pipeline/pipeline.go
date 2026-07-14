@@ -40,8 +40,8 @@ func SetReporter(r Reporter) {
 
 // Configure populates the extractor's global config without running anything, for
 // embedders that want to drive individual steps rather than RunAll.
-func Configure(gameDir, dataDir, lang string, pretty bool) {
-	config.Set(gameDir, dataDir, lang, pretty)
+func Configure(gameDir, dataDir, lang, region string, pretty bool) {
+	config.Set(gameDir, dataDir, lang, region, pretty)
 }
 
 // Meta is a lightweight summary of a game install's PAZ index, for confirming a
@@ -91,13 +91,42 @@ func AvailableLanguages(gameDir string) ([]string, error) {
 	return langs, nil
 }
 
+// AvailableRegions lists the region-data suffixes shipped by a game install.
+// Archives do not distinguish resource baselines from service-region overrides.
+func AvailableRegions(gameDir string) ([]string, error) {
+	ix, err := paz.LoadMeta(gameDir)
+	if err != nil {
+		return nil, err
+	}
+
+	seen := map[string]bool{}
+	regions := make([]string, 0)
+	for _, name := range ix.FileNames {
+		base := filepath.Base(name)
+		if !strings.HasPrefix(base, "regionclientdata_") || !strings.HasSuffix(base, "_.xml") {
+			continue
+		}
+		r := strings.TrimSuffix(strings.TrimPrefix(base, "regionclientdata_"), "_.xml")
+		if r != "" && !seen[r] {
+			seen[r] = true
+			regions = append(regions, r)
+		}
+	}
+	sort.Strings(regions)
+
+	return regions, nil
+}
+
 // Options configures a full extraction run. DataDir receives items.json plus the
 // sidecar JSON, icons/, knowledge_icons/ and regionmaps/ subdirectories.
 type Options struct {
 	GameDir string
 	DataDir string
 	Lang    string // defaults to "en"
-	Pretty  bool
+	// Region selects the game service region, such as "na". Region-aware extraction
+	// stages apply the corresponding service data over their resource baseline.
+	Region string
+	Pretty bool
 	// AppVersion is the embedding app's version, recorded in the data dir's
 	// manifest so a stale-data check (NeedsExtraction) can tell when the app that
 	// produced the data has since updated. Empty for the CLI.
@@ -118,7 +147,7 @@ func RunAll(o Options) error {
 	}
 
 	// Populate the single source of truth; every step below reads it.
-	config.Set(o.GameDir, o.DataDir, o.Lang, o.Pretty)
+	config.Set(o.GameDir, o.DataDir, o.Lang, o.Region, o.Pretty)
 
 	// Extraction allocates hundreds of MB (item/enhancement maps, the loc tables,
 	// the PAZ index). In a long-running embedder those would stay resident via the
@@ -131,7 +160,7 @@ func RunAll(o Options) error {
 	}()
 
 	rep := progress.Default()
-	const steps = 2
+	const steps = 3
 
 	rep.Step(1, steps, "build")
 	if err := build.Run(); err != nil {
@@ -139,23 +168,38 @@ func RunAll(o Options) error {
 	}
 	build.Release() // free the Builder's item/enhancement/loc maps before later steps
 
+	// Icons and the world map are derived art: they depend only on the game files
+	// plus their own codec version, not the app version, so an app-only update reuses
+	// them. A game patch or a codec bump moves the key and forces a rebuild.
 	rep.Step(2, steps, "icons")
-	// Icons depend only on the game art + icon code, not the app version, so reuse
-	// them across an app-only update; a game patch or an IconCodecVersion bump moves
-	// the key and forces a rebuild.
-	if IconsFresh(o.DataDir, o.GameDir) {
-		rep.Log("icons up to date for this game version — skipping icon decode")
-	} else {
-		if err := Icons(); err != nil {
-			return err
-		}
-		if err := writeIconProvenance(o.DataDir, o.GameDir); err != nil {
-			return fmt.Errorf("write icon provenance: %w", err)
-		}
+	if err := ensureAsset(iconAsset, o, rep, Icons); err != nil {
+		return err
 	}
 
-	if err := writeManifest(o.DataDir, o.GameDir, o.AppVersion, o.Lang); err != nil {
+	rep.Step(3, steps, "world map")
+	if err := ensureAsset(worldMapAsset, o, rep, WorldMap); err != nil {
+		return err
+	}
+
+	if err := writeManifest(o.DataDir, o.GameDir, o.AppVersion, o.Lang, o.Region); err != nil {
 		return fmt.Errorf("write manifest: %w", err)
+	}
+
+	return nil
+}
+
+// ensureAsset runs produce unless dataDir already holds a's output for this game +
+// codec version, stamping the provenance afterwards so the next run can skip it.
+func ensureAsset(a asset, o Options, rep Reporter, produce func() error) error {
+	if a.fresh(o.DataDir, o.GameDir) {
+		rep.Log(fmt.Sprintf("%s up to date for this game version — skipping", a.name))
+		return nil
+	}
+	if err := produce(); err != nil {
+		return err
+	}
+	if err := a.stamp(o.DataDir, o.GameDir); err != nil {
+		return fmt.Errorf("write %s provenance: %w", a.name, err)
 	}
 
 	return nil

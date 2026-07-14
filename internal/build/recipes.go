@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dgravesa/go-parallel/parallel"
+
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 	"github.com/idevelopthings/bdo-data-extractor/src/models"
@@ -55,12 +56,11 @@ func (b *Builder) buildRecipes() error {
 func (b *Builder) scanItemInfo() {
 	krNpc := b.krNpcIndex()
 
-	type acq struct{ vendors, gather, nodes []string }
-	info := map[uint32]*acq{}
-	get := func(id uint32) *acq {
+	info := map[uint32]*itemAcquisition{}
+	get := func(id uint32) *itemAcquisition {
 		m := info[id]
 		if m == nil {
-			m = &acq{}
+			m = &itemAcquisition{}
 			info[id] = m
 		}
 
@@ -88,7 +88,7 @@ func (b *Builder) scanItemInfo() {
 
 	// Pass 2: the base (Korean) XMLs — broader item coverage and often richer shop
 	// data (502 base-only items have a vendor list the localized set lacks, e.g.
-	// Sugar). Vendor names are Korean → resolve to the English NPC via npcsimply.
+	// Sugar). Vendor names are Korean → resolve to the localized name via npcsimply.
 	// Recipes are only taken for items the localized set has none for (they lack
 	// ingredient counts).
 	baseFiles := b.src.Index.FilesUnder("ui_html/xml")
@@ -109,23 +109,14 @@ func (b *Builder) scanItemInfo() {
 				continue
 			}
 			if id, ok := krNpc[v]; ok {
-				if en := b.gs.EntityNames[id]; en != "" {
-					m.vendors = utils.AppendUnique(m.vendors, en)
+				if name := b.gs.EntityNames[id]; name != "" {
+					m.vendors = utils.AppendUnique(m.vendors, name)
 				}
 			}
 		}
 	}
 
-	for id, m := range info {
-		it := b.items[id]
-		if it == nil {
-			continue
-		}
-		sort.Strings(m.vendors)
-		sort.Strings(m.gather)
-		sort.Strings(m.nodes)
-		it.Vendors, it.GatheredFrom, it.GatherNodes = m.vendors, m.gather, m.nodes
-	}
+	b.attachAcquisition(info)
 }
 
 // parseItemInfos decodes the item-info XML of every file index that passes keep,
@@ -155,11 +146,7 @@ func (b *Builder) parseItemInfos(indices []int, keep func(path string) bool) []*
 // English name).
 func (b *Builder) krNpcIndex() map[string]uint32 {
 	out := map[string]uint32{}
-	data, err := b.src.Read("npcsimply.bss")
-	if err != nil {
-		return out
-	}
-	npcs, err := tables.DecodeNPCs(data)
+	npcs, err := b.npcTable()
 	if err != nil {
 		return out
 	}

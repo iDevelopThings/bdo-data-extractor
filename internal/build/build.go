@@ -14,6 +14,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/internal/loc"
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
 	"github.com/idevelopthings/bdo-data-extractor/internal/progress"
+	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
@@ -22,20 +23,31 @@ import (
 // from fields instead of threading long argument lists. Stages run in order:
 // each produces some state (items, regions, …) that later stages consume.
 type Builder struct {
-	src  *paz.Source
-	gs   *loc.GameStrings
-	dir  string // output directory (sidecar JSON lands here)
-	lang string
-	t0   time.Time
+	src    *paz.Source
+	gs     *loc.GameStrings
+	dir    string // output directory (sidecar JSON lands here)
+	lang   string
+	region string // service region, e.g. na
+	t0     time.Time
 
 	// cross-stage state, set by an earlier stage and read by later ones
 	items        map[uint32]*model.Item
 	enhancements map[uint32]*model.Enhancement
 
 	recipes []model.Recipe
-	regions []model.Region
+	regions []model.WorldRegion
 	npcs    []model.NPC
 	caphras []model.CaphrasCategory
+
+	// npcsDecoded memoizes the single npcsimply.bss decode shared by the recipe
+	// stage (Korean-name lookup) and the NPC stage; see (*Builder).npcTable.
+	npcsDecoded []model.NPC
+
+	// nodesDecoded / waypointsDecoded memoize the worldmap node tables, shared by the
+	// item stage (resolving <shop>/<node> acquisition to refs) and buildWorld, which
+	// runs later; see (*Builder).explorationTable / waypointTable.
+	nodesDecoded     []model.WorldNode
+	waypointsDecoded map[uint32]tables.WorldWaypoint
 
 	// writeDone delivers the result of the items/enhancements write, which runs in
 	// the background (from buildItems) while the sidecar stages build. awaitWrite joins.
@@ -74,9 +86,10 @@ func Run() error {
 	}
 
 	b := &Builder{
-		src:  src,
-		lang: *config.GlobalConfig.Lang,
-		t0:   time.Now(),
+		src:    src,
+		lang:   *config.GlobalConfig.Lang,
+		region: *config.GlobalConfig.Region,
+		t0:     time.Now(),
 	}
 	Active = b
 
@@ -90,8 +103,8 @@ func Run() error {
 		{name: "items", fn: b.buildItems},
 		{name: "recipes", fn: b.buildRecipes},
 		{name: "market categories", fn: b.buildMarketCategories},
-		{name: "territories", fn: b.buildTerritories},
 		{name: "world", fn: b.buildWorld},
+		{name: "npcs", fn: b.buildNpcs},
 		{name: "zones", fn: b.buildZones},
 		{name: "fishing", fn: b.buildFishing},
 		{name: "knowledge", fn: b.buildKnowledge},

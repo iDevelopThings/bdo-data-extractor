@@ -23,6 +23,7 @@ type Manifest struct {
 	GameFingerprint string `json:"gameFingerprint"` // identifies the game data — see GameFingerprint
 	AppVersion      string `json:"appVersion"`      // the embedding app's version at extraction time
 	Lang            string `json:"lang"`
+	Region          string `json:"region"`      // game service region
 	ExtractedAt     string `json:"extractedAt"` // RFC 3339
 }
 
@@ -51,58 +52,77 @@ func GameFingerprint(gameDir string) (string, error) {
 }
 
 // IconCodecVersion identifies the icon-producing logic (which items get icons, the
-// icon paths, the DDS decode). It feeds the icon-freshness key so RunAll can reuse
-// icons across an app update that didn't touch the game or icon code. BUMP IT
-// whenever a change alters icon output — otherwise stale icons are kept.
-const IconCodecVersion = 1
+// icon paths, the DDS decode, the output encoding). BUMP IT whenever a change alters
+// icon output — otherwise stale icons are kept.
+const IconCodecVersion = 2
 
-// iconProvenanceFile records the icon key the current icons/ were produced for. It
-// lives beside the icon output and is written only after a successful icon pass, so
-// a crashed run doesn't leave a key claiming the icons are complete.
-const iconProvenanceFile = ".icon_provenance"
+// WorldMapCodecVersion identifies the world-map-producing logic (the tile pyramid,
+// its encoding, and the tiles.pack layout). BUMP IT whenever a change alters the
+// world-map output — otherwise a stale pyramid is kept.
+const WorldMapCodecVersion = 1
 
-// iconKey identifies the icon output valid for a game install: the game fingerprint
-// (archive art) plus IconCodecVersion (icon code). It deliberately excludes the app
-// version — icons don't change just because the embedding app updated.
-func iconKey(gameDir string) (string, error) {
+// asset is one provenance-tracked output pass: the derived art RunAll can reuse
+// across an app update that didn't touch the game or the pass's own code. Each
+// records the key it was produced for in a file beside its output, written only
+// after the pass succeeds — so a crashed run never claims the output is complete.
+type asset struct {
+	// name labels the pass in logs and salts its key.
+	name string
+	// version is the pass's codec version; bumping it invalidates existing output.
+	version int
+	// dir is the output directory under dataDir; its absence means "not produced".
+	dir string
+	// keyFile is where the produced-for key is recorded, under dataDir.
+	keyFile string
+}
+
+var (
+	iconAsset     = asset{name: "icons", version: IconCodecVersion, dir: "icons", keyFile: ".icon_provenance"}
+	worldMapAsset = asset{name: "world map", version: WorldMapCodecVersion, dir: "worldmap", keyFile: ".worldmap_provenance"}
+)
+
+// key identifies the output valid for a game install: the game fingerprint (the
+// archive art) plus the pass's codec version. It deliberately excludes the app
+// version — derived art doesn't change just because the embedding app updated.
+func (a asset) key(gameDir string) (string, error) {
 	fp, err := GameFingerprint(gameDir)
 	if err != nil {
 		return "", err
 	}
-	h := sha256.Sum256([]byte(fp + "|icons|" + strconv.Itoa(IconCodecVersion)))
+	h := sha256.Sum256([]byte(fp + "|" + a.name + "|" + strconv.Itoa(a.version)))
 	return hex.EncodeToString(h[:])[:16], nil
 }
 
-// IconsFresh reports whether dataDir already holds icons produced for the current
-// game + icon-codec version, so RunAll can skip re-decoding them. It is false if the
-// provenance is missing or mismatched, or if the icons dir itself is gone.
-func IconsFresh(dataDir, gameDir string) bool {
-	key, err := iconKey(gameDir)
+// fresh reports whether dataDir already holds this pass's output for the current
+// game + codec version, so RunAll can skip it. It is false if the provenance is
+// missing or mismatched, or if the output directory itself is gone.
+func (a asset) fresh(dataDir, gameDir string) bool {
+	key, err := a.key(gameDir)
 	if err != nil {
 		return false
 	}
-	got, err := os.ReadFile(filepath.Join(dataDir, iconProvenanceFile))
+	got, err := os.ReadFile(filepath.Join(dataDir, a.keyFile))
 	if err != nil || strings.TrimSpace(string(got)) != key {
 		return false
 	}
-	if fi, err := os.Stat(filepath.Join(dataDir, "icons")); err != nil || !fi.IsDir() {
+	if fi, err := os.Stat(filepath.Join(dataDir, a.dir)); err != nil || !fi.IsDir() {
 		return false
 	}
 	return true
 }
 
-// writeIconProvenance stamps dataDir with the current icon key, marking the icon
-// output complete for this game + codec version. Call it only after Icons succeeds.
-func writeIconProvenance(dataDir, gameDir string) error {
-	key, err := iconKey(gameDir)
+// stamp records the current key, marking the output complete for this game + codec
+// version. Call it only after the producing pass succeeds.
+func (a asset) stamp(dataDir, gameDir string) error {
+	key, err := a.key(gameDir)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dataDir, iconProvenanceFile), []byte(key), 0o644)
+	return os.WriteFile(filepath.Join(dataDir, a.keyFile), []byte(key), 0o644)
 }
 
 // writeManifest records an extraction's provenance in dataDir/manifest.json.
-func writeManifest(dataDir, gameDir, appVersion, lang string) error {
+func writeManifest(dataDir, gameDir, appVersion, lang, region string) error {
 	fp, err := GameFingerprint(gameDir)
 	if err != nil {
 		return err
@@ -111,6 +131,7 @@ func writeManifest(dataDir, gameDir, appVersion, lang string) error {
 		GameFingerprint: fp,
 		AppVersion:      appVersion,
 		Lang:            lang,
+		Region:          region,
 		ExtractedAt:     time.Now().UTC().Format(time.RFC3339),
 	}, "", "  ")
 	if err != nil {

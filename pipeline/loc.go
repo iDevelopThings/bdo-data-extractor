@@ -49,6 +49,16 @@ func Loc() error {
 		return err
 	}
 
+	for u, m := range grouped {
+		lPath := filepath.Join(*config.GlobalConfig.Out, "locs", fmt.Sprintf("%d.json", u))
+		if err := os.MkdirAll(filepath.Dir(lPath), 0o755); err != nil {
+			return err
+		}
+		if err := jsonio.WriteFile(lPath, m, true); err != nil {
+			return err
+		}
+	}
+
 	keys := make([]uint32, 0, len(counts))
 	for k := range counts {
 		keys = append(keys, k)

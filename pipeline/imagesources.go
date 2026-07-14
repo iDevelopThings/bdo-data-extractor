@@ -1,10 +1,8 @@
 package pipeline
 
 import (
-	"bytes"
 	"fmt"
 	"image"
-	"image/png"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -13,6 +11,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tex"
+	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
 // base is embedded by every source to supply the no-op defaults (no rebuild, no
@@ -59,9 +58,9 @@ func (s *item) Prepare(src *paz.Source, dataDir string) error {
 			continue
 		}
 		low := strings.ReplaceAll(strings.ToLower(it.Icon), "\\", "/")
-		slug := strings.TrimSuffix(low, ".dds") + ".png"
+		slug := utils.IconFileName(low)
 		s.archiveOf["ui_texture/icon/"+low] = slug
-		s.redirects[fmt.Sprintf("icons/%d.png", it.ID)] = "icons/" + slug
+		s.redirects[fmt.Sprintf("icons/%d%s", it.ID, utils.IconExt)] = "icons/" + slug
 	}
 	return nil
 }
@@ -119,8 +118,8 @@ func (s *knowledge) Prepare(src *paz.Source, dataDir string) error {
 		if e.Image == "" {
 			continue
 		}
-		s.dest["ui_texture/"+strings.TrimSuffix(e.Image, ".png")+".dds"] = e.Image
-		s.redirects[fmt.Sprintf("knowledge_icons/%d.png", e.Key)] = "knowledge_icons/" + e.Image
+		s.dest["ui_texture/"+strings.TrimSuffix(e.Image, utils.IconExt)+".dds"] = e.Image
+		s.redirects[fmt.Sprintf("knowledge_icons/%d%s", e.Key, utils.IconExt)] = "knowledge_icons/" + e.Image
 	}
 	return nil
 }
@@ -324,11 +323,11 @@ func (s *zoneCategory) Convert(path string, f paz.PazFile) ([]output, error) {
 			if !ok || sub.Bounds().Empty() {
 				continue
 			}
-			var buf bytes.Buffer
-			if png.Encode(&buf, sub) != nil {
+			data := encodeIconImage(sub)
+			if data == nil {
 				continue
 			}
-			outs = append(outs, output{Rel: name + suffix + ".png", Data: buf.Bytes()})
+			outs = append(outs, output{Rel: name + suffix + utils.IconExt, Data: data})
 		}
 	}
 	return outs, nil

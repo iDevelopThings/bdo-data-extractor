@@ -41,6 +41,8 @@ func main() {
 		// }
 	case "icons":
 		err = pipeline.Icons()
+	case "index":
+		err = pipeline.Index()
 	case "maps":
 		err = pipeline.Maps()
 	case "regionmaps":

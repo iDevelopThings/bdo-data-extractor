@@ -5,6 +5,17 @@ import (
 	"unicode"
 )
 
+// IconExt is the extension the icon pipeline writes decoded art as. The table
+// decoders name icon files before the pipeline writes them, so both sides derive
+// the name from here instead of hardcoding an extension and drifting apart.
+const IconExt = ".webp"
+
+// IconFileName swaps a .dds asset path's extension for the icon pipeline's output
+// extension: "ui_artwork/ic_09996.dds" -> "ui_artwork/ic_09996.webp".
+func IconFileName(ddsPath string) string {
+	return strings.TrimSuffix(ddsPath, ".dds") + IconExt
+}
+
 // Slug normalizes a display name into a stable, URN-safe id part: lowercased,
 // every run of non-alphanumeric characters collapsed to a single underscore,
 // leading/trailing underscores trimmed ("Kzarka Statue" → "kzarka_statue",

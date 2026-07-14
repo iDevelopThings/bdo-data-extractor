@@ -438,3 +438,83 @@ func TestEntityRefList_Add_AppendsURN(t *testing.T) {
 //	// te.Item.Set(URN)
 //
 //}
+
+func TestEntityRefList_GetManyByIndex_ReturnsSliceParallelToIndices(t *testing.T) {
+	withDefaultStore(t, map[string]string{"1": "Sword", "2": "Shield", "3": "Bow"})
+
+	list := models.NewEntityRefList[refTestEntity](refTestURN("1"), refTestURN("2"), refTestURN("3"))
+
+	got := list.GetManyByIndex([]int{2})
+	if len(got) != 1 {
+		t.Fatalf("GetManyByIndex([2]) len = %d, want 1", len(got))
+	}
+	if got[0] == nil || got[0].Name != "Bow" {
+		t.Fatalf("GetManyByIndex([2])[0] = %+v, want Bow", got[0])
+	}
+}
+
+func TestEntityRefList_GetManyByIndex_OutOfRangeAndUnresolvableAreNil(t *testing.T) {
+	withDefaultStore(t, map[string]string{"1": "Sword"})
+
+	list := models.NewEntityRefList[refTestEntity](refTestURN("1"), refTestURN("missing"))
+
+	got := list.GetManyByIndex([]int{1, 0, 9, -1})
+	if len(got) != 4 {
+		t.Fatalf("GetManyByIndex len = %d, want 4", len(got))
+	}
+	if got[0] != nil {
+		t.Errorf("got[0] = %+v, want nil for an unresolvable URN", got[0])
+	}
+	if got[1] == nil || got[1].Name != "Sword" {
+		t.Errorf("got[1] = %+v, want Sword", got[1])
+	}
+	if got[2] != nil || got[3] != nil {
+		t.Errorf("got[2]=%+v got[3]=%+v, want nil for out-of-range indices", got[2], got[3])
+	}
+}
+
+// A URN that doesn't resolve must not shift the entries after it: the cache is
+// positionally parallel to URNs, so a dropped entry would alias the wrong entity.
+func TestEntityRefList_AllBulk_UnresolvableURNDoesNotShiftLaterEntries(t *testing.T) {
+	withDefaultStore(t, map[string]string{"1": "Sword", "3": "Bow"})
+
+	list := models.NewEntityRefList[refTestEntity](refTestURN("1"), refTestURN("missing"), refTestURN("3"))
+
+	all := list.AllBulk()
+	if len(all) != 3 {
+		t.Fatalf("AllBulk() len = %d, want 3", len(all))
+	}
+	if all[0] == nil || all[0].Name != "Sword" {
+		t.Errorf("AllBulk()[0] = %+v, want Sword", all[0])
+	}
+	if all[1] != nil {
+		t.Errorf("AllBulk()[1] = %+v, want nil for an unresolvable URN", all[1])
+	}
+	if all[2] == nil || all[2].Name != "Bow" {
+		t.Errorf("AllBulk()[2] = %+v, want Bow", all[2])
+	}
+
+	if got := list.Get(2); got == nil || got.Name != "Bow" {
+		t.Errorf("Get(2) after AllBulk() = %+v, want Bow", got)
+	}
+}
+
+// Get(i) sizes the Values cache to full length, so a later All() must not mistake
+// that for "everything is resolved" and return a half-populated cache.
+func TestEntityRefList_All_AfterPartialGetResolvesRemaining(t *testing.T) {
+	withDefaultStore(t, map[string]string{"1": "Sword", "2": "Shield"})
+
+	list := models.NewEntityRefList[refTestEntity](refTestURN("1"), refTestURN("2"))
+
+	if got := list.Get(0); got == nil || got.Name != "Sword" {
+		t.Fatalf("Get(0) = %+v, want Sword", got)
+	}
+
+	all := list.All()
+	if len(all) != 2 {
+		t.Fatalf("All() len = %d, want 2", len(all))
+	}
+	if all[1] == nil || all[1].Name != "Shield" {
+		t.Errorf("All()[1] = %+v, want Shield (index 1 was never individually resolved)", all[1])
+	}
+}

@@ -2,6 +2,7 @@ package bss
 
 import (
 	"fmt"
+	"log"
 	"sort"
 )
 
@@ -92,4 +93,91 @@ func ParseOffsetIndex(b []byte, dataLen int) ([]IndexEntry, error) {
 		out[i] = IndexEntry{Key: cols[kc](i), Offset: cols[oc](i), Size: cols[sc](i)}
 	}
 	return out, nil
+}
+
+// ParseU16OffsetIndex decodes an offset index whose records are
+// [u16 key, u32 offset, u32 size]. Both plain [u32 count] and PABR
+// [magic, u32 count] headers are accepted. name identifies the table in logs.
+// An individually unusable row (zero size, out of bounds, overlapping) is logged
+// and skipped, so one odd row from a patch can't drop the table; a malformed
+// header, or an index where no row survives, is still an error.
+func ParseU16OffsetIndex(name string, b []byte, dataLen int) ([]IndexEntry, error) {
+	if len(b) < 4 {
+		return nil, fmt.Errorf("%s: u16 offset index too small (%d bytes)", name, len(b))
+	}
+	header := 4
+	count := int(U32(b, 0))
+	if len(b) >= 8 && string(b[:4]) == "PABR" {
+		header = 8
+		count = int(U32(b, 4))
+	}
+	if count <= 0 || header+count*10 > len(b) {
+		return nil, fmt.Errorf("%s: bad u16 offset-index count %d (index is %d bytes)", name, count, len(b))
+	}
+
+	out := make([]IndexEntry, 0, count)
+	for i := range count {
+		o := header + i*10
+		entry := IndexEntry{
+			Key:    uint32(U16(b, o)),
+			Offset: U32(b, o+2),
+			Size:   U32(b, o+6),
+		}
+		switch {
+		case entry.Size == 0:
+			log.Printf("%s: offset-index row %d (key %d) has zero size — skipping row", name, i, entry.Key)
+		case uint64(entry.Offset)+uint64(entry.Size) > uint64(dataLen):
+			log.Printf("%s: offset-index row %d (key %d) is out of bounds (offset %d + size %d > data %d) — skipping row",
+				name, i, entry.Key, entry.Offset, entry.Size, dataLen)
+		default:
+			out = append(out, entry)
+		}
+	}
+
+	out = dropOverlappingRows(name, out)
+
+	if len(out) == 0 {
+		return nil, fmt.Errorf("%s: offset index declares %d rows, none usable", name, count)
+	}
+	return out, nil
+}
+
+// dropOverlappingRows removes rows whose [offset, offset+size) range overlaps a
+// row that already claimed those bytes. Overlap is only visible in offset order,
+// so it's detected over a sorted view while out keeps its original index order.
+func dropOverlappingRows(name string, out []IndexEntry) []IndexEntry {
+	if len(out) < 2 {
+		return out
+	}
+
+	ordered := make([]int, len(out))
+	for i := range ordered {
+		ordered[i] = i
+	}
+	sort.Slice(ordered, func(a, b int) bool {
+		return out[ordered[a]].Offset < out[ordered[b]].Offset
+	})
+
+	drop := make(map[int]bool)
+	prev := -1
+	for _, i := range ordered {
+		if prev >= 0 && out[i].Offset < out[prev].Offset+out[prev].Size {
+			log.Printf("%s: offset-index key %d (offset %d, size %d) overlaps key %d (offset %d, size %d) — skipping row",
+				name, out[i].Key, out[i].Offset, out[i].Size, out[prev].Key, out[prev].Offset, out[prev].Size)
+			drop[i] = true
+			continue
+		}
+		prev = i
+	}
+	if len(drop) == 0 {
+		return out
+	}
+
+	kept := out[:0]
+	for i, entry := range out {
+		if !drop[i] {
+			kept = append(kept, entry)
+		}
+	}
+	return kept
 }

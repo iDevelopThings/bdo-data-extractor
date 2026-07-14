@@ -145,6 +145,7 @@ type GameStrings struct {
 	Titles         map[uint32]string               // title id -> name (table 1)
 	TitleDescs     map[uint32]string               // title id -> requirement/description (table 1 desc field)
 	EntityNames    map[uint32]string               // general entity-name table: classes/creatures/NPCs/resources (table 6)
+	EntityTitles   map[uint32]string               // similar to above, the "<Farm Vendor>" type tags/titles for npcs
 	MainCatNames   map[uint32]string               // main-category (region) id -> nation name (table 12, field 0)
 	TerritoryNames map[uint32]string               // territory id -> territory name (table 12, desc field)
 	Topography     map[uint32]string               // place/topography id -> name (table 17)
@@ -181,6 +182,7 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 		Titles:         map[uint32]string{},
 		TitleDescs:     map[uint32]string{},
 		EntityNames:    map[uint32]string{},
+		EntityTitles:   map[uint32]string{},
 		MainCatNames:   map[uint32]string{},
 		TerritoryNames: map[uint32]string{},
 		Topography:     map[uint32]string{},
@@ -262,6 +264,11 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 			if key1 == fieldName {
 				if t := strings.TrimSpace(paTag.ReplaceAllString(text(raw), "")); t != "" {
 					gs.EntityNames[id] = t
+				}
+			}
+			if key1 == fieldDesc {
+				if t := strings.TrimSpace(paTag.ReplaceAllString(text(raw), "")); t != "" {
+					gs.EntityTitles[id] = t
 				}
 			}
 		case mainCatTable:

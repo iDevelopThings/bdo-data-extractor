@@ -56,6 +56,10 @@ The format notes are written down in **[FORMATS.md](FORMATS.md)** on purpose —
 so the next person who needs this doesn't have to start from nothing. Take it,
 learn from it, extend it.
 
+Release notes, and every breaking change to the Go API or the extracted JSON, are
+tracked in **[CHANGELOG.md](CHANGELOG.md)**. The JSON output is part of the contract
+here as much as the API is — re-extract after upgrading.
+
 ## Disclaimer
 
 > This is an **independent, unofficial** tool. It is **not affiliated with,
@@ -88,8 +92,11 @@ learn from it, extend it.
 
 ## Requirements
 
-- **Go 1.26+** (the project tracks the latest Go). The CLI is **pure stdlib** — no
-  external dependencies.
+- **Go 1.26+** (the project tracks the latest Go). Two dependencies, both pulled in
+  by the image pipeline: [`deepteams/webp`](https://github.com/deepteams/webp) (icons
+  and map tiles are encoded as WebP) and
+  [`dgravesa/go-parallel`](https://github.com/dgravesa/go-parallel) (parallel decode).
+  Everything else — the archive, table and localization decoders — is stdlib.
 - A **legally installed copy of Black Desert Online**. By default the tool looks
   in the standard Steam path
   (`C:\Program Files (x86)\Steam\steamapps\common\Black Desert Online`); override
@@ -106,17 +113,23 @@ go install github.com/idevelopthings/bdo-data-extractor@latest   # or, from sour
 bdo-data-extractor build
 
 # other commands
-bdo-data-extractor icons                       # decode item icons (DXT .dds) -> ./data/icons/<id>.png (+ zone-category icons -> ./data/icons/zonecategories/)
-bdo-data-extractor knowledge-icons             # decode knowledge card images -> ./data/knowledge_icons/<path>.png
+bdo-data-extractor icons                       # decode item icons (DXT .dds) -> ./data/icons/<id>.webp (+ zone-category icons -> ./data/icons/zonecategories/)
+bdo-data-extractor knowledge-icons             # decode knowledge card images -> ./data/knowledge_icons/<path>.webp
+bdo-data-extractor worldmap                    # decode the world map -> ./data/worldmap/<layer>/ (tile pyramid + meta.json)
 bdo-data-extractor regionmaps                  # decode the region masks -> ./data/regionmaps/*.png
 bdo-data-extractor loc                         # dump the entire localization -> ./data/loc_<lang>.json
 bdo-data-extractor meta                        # parse the archive index, print a summary
 bdo-data-extractor extract <substr> <outDir>   # extract decoded archive files whose path contains substr
 bdo-data-extractor table <name>                # decode one schema-known table -> JSON (stdout)
+bdo-data-extractor index                       # dump the archive listing -> ./data/paz_files.json + paz_dirs.json
 ```
 
 Flags (any position): `--game <dir>` `--out <dir>` `--lang <en|de|fr|sp>`
-`--pretty` (indent JSON).
+`--region <na>` `--pretty` (indent JSON).
+
+`--region` selects the game service region, layering that region's client data over
+the language's — NPC and monster placements differ per region. Omit it for the
+language's default placements.
 
 A full `build` reads each source table once and finishes in a few seconds for
 ~72,000 items. Output is compact and deterministic (sorted by id).
@@ -125,21 +138,21 @@ A full `build` reads each source table once and finishes in a few seconds for
 
 | File | Contents |
 |---|---|
-| `data/items.json` | every item: name, description, icon path, grade, category, **market category/sub** (real when market-listed, else *derived* for untradeable gear — see `tradeable`), **`equipInfo`** (slot / kind / type, plus `slots` for multi-slot costumes; `type` = the market-style item type, present even for untradeable items like Tuvala), weight, buy/sell/repair prices, **max durability**, **class restriction** (`classes` — absent = all classes), **`crystalGroup`** (transfusion group + max count for socket crystals), **`expirationMinutes`** (timed items), **`requiredLevel`**, **`maxStack`**, **`dyeParts`**, max enhance, enhancement curve, consumable effects, and acquisition (`vendors` that sell it, `gatheredFrom`/`gatherNodes`) |
+| `data/items.json` | every item: name, description, icon path, grade, category, **market category/sub** (real when market-listed, else *derived* for untradeable gear — see `tradeable`), **`equipInfo`** (slot / kind / type, plus `slots` for multi-slot costumes; `type` = the market-style item type, present even for untradeable items like Tuvala), weight, buy/sell/repair prices, **max durability**, **class restriction** (`classes` — absent = all classes), **`crystalGroup`** (transfusion group + max count for socket crystals), **`expirationMinutes`** (timed items), **`requiredLevel`**, **`maxStack`**, **`dyeParts`**, max enhance, enhancement curve, consumable effects, and acquisition (`vendors` that sell it, `gatheredFrom`/`gatherNodes`; unmatched source text remains in `unresolvedVendors`/`unresolvedGatherNodes`) |
 | `data/recipes.json` | crafting recipes `{output, type, station, inputs:[{item,count}]}` — cooking/alchemy/processing **and House Crafting** (`station` = the workshop, e.g. "Jeweler"); merged from both the localized and base per-item XMLs |
 | `data/marketcategories.json` | the Central Market category tree `[{id, name, subCategories:[{id, name}]}]` in the game's display order (mains by id, subs by sub-id); the `id`/sub-`id` are the same values items carry as `marketCategory`/`marketSubCategory` |
 | `data/knowledge.json` | the full knowledge/ecology dataset — `themes` (the category tree, `{key,name,parent,item}`) + `entries` (cards, `{key,theme,name,description,image,minFavor,maxFavor,interest,item,character}`); linked to items and NPCs by name |
 | `data/mastery.json` | life-skill **mastery proc/yield curves** keyed by mastery value — `cooking`/`alchemy` (rate columns) + `processing` (`procRate`, mass-process `batch`). These are the client-side proc rates the game applies on top of a base output of 1; the per-recipe yield range itself is server-side |
 | `data/manufacture.json` | manufacture/processing recipes from `manufacture.bss` — `{group, type, success, inputs}` (success rate + action type; the output is the `group`/ResultDropGroup, resolved server-side, so it isn't listed) |
-| `data/npcs.json` | NPCs `{id, name, title, spawns:[{region, regionName, pos}]}` — **English** names (loc table 6), with each spawn's town/area name (loc table 17) |
-| `data/regions.json` | regions/nodes `{key, bounds:{min,max}, spawns:[{key, pos, dialogIndex}]}` — every NPC/monster placement + world position, with region world-bounds where available |
+| `data/world.json` | the geographic database `{territories, regions, nodes}` — territories, every map region (`{key, name, type, territory, position, variantOf, bounds:{min,max}, spawns:[{key, pos, dialogIndex}]}` — world-bounds + layered common/resource/service-region NPC and monster placements), and exploration nodes with positions, links, owning `manager` refs, affiliate `managerNode` refs, town-representative NPC refs, and normal worker-production item refs in `products` |
+| `data/npcs.json` | map/navigation NPC character templates `{id, name, title, spawnTypes, spawns:[{region, regionName, pos, dialogIndex}]}` — **English** names (loc table 6), placed variants from regionclientdata, and numeric client `SpawnType` roles for node managers and town services; localized role-bearing templates omitted by `npcsimply` are included |
 | `data/fishingspots.json` | float-fishing spot world locations (client-side; the fish-per-spot tables are server-side), attributed to regions |
 | `data/worldmap.json` | the region-map base image + the world→image transform, so any world-coordinate data can be placed on the map |
 | `data/zones.json` | all **105** Monster Zone Info zones, fully self-contained — `name`, `node:{key,name,pos}`, `mainCategory:{id,name,icon}` (region) + `subCategories:[{id,name,icon}]` (content filters), recommended `sheet`/`total` AP/DP + `effectiveLimit`/`apApplyPercent`, and inline resolved lists: `titles[{id,name,desc}]`, `recurringQuests`/`regionQuests[{id,name}]`, `ecology[{id,name}]` (creature knowledge), `topography[{id,name}]` (place knowledge), `tags[{key,name,desc,color,fontColor}]`, plus `loot` as item ids (→ items.json) |
-| `data/icons/<id>.png` | item icons, decoded from the client's DXT-compressed `.dds` (via `bdo-data-extractor icons`) |
-| `data/knowledge_icons/<path>.png` | knowledge card images, decoded from `.dds` (via `bdo-data-extractor knowledge-icons`); each entry's `image` field is the relative path |
+| `data/icons/<id>.webp` | item icons, decoded from the client's DXT-compressed `.dds` and encoded as WebP (via `bdo-data-extractor icons`) |
+| `data/knowledge_icons/<path>.webp` | knowledge card images, decoded from `.dds` (via `bdo-data-extractor knowledge-icons`); each entry's `image` field is the relative path |
 | `data/regionmaps/*.png` | decoded region/territory mask images (via `bdo-data-extractor regionmaps`) |
-| `data/icons/zonecategories/<iconId>.png` | Monster Zone Info main/sub-category icons, cropped from their UI atlas (the `icon` ids in `zones.json`), in all three UI states: `<iconId>.png` (normal), `<iconId>_Over.png`, `<iconId>_Click.png`; produced by `bdo-data-extractor icons` |
+| `data/icons/zonecategories/<iconId>.webp` | Monster Zone Info main/sub-category icons, cropped from their UI atlas (the `icon` ids in `zones.json`), in all three UI states: `<iconId>.webp` (normal), `<iconId>_Over.webp`, `<iconId>_Click.webp`; produced by `bdo-data-extractor icons` |
 | `data/loc_<lang>.json` | the full localization dump, grouped `table → id → field → text` (via `bdo-data-extractor loc`) |
 
 Icons are named by **item id** (the client stores them under unrelated icon ids),

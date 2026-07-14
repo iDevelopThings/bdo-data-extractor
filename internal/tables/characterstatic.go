@@ -2,6 +2,7 @@ package tables
 
 import (
 	"bytes"
+	"log"
 	"strconv"
 	"strings"
 
@@ -33,34 +34,25 @@ type CharacterStatic struct {
 }
 
 // DecodeCharacterStatic decodes characterstatic.dbss into entity-id -> CharacterStatic.
-// The offset companion is PABR + u32 count@4 + 10-byte index [u16 key, u32 off, u32
-// size]; the key is the entity id (= loc table 6 id). Each record is a sequential
-// field stream, read here with a bss.Cursor:
-//
-//	[8-byte header][u8 tag=0x15][ [i64 charCount][UTF-16] × 2 interaction scripts ]
-//	[u8][u32 id][u32 npcKind][ … render/config fields, incl. the model path … ]
-//
-// Reading the two length-prefixed scripts lands deterministically on id+npcKind
-// (validated id == key). A getknowledge(N) script yields the knowledge-card link;
-// the model path is scanned from the record.
+// Records are a sequential field stream (bss.Cursor): reading the two length-prefixed
+// UTF-16 scripts lands deterministically on id+npcKind, validated as id == key. A
+// getknowledge(N) script yields the knowledge-card link.
+// Record layout: see FORMATS.md, "characterstatic.dbss".
 func DecodeCharacterStatic(offsetRaw, dataRaw []byte) map[uint32]CharacterStatic {
-	if len(offsetRaw) < 8 {
+	idx, err := bss.ParseU16OffsetIndex("characterstatic", offsetRaw, len(dataRaw))
+	if err != nil {
+		log.Printf("characterstatic: %v — no NPC knowledge links or model paths will be resolved", err)
 		return nil
 	}
-	count := int(bss.U32(offsetRaw, 4))
-	out := make(map[uint32]CharacterStatic, count)
-	for i := 0; i < count; i++ {
-		p := 8 + i*10
-		if p+10 > len(offsetRaw) {
-			break
-		}
-		key := uint32(bss.U16(offsetRaw, p))
-		off := int(bss.U32(offsetRaw, p+2))
-		size := int(bss.U32(offsetRaw, p+6))
-		if key == 0 || off < 0 || size < 8 || off+size > len(dataRaw) {
+	out := make(map[uint32]CharacterStatic, len(idx))
+	for _, entry := range idx {
+		if entry.Key == 0 || entry.Size < 8 {
 			continue
 		}
-		rec := dataRaw[off : off+size]
+		rec, ok := entry.Slice(dataRaw)
+		if !ok {
+			continue
+		}
 
 		model, modelOff := modelPathAt(rec)
 		cs := CharacterStatic{Model: model}
@@ -77,7 +69,7 @@ func DecodeCharacterStatic(offsetRaw, dataRaw []byte) map[uint32]CharacterStatic
 		c.Skip(1)
 		id := c.U32()
 		npcKind := c.U32()
-		if c.OK() && id == key { // scripts parsed → id landed → npcKind is valid
+		if c.OK() && id == entry.Key { // scripts parsed → id landed → npcKind is valid
 			cs.NpcKind = npcKind
 			// Capture the still-unidentified structured u32s between npcKind and the
 			// model path (the config section) verbatim — nothing dropped.
@@ -89,7 +81,7 @@ func DecodeCharacterStatic(offsetRaw, dataRaw []byte) map[uint32]CharacterStatic
 				cs.Fields = append(cs.Fields, c.U32())
 			}
 		}
-		out[key] = cs
+		out[entry.Key] = cs
 	}
 	return out
 }

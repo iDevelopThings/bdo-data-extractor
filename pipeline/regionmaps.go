@@ -65,60 +65,42 @@ func (s *regionMap) Convert(path string, f paz.PazFile) ([]output, error) {
 	}, nil
 }
 
-// --- world map --------------------------------------------------------------
-
-// worldMap decodes every minimap_data radar tile (.dds) to a PNG under worldmap/,
-// laid out as <layer>/<x>_<y>.png. The three layers — world (the base grid), pack
-// (an alternate tile set at the same coords) and morningland (a separate region) —
-// come from the archive subpath; the file name is just the chunk coordinate.
-type worldMap struct {
+// Should be kept for now, useful for debugging/pulling files to see whats available
+type worldMiniMap struct {
 	base
 }
 
-func worldMaps() imageSource {
-	return &worldMap{}
+func worldMiniMaps() imageSource {
+	return &worldMiniMap{}
 }
 
-func (s *worldMap) Name() string  { return "world map" }
-func (s *worldMap) Dir() string   { return "worldmap" }
-func (s *worldMap) Rebuild() bool { return true }
+func (s *worldMiniMap) Name() string  { return "world mini map" }
+func (s *worldMiniMap) Dir() string   { return "worldminimap" }
+func (s *worldMiniMap) Rebuild() bool { return true }
 
-func (s *worldMap) Prepare(src *paz.Source, dataDir string) error {
+func (s *worldMiniMap) Prepare(src *paz.Source, dataDir string) error {
 	s.src = src
 	return nil
 }
 
-func (s *worldMap) Wants(path string) bool {
-	return strings.Contains(path, "minimap_data") && strings.HasSuffix(path, ".dds")
+func (s *worldMiniMap) Wants(path string) bool {
+	return strings.Contains(path, "new_ui_common_forlua") &&
+		!strings.Contains(path, "rader") &&
+		strings.HasSuffix(path, ".dds")
+
+	// return strings.Contains(path, "minimap") && strings.HasSuffix(path, ".dds")
 }
 
-func (s *worldMap) Convert(path string, f paz.PazFile) ([]output, error) {
+func (s *worldMiniMap) Convert(path string, f paz.PazFile) ([]output, error) {
 	data := encodeIcon(s.src.Archive, f)
 	if data == nil {
 		return nil, nil
 	}
-	return []output{{Rel: worldTile(path), Data: data}}, nil
-}
-
-// worldTile maps a minimap_data archive path to its <layer>/<x>_<y>.png output. The
-// leaf is always Rader_<x>_<y>.dds and the coordinate is kept verbatim as the file
-// name so consumers parse it with a single split. The layer comes from the parent
-// folder: the base grid lives in minimap_data/, the alternate tile set in the
-// sibling minimap_data_pack/, and the separate region under minimap_data/_morningland/.
-func worldTile(path string) string {
-	p := strings.ToLower(strings.ReplaceAll(path, "\\", "/"))
-	i := strings.LastIndexByte(p, '/')
-	dir, leaf := p[:i], p[i+1:]
-	coord := strings.TrimPrefix(strings.TrimSuffix(leaf, ".dds"), "rader_")
-
-	layer := "world"
-	switch {
-	case strings.HasSuffix(dir, "_morningland"):
-		layer = "morningland"
-	case strings.HasSuffix(dir, "minimap_data_pack"):
-		layer = "pack"
-	}
-	return layer + "/" + coord + ".png"
+	fileName := strings.ToLower(strings.ReplaceAll(path, "\\", "/"))
+	fileName = strings.ReplaceAll(fileName, "/", "_")
+	fileName = strings.TrimSuffix(fileName, ".dds") + ".png"
+	fileName = "minimap/" + fileName
+	return []output{{Rel: fileName, Data: data}}, nil
 }
 
 // renderRegionMap downscales a RegionMap to at most maxW wide, coloring each region

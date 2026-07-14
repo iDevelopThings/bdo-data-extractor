@@ -97,10 +97,21 @@ type Item struct {
 	// so each promotes to a top-level JSON key). See ItemUnknowns.
 	ItemUnknowns
 
-	// Acquisition, from the per-item info XML (ui_html/xml/<lang>/<id>.xml):
-	Vendors      []string `json:"vendors,omitempty"`      // NPCs that sell it (<shop>)
-	GatheredFrom []string `json:"gatheredFrom,omitempty"` // gather/collect sources, e.g. "Wild Flax" (<collect>)
-	GatherNodes  []string `json:"gatherNodes,omitempty"`  // gathering node regions (<node region="…">)
+	// Acquisition, from the per-item info XML (ui_html/xml/<lang>/<id>.xml). The XML
+	// names entities in prose, so the build resolves them: <shop> character names to
+	// NPC character templates (whose Spawns are the placed vendor variants), and
+	// <node region="A - B"> to the "B" production sub-node under main node "A".
+	// Vendors are NPC references resolved from <shop> character names.
+	Vendors *models.EntityRefList[NPC] `json:"vendors,omitempty"`
+	// UnresolvedVendors are <shop> names that could not be resolved to NPC references.
+	UnresolvedVendors []string `json:"unresolvedVendors,omitempty"`
+	// GatheredFrom contains <collect> source names such as "Wild Flax".
+	GatheredFrom []string `json:"gatheredFrom,omitempty"`
+	// GatherNodes are world-node references resolved from <node region="..."> names.
+	GatherNodes *models.EntityRefList[WorldNode] `json:"gatherNodes,omitempty"`
+	// UnresolvedGatherNodes are <node region="..."> names that could not be resolved
+	// to a world-node reference. The original client text is retained losslessly.
+	UnresolvedGatherNodes []string `json:"unresolvedGatherNodes,omitempty"`
 
 	// Consumable (food/elixir) buff info, decoded from the item->skill->buff
 	// chain (skill.dbss + buff.dbss), named via loc table 5. Fully client-typed.

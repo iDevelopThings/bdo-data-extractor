@@ -43,19 +43,43 @@ func (s *Source) Read(name string) ([]byte, error) {
 	timed := utils.Timed(fmt.Sprintf("paz.Read[%q]", name))
 	defer timed()
 
-	f, ok := s.Index.Find(name)
-	if !ok {
+	b, exists, err := s.read(name)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
 		return nil, fmt.Errorf("table not found: %s", name)
 	}
-	return s.Archive.Content(f)
+
+	return b, nil
+}
+
+// ReadIfExists returns decoded file bytes and whether the basename exists.
+func (s *Source) ReadIfExists(name string) ([]byte, bool, error) {
+	timed := utils.Timed(fmt.Sprintf("paz.ReadIfExists[%q]", name))
+	defer timed()
+
+	return s.read(name)
+}
+
+func (s *Source) read(name string) ([]byte, bool, error) {
+	f, ok := s.Index.Find(name)
+	if !ok {
+		return nil, false, nil
+	}
+	b, err := s.Archive.Content(f)
+	if err != nil {
+		return nil, true, err
+	}
+
+	return b, true, nil
 }
 
 // ReadAny returns the decoded bytes of the first of names that exists, and which
 // one matched.
 func (s *Source) ReadAny(names ...string) ([]byte, string, error) {
 	for _, name := range names {
-		if f, ok := s.Index.Find(name); ok {
-			b, err := s.Archive.Content(f)
+		if b, ok, err := s.read(name); ok {
 			return b, name, err
 		}
 	}

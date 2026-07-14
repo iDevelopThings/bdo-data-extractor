@@ -7,6 +7,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 	"github.com/idevelopthings/bdo-data-extractor/src/models"
+	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
 // DecodeTerritories reads territoryinfo.bss: the 14 world territories in game
@@ -129,14 +130,14 @@ func DecodeTerritories(data []byte) ([]model.Territory, error) {
 }
 
 // TerritoryIconFile maps a territory-mark texture path from territoryinfo.bss
-// (e.g. "Renewal/ETC/WordMap/territorymark_valenos_large.dds") to the PNG file
-// name the icons command writes under icons/territories/.
+// (e.g. "Renewal/ETC/WordMap/territorymark_valenos_large.dds") to the file name
+// the icons command writes under icons/territories/.
 func TerritoryIconFile(ddsPath string) string {
 	p := strings.ReplaceAll(strings.ToLower(ddsPath), "\\", "/")
 	if i := strings.LastIndexByte(p, '/'); i >= 0 {
 		p = p[i+1:]
 	}
-	return strings.TrimSuffix(p, ".dds") + ".png"
+	return utils.IconFileName(p)
 }
 
 // TerritoryIconArchivePath maps the same stored texture path to its full PAZ
@@ -146,7 +147,7 @@ func TerritoryIconArchivePath(ddsPath string) string {
 }
 
 // TerritoryIconFiles resolves each distinct raw territory-mark path to its output
-// PNG name. A basename is kept as-is when it's unique; when two territories carry a
+// icon name. A basename is kept as-is when it's unique; when two territories carry a
 // mark with the same filename from different folders (Valencia and The Great Ocean
 // both use a "valencia" mark, stored in different UI folders with different art), the
 // shared name is disambiguated by its parent folder so both survive as distinct

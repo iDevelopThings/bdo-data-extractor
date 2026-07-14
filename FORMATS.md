@@ -96,16 +96,20 @@ with type-conditional layouts (e.g. `itemenchant.dbss`) are read positionally.
 
 ### Offset index — `*offset.dbss`
 
-Most data tables have a sibling `<name>offset.dbss`: an index of **12-byte records,
-three `u32` columns** — `key`, `offset`, `size` — locating each record
-`[offset, offset+size)` in the paired `<name>.dbss`. The header is a plain `u32 count`
-at 0, or `PABR` + `u32 count` at 4.
+Most data tables have a sibling `<name>offset.dbss` locating each record
+`[offset, offset+size)` in the paired `<name>.dbss`. Two index-row layouts are used:
 
-The **column order varies per table**, and the index may be sorted by key (so offsets
-aren't monotonic). Detect the offset/size columns by content: of the ordered column
-pairs, keep those whose `[offset, offset+size)` intervals all fit within the data and
-never overlap, and break ties by the tightest tiling (smallest uncovered gap). The
-remaining column is the key. See `internal/bss/offset.go`.
+| Row size | @ | Type | Field | Notes |
+|---:|---:|---|---|---|
+| 12 | 0/4/8 | u32 ×3 | key / offset / size | Column order varies and is detected from valid non-overlapping slices |
+| 10 | 0 | u16 | key | Compact form used by character-oriented tables |
+| 10 | 2 | u32 | offset | Byte offset in the paired data file |
+| 10 | 6 | u32 | size | Record byte length |
+
+The header is either `[u32 count]` or `["PABR"][u32 count]`. For 12-byte rows, the
+index may be sorted by key, so offsets are not necessarily monotonic. Detect the
+offset/size columns by content: keep pairings whose slices all fit and never overlap,
+then break ties by the tightest tiling. See `internal/bss/offset.go`.
 
 ---
 
@@ -156,7 +160,7 @@ and unaligned:
 | 160 | byte | dyeParts | kept when 0 < v ≤ 30 |
 | 184 | bool | personalTrade | |
 | 185 | u16 | maxDurability | equipment only; large value = no-durability sentinel |
-| 188 | byte | marketCategory id | → loc table 44 |
+| 188 | byte | marketCategory id | → localization table 44 |
 | 189 | byte | marketSubCategory id | |
 | 190 | bool | nodeFreeTrade | |
 | 192 | u32 | skillKey | consumables → skill chain (§7) |
@@ -185,7 +189,7 @@ by field walk:
   `13 06 00 00 00 00 13`; cost = `u32(marker + 20)`, kept when 1..1000 ("[CP]" rental
   gear and placeables).
 - **Footer** — ends `[u32 self-id][u16 crystalGroup][0x0100]`; group `!= 0xFFFF` is the
-  crystal transfusion group (name + max count from loc table 121).
+  crystal transfusion group (name + max count from localization table 121).
 
 The ~700–1300-byte binary tail after the icon (per-slot stat arrays, price/tax rates,
 scripts, embedded description) is otherwise unmapped (§15).
@@ -324,7 +328,7 @@ The data is a three-table chain (`internal/tables/buffs.go`). A consumable's `sk
 (`u32 @192` in the item row) indexes `skilloffset.dbss` → a record in `skill.dbss`, which
 carries the cooldown (`u32 @95`, ms; kept when >0, ≤1e8, %1000==0) and a `u16` buff-index
 list from `@99` (read until a 0, or an index absent from `buff.dbss`). Each index →
-a `buff.dbss` record; English effect names come from loc table 5 (key1==0).
+a `buff.dbss` record; English effect names come from localization table 5 (key1==0).
 
 ### `buff.dbss` schema
 
@@ -399,10 +403,10 @@ Critical Hits / Retaliation"); **111** manufacturing — value slot 1, slot 0 se
 Alchemy/Cooking Time or Processing Success Rate; **120** Monster DR — slot 0 = Rate% vs
 flat; **136** extra AP — the value's *slot* is the variant (vs Monsters / Adventurers).
 
-Fallbacks: a module not in the table falls back to the loc-5 English name parsed into
+Fallbacks: a module not in the table falls back to the localization-table-5 English name parsed into
 `{stat, op, value, unit}`; a buff with neither is *hidden* (the game doesn't show it
 either) and named from the Korean. A "master" buff (a draught's headline) carries the
-full multi-line text in loc 5 while its component buffs are Korean-only — which is why
+full multi-line text in localization table 5 while its component buffs are Korean-only — which is why
 text parsing alone under-counts, and the module decode is primary. `BuffType` is not a
 usable shown/hidden flag (it's `1` for nearly everything).
 
@@ -447,7 +451,7 @@ Internal table text (Name fields in `.dbss`) is **Korean** even on the EU client
 display text is resolved through `.loc` by id. Searching the binaries for English finds
 nothing — search Korean (UTF-16).
 
-### Central-market categories — loc table 44
+### Central-market categories — localization table 44
 
 Keyed by the main-category id (item `@188`). Within each entry: `key1 == 0` is the main
 name ("Consumables"); `key1` in `1..0xFFFF` are the sub-category names (matching item
@@ -458,16 +462,37 @@ name ("Consumables"); `key1` in `1..0xFFFF` are the sub-category names (matching
 ## 9. Recipes (per-item XMLs)
 
 Crafting recipes come from the per-item info XMLs in the PAZ
-(`internal/tables/recipexml.go`). Producing sections: `<cook>` / `<alchemy>` /
-`<manufacture action="MANUFACTURE_HEAT|GRIND|…">` and `<house type="N">` (House
-Crafting). `MANUFACTURE_ALCHEMY`/`MANUFACTURE_COOK` are the Processing-window "Simple"
-crafts, renamed `SIMPLE_ALCHEMY`/`SIMPLE_COOK` to distinguish them from real Alchemy /
-Cooking (`<alchemy>`/`<cook>` blocks). The house `type` is `eHouseIconType`; its name is
-**loc table 123** (8 = Jeweler, 9 = Tool Workshop, 18 = Costume Mill, …) → `station`.
+(`internal/tables/recipexml.go`). Each file is an `<itemInfo>` document for the item it
+produces:
 
-Acquisition also comes from these XMLs: `<shop>` = vendors, `<collect>` = gathered-from,
-`<node region>` = gather nodes. Raw/gathered materials are flagged from
-`ui_html/xml/<lang>/itemmaking.xml` (`<nodeProduct>/<collect>/<fishing>`).
+| XML path | Field / attribute | Meaning |
+|---|---|---|
+| `<itemInfo>/<itemKey>` | text u32 | Output item id and file identity |
+| `<cook>/<item>` | `<id>`, `<count>` | Cooking ingredient id and quantity |
+| `<alchemy>/<item>` | `<id>`, `<count>` | Alchemy ingredient id and quantity |
+| `<manufacture>` | `action` | Processing type, e.g. `MANUFACTURE_HEAT` or `MANUFACTURE_GRIND` |
+| `<manufacture>/<item>` | `<id>`, `<count>` | Processing ingredient id and quantity |
+| `<house>` | `type` | `eHouseIconType`; localization table 123 supplies the workshop/station name |
+| `<house>/<item>` | `<id>`, `<count>` | Worker-building ingredient id and quantity |
+| `<shop>/<character>` | `<name>` | Vendor NPC name |
+| `<collect>/<character>` | `<name>` | Gather/collect source name |
+| `<node>` | `region` | Production/gather-node name |
+
+Repeated producing blocks are alternative recipes. `MANUFACTURE_ALCHEMY` and
+`MANUFACTURE_COOK` are the Processing-window Simple Alchemy/Cooking actions and are kept
+distinct from real `<alchemy>` and `<cook>` recipes. House type examples include 8 =
+Jeweler, 9 = Tool Workshop and 18 = Costume Mill.
+
+Raw/gathered-material candidates come from `ui_html/xml/<lang>/itemmaking.xml`:
+
+| XML path | Field / attribute | Meaning |
+|---|---|---|
+| `<nodeProduct>/<item>` | `key` u32 | Node-product item id |
+| `<collect>/<item>` | `key` u32 | Gathered item id |
+| `<fishing>/<item>` | `key` u32 | Fishing item id |
+
+Candidates with a real production recipe are removed before the final gathered flag is
+set, because this palette also contains some processed items.
 
 ---
 
@@ -479,7 +504,7 @@ string table. Byte-packed but fully regular — the records tile `[8, stPtr)` ex
 
 | @ | Type | Field | Notes |
 |---|---|---|---|
-| 0 | u16 | index | sequential 0..13; == loc table 12 id |
+| 0 | u16 | index | sequential 0..13; == localization table 12 id |
 | 2 | u8 | primary | 1 = the nation's direct/primary territory |
 | 3 | u8 | autonomous | 1 = autonomous (Balenos, Serendia) |
 | 4 | f32 vec3 ×3 | markPositions | worldmap territory marks (zeroed = unused) |
@@ -494,9 +519,9 @@ string table. Byte-packed but fully regular — the records tile `[8, stPtr)` ex
 | 84 | u32 | extraKey | present only when hasExtra == 1 (unidentified) |
 
 The interleaved const-2 / zero fields (@60/@64/@80 and the trailing u32) are validated.
-`tables.DecodeTerritories` checks every invariant and the exact tiling, so a post-patch
-layout change fails loudly. English names join loc-12 (field 0 = nation, description =
-territory). Folds into `world.json`.
+`tables.DecodeTerritories` checks every invariant and the exact tiling, so an incompatible
+layout fails loudly. English names join localization table 12 (field 0 = nation,
+description = territory). Folds into `world.json`.
 
 ---
 
@@ -510,15 +535,15 @@ byte-rotations. Layout (offsets from record start):
 
 | @ | Type | Field | Notes |
 |---|---|---|---|
-| 0 | u16 | regionKey | == loc table 17 id (English names) and the regionclientdata key |
+| 0 | u16 | regionKey | == localization table 17 id (English names) and the regionclientdata key |
 | 6 | u8 | regionType | 1 = town/city, 2 = field, … |
 | 32 | u32 | const 19950 | anchor A |
-| 90 | u8 | territoryIndex | == territoryinfo / loc-12 index (Velia → 0 Balenos, …) |
+| 90 | u8 | territoryIndex | == `territoryinfo` / localization-table-12 index (Velia → 0 Balenos, …) |
 | 92 | u16 | nameStrIdx | own Korean name |
 | 96 | u16 | capitalNameIdx | the territory capital's Korean name |
 | 100 | u16 | capitalKey | the territory's capital region — constant per territory (Balenos → 5 Velia, Mediah → 202 Altinova) |
 | 131 | f32 ×3 | position | world x/y/z |
-| 149 | u32 | const 0x13524B01 | anchor B (a version marker; a patch can bump it) |
+| 149 | u32 | const 0x13524B01 | anchor B / format-version marker |
 | 210 | u32 | warehouseGroupCount | |
 | 214 | u16 ×n | warehouseGroup | region keys in this storage/transport group, incl. itself; only the 58 warehouse-bearing places carry it — groups are disjoint, matching the transport topology |
 
@@ -530,15 +555,51 @@ returns the per-territory capital map (validating that `capitalKey` is constant 
 territory). Unidentified: `+2..+5`, `+7`, the float params at `+153`, six ~105k ids at
 `+185` (towns only), and the color tail — none needed for the geographic database.
 
-Anchor B is a version marker that a patch can bump (it changed from `0x0B79B401`); the
-strict per-record check means a bump fails loudly rather than yielding garbage — recover
-the new value as the u32 that's constant at `+149` across all anchor-A records.
+Anchor B behaves as a format-version marker. If it differs, identify the u32 that is
+constant at `+149` across all anchor-A records and verify exact record tiling before
+accepting the value.
 
-Output: **`world.json`** `{territories, regions, nodes}` (English names from loc
-12/17/29). `zones.json` (monster zones) and `regions.json` (spawn placements) are
-separate. The game keeps one region record per **spawn phase** of a place (quest states,
-Day/Night), all sharing name + position; `world.json` marks the copies with `variantOf`
-= the canonical (lowest-key) record, and dedupes on `variantOf == 0`.
+### `regionclientdata*.xml` — placed characters
+
+Each file is a flat stream of region elements. Repeated `RegionInfo` keys within one
+file append spawns; an empty region is meaningful because a higher-priority layer can
+clear the baseline region's placements.
+
+| Element | Attribute | Type | Meaning |
+|---|---|---|---|
+| `RegionInfo` | `Key` | u32 | Region key; joins `regioninfo.bss` and localization table 17 |
+| `SpawnInfo` | `key` | u32 | Character-template key; joins `npcs.json` |
+| `SpawnInfo` | `dialogIndex` | i32 | Placed/dialog variant; external maps often call this `sub_id` |
+| `SpawnInfo` | `position` | `{f64,f64,f64}` | World x/y/z placement |
+
+Files apply by whole `RegionInfo Key` in this order:
+
+| Layer | Example | Behavior |
+|---:|---|---|
+| 1 | `regionclientdata.xml` | Common baseline |
+| 2 | `regionclientdata_en_.xml` | Language/resource baseline replaces matching regions |
+| 3 | `regionclientdata_na_.xml` | Service-region data replaces matching regions |
+
+This is region replacement, not an individual-spawn union: retaining both versions
+would leave thousands of moved or removed placements in the output.
+
+### `region_info.xml` — region bounds
+
+Multiple boxes for the same key are unioned into one AABB.
+
+| Element | Attribute(s) | Type | Meaning |
+|---|---|---|---|
+| `box` | `region_index` | u32 | Region key |
+| `box` | `aabb_min_x/y/z` | f64 ×3 | Minimum world-space corner |
+| `box` | `aabb_max_x/y/z` | f64 ×3 | Maximum world-space corner |
+
+Output: **`world.json`** `{territories, regions, nodes}`. English names come from
+localization table 12 for territories, table 17 for regions, and table 29 for nodes.
+Each region also carries its world-space `bounds` (`region_info.xml`) and `spawns`
+(`regionclientdata` NPC/monster placements); `zones.json` contains monster zones. The
+game may store one region record per **spawn phase** of a place, such as quest or
+day/night states. Records sharing a name and position are variants; the lowest-key
+record is canonical and the others reference it through `variantOf`.
 
 ---
 
@@ -550,17 +611,188 @@ footer table after the last record:
 
 | @ | Type | Field | Notes |
 |---|---|---|---|
-| 0 | u16 | nodeKey | == loc table 29 id and the node ids community sites use |
-| 5 | u8 | nodeKind | worldmap icon/kind enum (16 values) |
+| 0 | u16 | nodeKey | == localization table 29 id and the node ids community sites use |
+| 2 | u16 | unknown2 | Usually zero |
+| 4 | u8 | flag | Normally 1; retained verbatim |
+| 5 | u8 | nodeKind | 16-value `model.WorldNodeKind` enum |
+| 6 | u16 | linkedKey | redundant node reference; == `nodeKey` in all 1,037 records |
+| 8 | u16 | unknown8 | Usually zero |
 | 10 | u16 | nameStrIdx | Korean node name |
-| 104 | f32 ×3 | position | world x/y/z (same space as regioninfo) |
+| 12 | u8 ×2 | zero | Reserved |
+| 14 | u8 | const | 1 |
+| 15 | u8 | zero | Reserved |
+| 16 | u8 | networkFlag | 1 = normal network node; 0 = special town/sea/district/battlefield location |
+| 17 | u8 | mainCopy1 | Copy of the main/sub state at +116 |
+| 18 | u8 | mainCopy2 | Copy of the main/sub state at +116 |
+| 19 | u8 | zoneIndex | Sparse special-content index |
+| 20 | u8 | zoneCategory | 1 island; 2 coastal; 5 inland/desert; 6 battlefield/ocean |
+| 21 | u8 | grindZone | Sparse Marni/Elvia grind-zone index |
+| 22 | u8 | grindTier | Recommended-AP tier; observed values include 2 and 3 |
+| 23 | u32 | subKey | Waypoint-space/internal key |
+| 27 | u32 | subKey2 | Copy of `subKey` on 997/1,037 nodes; zero on the others |
+| 31 | f32 | radius | Map influence radius |
+| 35 | f32 | radiusSquared | Cached `radius²` |
+| 39 | u32 | unknown39 | Small internal value; 13 distinct values observed |
+| 43 | u16 | managerFamilyCharacterId | character-template id repeated across a managed node family |
+| 45 | u16 | representativeId | town ruler/representative character id; joins `npcs.json` |
+| 47 | u32 | packedNodeIndex | `0x20000` flag plus low 17-bit node enumeration; build retains the low 17 bits |
+| 51 | u32 | packedAreaId | `areaId << 16`; 44 world-map areas/sectors observed |
+| 55 | u8 ×36 | zero | Reserved |
+| 91 | u8 ×3 | zero | Reserved |
+| 94 | u8 | contribution | Contribution-point cost; observed range 0–3 |
+| 95 | u8 ×9 | zero | Reserved |
+| 104 | f32 ×3 | explorationPosition | exploration/label anchor; not a reliable parent relation |
+| 116 | u8 | subFlag | 0 = main node; 1 = sub-node |
 
-From @117: seven counted `[u32 count][count × u32]` id lists (unidentified) that set the
-record length. After the last record: a `[u32 count][count × 6 bytes]` footer
-(unidentified). `tables.DecodeExplorationNodes` validates the list counts and the exact
-footer tiling.
-Node→node connections and a node→territory field are **not** in the client — the build
-derives each node's territory from the nearest region by x/z distance.
+`nodeKind` is the client's `CppEnums.ExplorationNodeType`: Normal=0, Village=1,
+City=2, Gate=3, Farm=4, Trade=5, Collect=6, Quarry=7, Logging=8, Dangerous=9,
+Finance=10, FishTrap=11, MinorFinance=12, MonopolyFarm=13, Craft=14, and
+Excavation=15. The table adds the practical meaning observed on the world map:
+
+| Value | Enum | Observed meaning |
+|---:|---|---|
+| 0 | Normal | Generic field, location, island, or connecting node |
+| 1 | Village | Town, village, settlement, or minor hub |
+| 2 | City | Major city or capital |
+| 3 | Gate | Gateway, outpost, fort, or guard camp |
+| 4 | Farm | Crop-production sub-node |
+| 5 | Trade | Farm, ranch, or resource-camp main node |
+| 6 | Collect | Gathering production |
+| 7 | Quarry | Mining production |
+| 8 | Logging | Lumber production |
+| 9 | Dangerous | Dangerous/combat-site main node |
+| 10 | Finance | Town asset-management service node |
+| 11 | FishTrap | Fish-drying production |
+| 12 | MinorFinance | Worker investment-bank production |
+| 13 | MonopolyFarm | Specialty production |
+| 14 | Craft | Animal-product or other crafting production |
+| 15 | Excavation | Excavation or special-workshop production |
+
+From @117, every record ends with seven counted lists:
+
+| List | Layout | Meaning |
+|---:|---|---|
+| 0 | `[u32 count][count × u32]` | Coarse regional grouping hash; 33 distinct values |
+| 1–5 | `[u32 count][count × u32]` | Knowledge-entry keys associated with the node |
+| 6 | `[u32 count=0]` | Empty in every observed record |
+
+After the final node record is a global footer:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | count | 111 entries in the observed dataset |
+| 4 + n×6 | u16 | unknownA | Small lookup/index value; meaning unresolved |
+| 6 + n×6 | u16 | nodeKey | Always a valid exploration node key |
+| 8 + n×6 | u16 | zero | Reserved; always zero |
+
+`tables.DecodeExplorationNodes` validates the list counts and exact footer tiling.
+The actual per-node position and connection graph are in
+`waypoint_binary/mapdata_realexplore2.bwp`; a node→territory field is not stored, so the
+build derives territory from the nearest region by x/z distance. A main node's children
+are its directly connected non-main neighbors in that graph; this matches every shared
+public plant-zone parent relation, whereas @104 co-location does not.
+
+### `characterfunction.dbss` — manager-family owner ordering
+
+The compact 10-byte offset index is keyed by character-template id. The full variable
+record remains only partially mapped; the manager join uses one exact counted list found
+inside it:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| v | u32 | nodeCount | Matches the number of nodes carrying this character id at exploration +43 |
+| v + 4 | u32 × nodeCount | orderedNodeKeys | Same set as the exploration family; first key is the owner |
+
+In plain terms, exploration +43 identifies the NPC-manager family shared by a main node
+and its production nodes. `characterfunction.dbss` independently lists the same family
+in order: the first node owns the manager and the remaining nodes refer to that owner.
+`world.json` represents these as `manager` and `managerNode`. Exploration +45 is a
+different relation: it identifies town rulers or representatives, such as Igor Bartali
+and Crucio Domongatt.
+
+As a validation sample, all 494 raw families and all 914 affiliated nodes match between
+the two files. Valid families contain a main node, apart from two standalone kind-4 farm
+owners. Four non-main kind-0 pseudo nodes in Islin Bartali's family are therefore not
+manager relations. This produces 493 owners and 417 affiliates, and every retained
+manager has `SpawnType Explorer=12`.
+
+Contribution cost does not imply that a manager relationship exists. Three dormant or
+unreleased-looking main records retain a nonzero cost while their raw +43 field is zero
+and no `characterfunction` list references them:
+
+| Node key | Display/raw name | Waypoint internal name | CP | Evidence |
+|---:|---|---|---:|---|
+| 1651 | Duvencrune | `field(dvenkrun_castle)` | 1 | Duplicate placeholder; the live Duvencrune city is key 1649 |
+| 1706 | `UnKnown` | `field(black_mountain_range)` | 3 | Unnamed placeholder linked to O'draxxia |
+| 2055 | `UnKnown` | `chungsaislnad` | 1 | Unnamed/unreleased-looking island record |
+
+The build therefore does not synthesize managers or enforce `contribution > 0 ⇔
+manager`.
+
+### Worker-production item tables
+
+Worker products are joined through three tables.
+
+`plantzone.dbss` uses the standard 12-byte offset index and variable records:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | nodeKey | Equals the offset-index key; joins `exploration.bss` |
+| 4 | u8 ×19 | unknown | Retained only as structural spacing |
+| 23 | u32 | packedProductionKey | Low u16 is the production key; high word is ignored |
+| 27 | u32 | workerSpeciesCount | 0–32 in validated data |
+| 31 | u8 × count | workerSpecies | Allowed worker-species bytes; not needed for product identity |
+
+`plantexchangegroup.bss` is PABR with fixed 94-byte records:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u16 | productionKey | Join from `plantzone` |
+| 2 | u16 | productionKeyCopy | Must equal +0 |
+| 4 | u16 | unknown | Unmapped |
+| 6 | u32 | itemSubgroupKey | Normal-output subgroup |
+| 10 | u8 ×80 | unknown | Unmapped |
+| 90 | u32 | unknownTail | Unmapped |
+
+`itemsubgroup.dbss` uses the compact 10-byte offset index and variable records:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | subgroupKey | Equals the u16 offset-index key |
+| 4 | u8 ×10 | unknown | Unmapped header fields |
+| 14 | u32 | itemCount | 0–100 in validated data |
+| 18 + n×135 | u32 | itemId | Normal worker-production item |
+| 22 + n×135 | u8 ×131 | itemData | Unmapped per-item payload; quantities are not identified here |
+
+`world.json` exposes the resolved normal items as each node's `products` references.
+The observed client data resolves 389 of 425 plant zones; 36 reference subgroup keys absent
+from `itemsubgroupoffset.dbss` and are left without products. Quantities and lucky bonus
+drops are server-side data and are intentionally not inferred here.
+
+### `mapdata_realexplore2.bwp` — node positions and links
+
+PABR with 1,058 fixed 23-byte rows, followed by a counted edge list, five zero bytes,
+and a UTF-16 internal-name table:
+
+| Row @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | nodeKey | Exploration key; 22 rows are outside the observed 1,037-node table |
+| 4 | u32 | rowIndex | Sequential from zero |
+| 8 | f32 ×3 | position | World/minimap x/y/z used for the node marker |
+| 20 | u8 ×3 | flags | Client waypoint flags; meanings not fully mapped |
+
+The section after the fixed rows is:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | edgeCount | 2,408 directed edges observed |
+| 4 + n×8 | u32 | fromKey | Source node key |
+| 8 + n×8 | u32 | toKey | Destination node key |
+| after edges | u8 ×5 | zero | Reserved delimiter before the string table |
+| string table | UTF-16 strings | internalName | One internal waypoint name per fixed row |
+
+These positions match the in-game map and the public Workerman/Bdolytics waypoint
+dumps, including distinct positions for production sub-nodes.
 
 ---
 
@@ -569,37 +801,137 @@ derives each node's territory from the nearest region by x/z distance.
 Across the `gamecommondata/binary` set: **NPC/monster identity is client-side, but
 granular loot/drop/yield data is server-side and not shipped here.**
 
-**Present and connectable:**
+### `npcsimply.bss` — NPC identity
 
-- **`npcsimply.bss`** — NPC identity (PABR, 33-byte records). `u16 npcId @0`, then a
-  `u16 @20` holding `strIndex<<8` into the table's own string table (Korean name +
-  title). English names from loc table 6. Keys everything by NPC id.
-- **`characterstatic.dbss`** — render/model data, not stats. Indexed by
-  `characterstaticoffset.dbss` (PABR-wrapped, 10-byte `(u16 key, u32 off, u32 size)`
-  records). Each record's id is a `u32` well inside it, and it carries an ASCII model
-  path (`npc/…`, `monster/dummy_normal`).
+PABR with fixed 33-byte records and an 8-bit string table. English names and titles come
+from localization table 6; the embedded strings are Korean.
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u16 | characterId | NPC character-template key |
+| 2 | u8 ×18 | unknown | Unmapped fixed fields |
+| 20 | u32 | packedNameRef | String-table index is `value >> 8` |
+| 24 | u32 | packedTitleRef | String-table index is `value >> 8` |
+| 28 | u8 ×5 | unknownTail | Unmapped |
+
+### `characterspawntype.dbss` — map/service roles
+
+The data starts with `[u32 count]`, followed by 24,008 fixed 48-byte records. Its
+companion uses the compact 10-byte offset index.
+
+| Record @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u16 | characterId | Must equal the offset-index key |
+| 2 | u8 ×46 | roleFlags | Byte index is `CppEnums.SpawnType`; every byte is 0 or 1 |
+
+The 46 role indices exposed by `model.NPCSpawnType` are:
+
+| Value | Role | Value | Role |
+|---:|---|---:|---|
+| 0 | Normal | 23 | Alchemy |
+| 1 | SkillTrainer | 24 | GuildShop |
+| 2 | ItemRepairer | 25 | ItemMarket |
+| 3 | ShopMerchant | 26 | TerritorySupply |
+| 4 | ImportantNPC | 27 | TerritoryTrade |
+| 5 | TradeMerchant | 28 | Smuggle |
+| 6 | Warehouse | 29 | Cook |
+| 7 | Stable | 30 | PC |
+| 8 | Wharf | 31 | Grocery |
+| 9 | Transfer | 32 | RandomShop |
+| 10 | Intimacy | 33 | SupplyShop |
+| 11 | Guild | 34 | RandomShopDay |
+| 12 | Explorer | 35 | FishSupplyShop |
+| 13 | Inn | 36 | GuildSupplyShop |
+| 14 | Auction | 37 | GuildStable |
+| 15 | Mating | 38 | GuildWharf |
+| 16 | Potion | 39 | PCRoomStable |
+| 17 | Weapon | 40 | Instrument |
+| 18 | Jewel | 41 | Unknown41 |
+| 19 | Furniture | 42 | TrainingVehicleShop |
+| 20 | Collect | 43 | AbyssOneEnterPositionGuide |
+| 21 | Fish | 44 | ChangeMarniStone |
+| 22 | Worker | 45 | ChurchBuff |
+
+`Explorer=12` identifies node managers. Index 41 is present in observed data but omitted from
+the shipped Lua enum, so it remains explicitly unknown.
+
+### `characterstatic.dbss` — interaction/model metadata
+
+This is render and interaction metadata, not combat stats. It uses the compact 10-byte
+offset index keyed by character-template id. Records are variable because the first two
+scripts are length-prefixed UTF-16 strings. In the table, `p` is the first byte after
+`script2`:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 ×8 | header | Unmapped record header |
+| 8 | u8 | tag | `0x15` in decoded records |
+| 9 | i64 + UTF-16 | script1 | `[i64 charCount][charCount × u16]` |
+| after script1 | i64 + UTF-16 | script2 | Same encoding |
+| p | u8 | unknown | Unmapped delimiter |
+| p + 1 | u32 | characterId | Must equal the offset-index key when parsing lands cleanly |
+| p + 5 | u32 | npcKind | Semantic entity-kind bitfield; high combat flags remain partly unmapped |
+| p + 9 | u32 ×n | configFields | Raw structured fields retained until the model path |
+| variable | ASCII | modelPath | Longest printable path containing `/`, e.g. `npc/...` |
+
+`getknowledge(N);` in either script provides the exact character→knowledge-card link.
+
+**Other present client tables:**
+
 - **`collect.dbss`** + **`collectresourcename.dbss`** — gatherable identity and internal
   mesh names; no yields or rates.
 - **`encyclopedia.bss`** — the in-game fish/creature encyclopedia (PABR, 300 × 104-byte
-  records): `u16 id @0`, a knowledge code, two `f32` size fields, a `(descStrIdx,
-  iconStrIdx)` pair. Description + artwork `.dds`.
+  records). Only the following fields are presently mapped; offsets not listed have not
+  been established precisely:
+
+  | @ | Type | Field | Meaning |
+  |---|---|---|---|
+  | 0 | u16 | id | Encyclopedia entry id |
+  | unknown | integer | knowledgeCode | Knowledge-card relation |
+  | unknown | f32 ×2 | sizeRange | Creature/fish size values |
+  | unknown | integer ×2 | descStrIdx, iconStrIdx | Description and artwork `.dds` string references |
+
+`npcs.json` joins `npcsimply` identity, `characterspawntype` roles and
+`regionclientdata` placements. Its id is a character-template key; each `spawns` entry is
+a placed variant of that template and retains `dialogIndex`, the same variant key
+external maps call `sub_id`. All 492 node-manager IDs in the referenced Bdolytics node dump
+carry client `SpawnType Explorer=12`; the role does not require external data. The build
+requires every emitted manager template to resolve to a placement after spawn layers are
+applied. The four non-main kind-0 pseudo nodes in the Islin Bartali family are not
+manager relationships and emit neither `manager` nor `managerNode`. The build warns when
+a retained manager's nearest placement is more than ten world-map tiles (128,000 units)
+from its owner node.
 
 ### Knowledge / Ecology → `knowledge.json`
 
-Two tables, each with a PABR-style offset companion:
+`mentaltheme.dbss` is the 901-node category tree and uses the compact 10-byte offset
+index:
 
-- **`mentaltheme.dbss`** — the category tree (902 nodes). Record:
-  `[u16 key][i64 nameLen][nameLen×2 UTF-16 name][u16 parent]`. Offset index is 10-byte
-  `(u16 key, u32 off, u32 size)`.
-- **`mentalcard.dbss`** — the cards (12,077). 40-byte head:
-  `@0 u32 key · @4 u32 theme(owner) · @8/@12/@16 f32 minFavor/maxFavor/interest ·
-  @20 u32 flags` (obtain/display bits, not a kind) `· @24–39 packed sub-structure` then
-  the embedded name/desc + an ASCII image path (`UI_Artwork/Encyclopedia/IC_<key>.dds`).
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u16 | themeKey | Equals the offset-index key |
+| 2 | i64 | nameLength | UTF-16 code-unit count |
+| 10 | u16 × nameLength | sourceName | Embedded source-language name |
+| 10 + 2×nameLength | u16 | parentTheme | Parent category key; zero for a root |
 
-English names come from loc table 9 (themes) and loc table 34 (cards; description +
+`mentalcard.dbss` contains 12,077 knowledge entries and uses the standard 12-byte offset
+index. Its fixed header is:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | cardKey | Equals the offset-index key |
+| 4 | u32 | themeKey | Owning knowledge category |
+| 8 | f32 | minFavor | Conversation favor parameter |
+| 12 | f32 | maxFavor | Conversation favor parameter |
+| 16 | f32 | interest | Conversation interest parameter |
+| 20 | u32 | flags | Obtain/display flags; not an entity kind |
+| 24 | u32 ×4 | packedFields | Partly mapped packed sub-structure; +36 is zero on default cards |
+| 40 | variable | embeddedStrings | Source name/description plus ASCII `.dds` image path |
+
+English names come from localization table 9 (themes) and localization table 34 (cards; description +
 acquisition columns). **Links are by localized name, not id** — the id spaces overlap
 coincidentally. The "You can learn about X" items (`itemType == "Skill"`) match a theme
-name (group item) or card name (single item); a card's NPC is matched by name to loc 6.
+name (group item) or card name (single item); a card's NPC is matched by name to localization table 6.
 `knowledgelearning*.bss` is card↔card (learning prereqs), not the item link.
 
 ### Monster-zone obtainable loot — client-side

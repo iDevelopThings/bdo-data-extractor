@@ -1,2 +1,4 @@
+github.com/deepteams/webp v1.2.7 h1:Oj3iXbZ0U4siY1KHFTF5T21uysZkmor8pT4E38mNK2o=
+github.com/deepteams/webp v1.2.7/go.mod h1:J8Ap+HAixxpKKRN9IpEeSKlfvhsef1v43jKTO7m3f4c=
 github.com/dgravesa/go-parallel v0.6.0 h1:3KU5uzHn92Upq9jPVQ+ILLechgUKigCo72TScC7U3qE=
 github.com/dgravesa/go-parallel v0.6.0/go.mod h1:JoWGhU5NYLSu+pg6VW0GK1P4K+WmoRNAhebyKGGtclA=

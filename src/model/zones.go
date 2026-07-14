@@ -1,6 +1,9 @@
 package model
 
-import "github.com/idevelopthings/bdo-data-extractor/src/models"
+import (
+	"github.com/idevelopthings/bdo-data-extractor/src/models"
+	"github.com/idevelopthings/bdo-data-extractor/src/urn"
+)
 
 // Zone is one monster/drop zone from dropuihuntinggroundinfo.bss — the data
 // behind the in-game "Monster Zone Info" window. The table holds 105 records,
@@ -32,10 +35,14 @@ type Zone struct {
 
 // Ref is a numeric id resolved to its display name (filled by the build from
 // loc). Desc carries an optional description (e.g. a title's requirement text).
+// URN is the durable link to the referenced entity when it maps to a catalog
+// model (ecology → character, topography → world region); absent for refs with
+// no backing model (e.g. titles).
 type Ref struct {
-	ID   uint32 `json:"id"`
-	Name string `json:"name,omitempty"`
-	Desc string `json:"desc,omitempty"`
+	ID   uint32   `json:"id"`
+	Name string   `json:"name,omitempty"`
+	Desc string   `json:"desc,omitempty"`
+	URN  *urn.URN `json:"urn,omitempty"`
 }
 
 // QuestRef is a "group-index" quest id resolved to its loc texts (filled by the build).
@@ -50,9 +57,12 @@ type QuestRef struct {
 // NodeRef is the zone's waypoint/node: the key (links the node graph), the zone
 // name, and the nav position (present for nav-based zones).
 type NodeRef struct {
-	Key  uint32    `json:"key"`
-	Name string    `json:"name,omitempty"`
-	Pos  []float64 `json:"pos,omitempty"`
+	// Node resolves to the worldmap node in world.json, when the key is one (6 of the
+	// 105 zones point at a key with no exploration node behind it).
+	Node *models.EntityRef[WorldNode] `json:"urn,omitempty"`
+	Key  uint32                       `json:"key"`
+	Name string                       `json:"name,omitempty"`
+	Pos  []float64                    `json:"pos,omitempty"`
 }
 
 // TagInfo is one Monster Zone Info tag from dropuitaginfo.bss: its key, label

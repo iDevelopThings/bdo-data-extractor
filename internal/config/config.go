@@ -12,9 +12,11 @@ import (
 )
 
 type Config struct {
-	GameDir     *string
-	Out         *string
-	Lang        *string
+	GameDir *string
+	Out     *string
+	Lang    *string
+	// Region selects the game service region, such as na.
+	Region      *string
 	Pretty      *bool
 	DumpItemIds []uint32 // optional list of item IDs to dump (for debugging)
 }
@@ -24,11 +26,12 @@ var GlobalConfig *Config
 // Set populates GlobalConfig programmatically. It is the embedder's entry point,
 // mirroring what InitConfig does for the CLI, so the pipeline's single source of
 // truth stays GlobalConfig whether it's driven by flags or by an embedding app.
-func Set(gameDir, out, lang string, pretty bool) {
+func Set(gameDir, out, lang, region string, pretty bool) {
 	GlobalConfig = &Config{
 		GameDir: &gameDir,
 		Out:     &out,
 		Lang:    &lang,
+		Region:  &region,
 		Pretty:  &pretty,
 	}
 }
@@ -47,6 +50,7 @@ func InitConfig() (*Config, string, []string) {
 	GlobalConfig.GameDir = fs.String("game", paz.DefaultGameDir, "game install directory (read-only)")
 	GlobalConfig.Out = fs.String("out", "data", "output directory for build")
 	GlobalConfig.Lang = fs.String("lang", "en", "localization language (en/de/fr/sp)")
+	GlobalConfig.Region = fs.String("region", "", "game service region, e.g. na")
 	GlobalConfig.Pretty = fs.Bool("pretty", false, "indent JSON output (build command)")
 
 	fs.Func("dump-item-ids", "comma-separated list of item IDs to dump (for debugging)", func(s string) error {
@@ -92,14 +96,17 @@ func usage() {
   meta                       parse pad00000.meta, print summary
   extract <substr> <outDir>  extract decoded files whose path contains substr
   table <name>               decode one table via a known schema -> JSON (stdout)
-  icons [outDir]             decode each item's icon to <id>.png (default <out>/icons)
-  loc [outPath]              dump the ENTIRE localization file (all tables) -> JSON
-  regionmaps                 decode each region map to <out>/regionmaps/<map>.png
-  worldmap                   decode the world map to <out>/worldmap.png
+  index                      dump the archive listing -> <out>/paz_files.json + paz_dirs.json
+  icons [outDir]             decode each item's icon to <id>.webp (default <out>/icons)
   knowledge-icons            decode each knowledge card's encyclopedia image to <out>/knowledge_icons/<image>
+  loc [outPath]              dump the ENTIRE localization file (all tables) -> JSON
+  worldmap                   decode the world map to a tile pyramid in <out>/worldmap/<layer>/
+  maps                       same as worldmap (region masks are built by regionmaps)
+  regionmaps                 decode each region map to <out>/regionmaps/<map>.png
 
 flags: --game DIR (game install, read-only)  --out DIR (output, default "data")
-       --lang en|de|fr|sp   --pretty (indent JSON)`,
+       --lang en|de|fr|sp   --region na (game service region; default: language only)
+       --pretty (indent JSON)`,
 	)
 	if err != nil {
 		log.Fatalf("failed to write usage: %v", err)

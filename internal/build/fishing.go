@@ -34,7 +34,7 @@ func (b *Builder) buildFishing() error {
 					sz += s.Pos[2]
 				}
 				n := float64(len(r.Spawns))
-				worldC[r.Key] = [2]float64{sx / n, sz / n}
+				worldC[uint32(r.Key)] = [2]float64{sx / n, sz / n}
 			}
 			t, m, a := tables.AttributeFishingPoints(points, rm, worldC, b.gs.Topography)
 			b.logf(fmt.Sprintf("fishing spots: attributed %d/%d to regions (%d key correspondences)", a, len(points), m))

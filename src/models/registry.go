@@ -52,19 +52,39 @@ func (r *Registry) Reset() {
 	r.runners = nil
 }
 
-// ResolveUrnIn looks up a *T by URN in r.
-func ResolveUrnIn[T any](r *Registry, u urn.URN) (*T, bool) {
+// StoreForIn returns the *Store[T] registered against r, or nil if there is
+// none. Resolve a batch of URNs through this once rather than paying the
+// registry's map lookup and RLock per URN.
+func StoreForIn[T any](r *Registry) *Store[T] {
 	r.mu.RLock()
 	v, ok := r.byType[reflect.TypeFor[T]()]
 	r.mu.RUnlock()
 	if !ok {
-		return nil, false
+		return nil
 	}
-	s, ok := v.(*Store[T])
-	if !ok {
+	s, _ := v.(*Store[T])
+	return s
+}
+
+// ResolveUrnIn looks up a *T by URN in r.
+func ResolveUrnIn[T any](r *Registry, u urn.URN) (*T, bool) {
+	s := StoreForIn[T](r)
+	if s == nil {
 		return nil, false
 	}
 	return s.Get(u)
+}
+
+// ResolveUrnsIn looks up every URN in r, dropping the ones that don't resolve,
+// so the result is NOT positionally parallel to urns. For a positional result
+// (nil per unresolved URN), use Store.GetAllInto or EntityRefList.All.
+// The store is looked up once, not per URN.
+func ResolveUrnsIn[T any](r *Registry, urns []urn.URN) []*T {
+	s := StoreForIn[T](r)
+	if s == nil {
+		return nil
+	}
+	return s.GetAll(urns)
 }
 
 // Build runs every registered store's hooks, in registration order (and,
@@ -104,19 +124,20 @@ func ResolveUrn[T any](u urn.URN) (*T, bool) {
 	return ResolveUrnIn[T](Default, u)
 }
 
-func ResolveStore[T any]() *Store[T] {
-	r := Default
+// ResolveUrns looks up every URN in Default, dropping the ones that don't resolve.
+func ResolveUrns[T any](urns []urn.URN) []*T {
+	return ResolveUrnsIn[T](Default, urns)
+}
 
-	r.mu.RLock()
-	v, ok := r.byType[reflect.TypeFor[T]()]
-	r.mu.RUnlock()
-	if !ok {
+// StoreFor returns the *Store[T] registered against Default, or nil.
+func StoreFor[T any]() *Store[T] {
+	return StoreForIn[T](Default)
+}
+
+func ResolveStore[T any]() *Store[T] {
+	s := StoreForIn[T](Default)
+	if s == nil {
 		log.Printf("ResolveStore: no store registered for type %T", *new(T))
-		return nil
-	}
-	s, ok := v.(*Store[T])
-	if !ok {
-		log.Printf("ResolveStore: registered store for type %T is not a *Store[%T]", *new(T), *new(T))
 		return nil
 	}
 	return s

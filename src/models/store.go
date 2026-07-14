@@ -55,6 +55,34 @@ func (s *Store[T]) Add(u urn.URN, v *T) error {
 	return nil
 }
 
+// GetAll looks up every URN, dropping the ones that don't resolve — the result
+// is compacted, so it is NOT positionally parallel to urns and may be shorter.
+// When the caller needs index i of the result to correspond to urns[i], use
+// GetAllInto.
+func (s *Store[T]) GetAll(urns []urn.URN) []*T {
+	if len(urns) == 0 {
+		return nil
+	}
+
+	out := make([]*T, 0, len(urns))
+	for _, u := range urns {
+		if v, ok := s.Get(u); ok {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// GetAllInto resolves urns positionally into out, which must have len >=
+// len(urns): out[i] is the entity for urns[i], or nil if it doesn't resolve.
+// Allocation-free — the caller owns out.
+func (s *Store[T]) GetAllInto(urns []urn.URN, out []*T) []*T {
+	for i, u := range urns {
+		out[i] = s.GetUnsafe(u)
+	}
+	return out
+}
+
 // Get looks up v by URN. Returns (nil, false) for an invalid/zero URN
 // without probing the map.
 func (s *Store[T]) Get(u urn.URN) (*T, bool) {

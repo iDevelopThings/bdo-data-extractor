@@ -54,12 +54,15 @@ func attrFloat(se xml.StartElement, name string) float64 {
 }
 
 // DecodeRegions parses regionclientdata.xml: a flat stream of
-// <RegionInfo Key="N"> elements, each containing <SpawnInfo key="<charId>" dialogIndex="i" position="{x,y,z}"/> children.
-func DecodeRegions(data []byte) ([]model.Region, error) {
+// <RegionInfo Key="N"> elements, each containing <SpawnInfo key="<charId>"
+// dialogIndex="i" position="{x,y,z}"/> children, into a region-key -> spawn
+// placements map (spawns of a repeated key are merged).
+func DecodeRegions(data []byte) (map[uint32][]model.Spawn, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	dec.Strict = false
-	var regions []model.Region
-	cur := -1
+	out := map[uint32][]model.Spawn{}
+	var cur uint32
+	haveCur := false
 	for {
 		tok, err := dec.Token()
 		if err == io.EOF {
@@ -74,20 +77,23 @@ func DecodeRegions(data []byte) ([]model.Region, error) {
 		}
 		switch se.Name.Local {
 		case "RegionInfo":
-			regions = append(regions, model.Region{Key: attrU32(se, "Key")})
-			cur = len(regions) - 1
+			cur = attrU32(se, "Key")
+			haveCur = true
+			if _, exists := out[cur]; !exists {
+				out[cur] = nil
+			}
 		case "SpawnInfo":
-			if cur < 0 {
+			if !haveCur {
 				continue
 			}
-			regions[cur].Spawns = append(regions[cur].Spawns, model.Spawn{
+			out[cur] = append(out[cur], model.Spawn{
 				Key:         attrU32(se, "key"),
 				Pos:         parseVec3(attrVal(se, "position")),
 				DialogIndex: attrInt(se, "dialogIndex"),
 			})
 		}
 	}
-	return regions, nil
+	return out, nil
 }
 
 func attrVal(se xml.StartElement, name string) string {

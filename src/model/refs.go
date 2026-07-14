@@ -44,6 +44,36 @@ func CharacterRef(name string) *models.EntityRef[Character] {
 	return models.NewEntityRef[Character](urn.Character.New(slug))
 }
 
+// TerritoryRef builds a reference to territory index idx
+// (urn::world:territory:<idx>). Territory indices are a 0-based enum (Balenos →
+// 0), so unlike the id-keyed refs there is no zero guard — 0 is a real territory.
+func TerritoryRef(idx int) *models.EntityRef[Territory] {
+	return models.NewEntityRef[Territory](urn.World.New("territory", idx))
+}
+
+// NPCRef builds a reference to NPC id, or nil when id is 0.
+func NPCRef(id uint32) *models.EntityRef[NPC] {
+	if id == 0 {
+		return nil
+	}
+	return models.NewEntityRef[NPC](urn.NPC.New(id))
+}
+
+// KnowledgeEntryRefList builds a list of knowledge-entry refs
+// (urn::knowledge:entry:<key>) skipping 0 keys, or nil when the list is empty.
+func KnowledgeEntryRefList(keys ...int) *models.EntityRefList[KnowledgeEntry] {
+	l := models.EntityRefList[KnowledgeEntry]{}
+	for _, key := range keys {
+		if key != 0 {
+			l.Add(urn.Knowledge.New("entry", key))
+		}
+	}
+	if l.Len() == 0 {
+		return nil
+	}
+	return &l
+}
+
 // ItemRefList builds a loot/ingredient list of item refs, skipping 0 ids.
 func ItemRefList(ids ...uint32) models.EntityRefList[Item] {
 	l := models.EntityRefList[Item]{}
@@ -53,6 +83,39 @@ func ItemRefList(ids ...uint32) models.EntityRefList[Item] {
 		}
 	}
 	return l
+}
+
+// WorldRegionRef builds a reference to map region key (urn::world:region:<key>), or
+// nil when key is 0.
+func WorldRegionRef(key uint32) *models.EntityRef[WorldRegion] {
+	if key == 0 {
+		return nil
+	}
+	return models.NewEntityRef[WorldRegion](urn.World.New("region", key))
+}
+
+// WorldNodeRef builds a reference to worldmap node key (urn::world:node:<key>), or
+// nil when key is 0.
+func WorldNodeRef(key uint32) *models.EntityRef[WorldNode] {
+	if key == 0 {
+		return nil
+	}
+	return models.NewEntityRef[WorldNode](urn.World.New("node", key))
+}
+
+// WorldNodeRefList builds a list of worldmap node refs, skipping 0 keys, or nil when
+// the list is empty.
+func WorldNodeRefList(keys ...uint32) *models.EntityRefList[WorldNode] {
+	l := models.EntityRefList[WorldNode]{}
+	for _, key := range keys {
+		if key != 0 {
+			l.Add(urn.World.New("node", key))
+		}
+	}
+	if l.Len() == 0 {
+		return nil
+	}
+	return &l
 }
 
 // NpcRefList builds a list of npc refs (urn::npc:<id>) skipping 0 ids, or nil when

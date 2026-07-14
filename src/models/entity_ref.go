@@ -71,7 +71,12 @@ func (e *EntityRef[T]) ID() uint32 {
 // so only call it when a consumer actually wants the full expansion.
 type EntityRefList[T any] struct {
 	URNs   []urn.URN `json:"urns"`
-	Values []*T      `json:"-"` // runtime resolution cache, not persisted
+	Values []*T      `json:"-"` // runtime resolution cache, parallel to URNs once sized
+
+	// resolved is set once every URN has been looked up. Values being full-length
+	// doesn't imply that — a single Get(i) sizes it — so the full-resolve paths
+	// need their own flag to avoid returning a half-populated cache.
+	resolved bool
 }
 
 func NewEntityRefList[T any](urns ...urn.URN) EntityRefList[T] {
@@ -82,16 +87,21 @@ func (l *EntityRefList[T]) Len() int { return len(l.URNs) }
 
 func (l *EntityRefList[T]) Add(u urn.URN) {
 	l.URNs = append(l.URNs, u)
+	l.resolved = false
 }
 
+// growValues sizes the Values cache to match URNs, preserving what's cached.
 func (l *EntityRefList[T]) growValues() {
-	if cap(l.Values) < len(l.URNs) {
-		next := make([]*T, len(l.URNs))
-		copy(next, l.Values)
-		l.Values = next
+	if len(l.Values) == len(l.URNs) {
 		return
 	}
-	l.Values = l.Values[:len(l.URNs)]
+	if cap(l.Values) >= len(l.URNs) {
+		l.Values = l.Values[:len(l.URNs)]
+		return
+	}
+	next := make([]*T, len(l.URNs))
+	copy(next, l.Values)
+	l.Values = next
 }
 
 // Get resolves and memoizes index i. Returns nil for an out-of-range
@@ -112,14 +122,83 @@ func (l *EntityRefList[T]) Get(i int) *T {
 	return v
 }
 
-// All resolves every entry (best-effort; entries that fail to resolve
-// are simply nil in the result). Only call this when a consumer needs
-// the fully expanded list — for the common "just need the URNs" path,
-// read l.URNs directly instead.
-func (l *EntityRefList[T]) All() []*T {
-	out := make([]*T, len(l.URNs))
-	for i := range l.URNs {
-		out[i] = l.Get(i)
+// GetManyByIndex resolves and memoizes every index in indices, returning a slice
+// parallel to indices: out[n] is the entity for indices[n], or nil if that index
+// is out of range or its URN doesn't resolve. The store is looked up at most once
+// for the whole batch, and only for indices that aren't already cached.
+func (l *EntityRefList[T]) GetManyByIndex(indices []int) []*T {
+	if l == nil || len(indices) == 0 {
+		return nil
 	}
+
+	out := make([]*T, len(indices))
+
+	// Resolved lazily on the first cache miss, then reused: a fully-cached batch
+	// pays no registry lookup at all, and a partial one pays exactly one.
+	var store *Store[T]
+
+	for n, i := range indices {
+		if i < 0 || i >= len(l.URNs) {
+			continue
+		}
+		if i < len(l.Values) && l.Values[i] != nil {
+			out[n] = l.Values[i]
+			continue
+		}
+		if store == nil {
+			if store = StoreFor[T](); store == nil {
+				return out
+			}
+			l.growValues()
+		}
+		v := store.GetUnsafe(l.URNs[i])
+		if v == nil {
+			continue
+		}
+		l.Values[i] = v
+		out[n] = v
+	}
+
 	return out
+}
+
+// resolveAll looks the store up once and fills the Values cache positionally,
+// skipping entries already resolved. Entries whose URN doesn't resolve stay nil.
+func (l *EntityRefList[T]) resolveAll() []*T {
+	if l == nil || len(l.URNs) == 0 {
+		return nil
+	}
+	if l.resolved {
+		return l.Values
+	}
+
+	l.growValues()
+
+	store := StoreFor[T]()
+	if store == nil {
+		return l.Values
+	}
+
+	for i, u := range l.URNs {
+		if l.Values[i] == nil {
+			l.Values[i] = store.GetUnsafe(u)
+		}
+	}
+	l.resolved = true
+
+	return l.Values
+}
+
+// All resolves every entry (best-effort; entries that fail to resolve are simply
+// nil in the result, which stays parallel to URNs). Only call this when a consumer
+// needs the fully expanded list — for the common "just need the URNs" path, read
+// l.URNs directly instead. The returned slice is the list's own cache: read-only.
+func (l *EntityRefList[T]) All() []*T {
+	return l.resolveAll()
+}
+
+// AllBulk resolves the whole list in one pass. Prefer it over Get(i) in a loop:
+// it pays the registry lookup once rather than per element.
+func (l *EntityRefList[T]) AllBulk() []*T {
+	return l.resolveAll()
 }

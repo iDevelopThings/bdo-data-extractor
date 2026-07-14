@@ -6,6 +6,8 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
+	"github.com/idevelopthings/bdo-data-extractor/src/urn"
+	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
 // buildZones decodes the Monster Zone Info table (dropuihuntinggroundinfo),
@@ -40,6 +42,15 @@ func (b *Builder) buildZones() error {
 	if sc, err := b.src.Read("dropuisubcategoryinfo.bss"); err == nil {
 		subIcons = tables.DecodeSubCategoryIcons(sc)
 	}
+	// A zone's node key is a worldmap node key for 99 of the 105 zones; the rest point
+	// at a key with no exploration record, so only those 99 get a resolvable ref.
+	explorationNodes := map[uint32]bool{}
+	if nodes, err := b.explorationTable(); err == nil {
+		for i := range nodes {
+			explorationNodes[uint32(nodes[i].Key)] = true
+		}
+	}
+
 	// resolve every referenced id to its name inline on the zone (no sidecars).
 	// loot stays as item ids -> items.json (the canonical item source).
 	for i := range zones {
@@ -49,6 +60,9 @@ func (b *Builder) buildZones() error {
 			if z.Node != nil {
 				z.Node.Name = gs.ZoneNames[i]
 			}
+		}
+		if z.Node != nil && explorationNodes[z.Node.Key] {
+			z.Node.Node = model.WorldNodeRef(z.Node.Key)
 		}
 		if z.MainCategory != nil {
 			z.MainCategory.Name = gs.MainCatNames[z.MainCategory.ID]
@@ -64,9 +78,13 @@ func (b *Builder) buildZones() error {
 		}
 		for j := range z.Ecology {
 			z.Ecology[j].Name = gs.EntityNames[z.Ecology[j].ID]
+			if slug := utils.Slug(z.Ecology[j].Name); slug != "" {
+				z.Ecology[j].URN = new(urn.Character.New(slug))
+			}
 		}
 		for j := range z.Topography {
 			z.Topography[j].Name = gs.Topography[z.Topography[j].ID]
+			z.Topography[j].URN = new(urn.World.New("region", z.Topography[j].ID))
 		}
 		for j := range z.RecurringQuests {
 			b.fillQuest(&z.RecurringQuests[j])

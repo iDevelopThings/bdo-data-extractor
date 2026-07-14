@@ -116,11 +116,13 @@ func DecodeRegionInfo(data []byte) ([]model.WorldRegion, map[int]int, error) {
 			p := posOff + 4 + 12*k
 			extra = append(extra, [3]float64{bss.F32(data, p), bss.F32(data, p+4), bss.F32(data, p+8)})
 		}
+		key := uint32(bss.U16(data, o))
+
 		out = append(out, model.WorldRegion{
-			BaseFor:   models.NewBaseFor[model.WorldRegion](uint32(bss.U16(data, o)), "region"),
-			Key:       int(bss.U16(data, o)),
+			BaseFor:   models.NewBaseFor[model.WorldRegion](key, "region"),
+			Key:       int(key),
 			Type:      int(data[o+offRegionType]),
-			Territory: terr,
+			Territory: model.TerritoryRef(terr),
 			// embedded Korean name; the build's loc join replaces it
 			Name:           strs[nameIdx],
 			Position:       [3]float64{bss.F32(data, o+offPosition), bss.F32(data, o+offPosition+4), bss.F32(data, o+offPosition+8)},

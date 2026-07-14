@@ -3,13 +3,15 @@ package pipeline
 import (
 	"bytes"
 	"fmt"
-	"image/png"
+	"image"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 
+	"github.com/deepteams/webp"
 	"github.com/dgravesa/go-parallel/parallel"
+
 	"github.com/idevelopthings/bdo-data-extractor/internal/config"
 	"github.com/idevelopthings/bdo-data-extractor/internal/jsonio"
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
@@ -65,9 +67,18 @@ func Icons() error {
 	return runImages(itemIcons(), knowledgeIcons(), territoryIcons(), zoneCategoryIcons())
 }
 
-// Maps decodes the region-mask maps and the world-map radar tiles into the data dir.
+// Maps decodes the region-mask maps and builds the world-map tile pyramid into the data
+// dir. The pyramid runs standalone (see WorldMap), not through runImages.
 func Maps() error {
-	return runImages(regionMaps(), worldMaps())
+	// Kept for debugging
+	// return runImages(worldMiniMaps())
+
+	// Kept for now, but not used, just incase we want to add it back.
+	// if err := runImages(regionMaps()); err != nil {
+	// 	return err
+	// }
+
+	return WorldMap()
 }
 
 // KnowledgeIcons decodes just the knowledge-card icons, for rerunning that one set.
@@ -78,11 +89,6 @@ func KnowledgeIcons() error {
 // RegionMaps decodes just the region-mask maps.
 func RegionMaps() error {
 	return runImages(regionMaps())
-}
-
-// WorldMap decodes just the world-map radar tiles.
-func WorldMap() error {
-	return runImages(worldMaps())
 }
 
 // runImages runs the given image sources against one game install: it opens the
@@ -226,9 +232,10 @@ func aliasSources(sources []imageSource) bool {
 	return false
 }
 
-// encodeIcon reads a DDS icon from the archive and returns it as PNG bytes, or nil
-// if the file is absent or undecodable.
-func encodeIcon(ar *paz.Archive, f paz.PazFile) []byte {
+// decodeTile reads a DDS from the archive and returns its decoded pixels, or nil if
+// the file is absent or undecodable. Callers that want pixels (the world-map pyramid
+// reuses them for downsampling) use this directly; encodeIcon wraps it for PNG output.
+func decodeTile(ar *paz.Archive, f paz.PazFile) *image.NRGBA {
 	if f.OrigSize == 0 { // zero-value PazFile = not found
 		return nil
 	}
@@ -236,17 +243,45 @@ func encodeIcon(ar *paz.Archive, f paz.PazFile) []byte {
 	if err != nil {
 		return nil
 	}
-	img, err := tex.DecodeDDS(dds)
-	if err != nil && len(dds)%8 == 0 {
-		// a few textures are stored uncompressed but still ICE-encrypted
-		// (Content only decrypts compressed entries) — retry decrypted
-		img, err = tex.DecodeDDS(paz.NewICE(paz.BDOICEKey).Decrypt(dds))
+	// Stored entries (CompSize==OrigSize) come back verbatim, and a few DDS textures
+	// are stored still-ICE-encrypted. There's no encryption flag in PazFile and Content
+	// is format-agnostic, but a plaintext DDS always begins with the "DDS " magic — so
+	// branch on it deterministically rather than decoding, failing, then retrying.
+	if len(dds) < 4 || string(dds[:4]) != "DDS " {
+		if len(dds)%8 == 0 {
+			dds = paz.NewICE(paz.BDOICEKey).Decrypt(dds)
+		}
 	}
+	img, err := tex.DecodeDDS(dds)
 	if err != nil {
 		return nil
 	}
+	return img
+}
+
+// encodeIcon reads a DDS icon from the archive and returns it encoded, or nil if
+// the file is absent or undecodable.
+func encodeIcon(ar *paz.Archive, f paz.PazFile) []byte {
+	img := decodeTile(ar, f)
+	if img == nil {
+		return nil
+	}
+	return encodeIconImage(img)
+}
+
+// encodeIconImage encodes decoded icon art as WebP, or nil if it won't encode. It
+// is the single encoder for everything Icons() writes.
+//
+// Lossy, deliberately: the icons only ever render at ~20-64px, and lossy is ~40%
+// smaller than PNG here. Lossless is not an option — this encoder's VP8L path
+// collapses on continuous-tone art (a 128px gradient encodes to ~78x its PNG),
+// which would make icons *bigger* than the PNGs they replace.
+func encodeIconImage(img *image.NRGBA) []byte {
 	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
+	if err := webp.Encode(&buf, img, &webp.EncoderOptions{
+		Quality: 50,
+		Method:  5,
+	}); err != nil {
 		return nil
 	}
 	return buf.Bytes()
