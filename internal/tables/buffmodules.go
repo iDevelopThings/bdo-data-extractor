@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
+	"github.com/idevelopthings/bdo-data-extractor/src/model"
 )
 
 // buff.dbss effect-module decoding.
@@ -57,14 +58,6 @@ type buffModule struct {
 	negate     bool    // stored magnitude represents a reduction (shown "-")
 	paramSlots []int   // slot indices forming the variant key
 	variants   map[string]string
-}
-
-// lifeSkillNames is the life-skill index used by the EXP/mastery modules
-// (module 25 arg2, modules 80/149 arg0).
-var lifeSkillNames = map[uint32]string{
-	0: "Gathering", 1: "Fishing", 2: "Hunting", 3: "Cooking", 4: "Alchemy",
-	5: "Processing", 6: "Training", 7: "Trading", 8: "Farming", 9: "Sailing",
-	11: "Barter", 15: "Life",
 }
 
 var buffModules = map[byte]buffModule{
@@ -176,29 +169,34 @@ var buffModules = map[byte]buffModule{
 // 2 life-skill EXP with arg2 selecting the life skill.
 func expVariants() map[string]string {
 	v := map[string]string{"0,0": "Combat EXP", "1,0": "Skill EXP"}
-	for id, name := range lifeSkillNames {
-		v[fmt.Sprintf("2,%d", id)] = name + " EXP"
+	for _, info := range model.LifeSkillTypes.Infos() {
+		if info.Playable {
+			v[fmt.Sprintf("2,%d", info.Wire())] = info.Title + " EXP"
+		}
 	}
+	v[fmt.Sprintf("2,%d", model.LifeSkillTypeCount)] = "Life EXP"
 	return v
 }
 
 func lifeSkillVariants(suffix string) map[string]string {
 	v := map[string]string{}
-	for id, name := range lifeSkillNames {
-		v[fmt.Sprintf("%d", id)] = name + suffix
+	for _, info := range model.LifeSkillTypes.Infos() {
+		if info.Playable {
+			v[fmt.Sprintf("%d", info.Wire())] = info.Title + suffix
+		}
 	}
+	v[fmt.Sprintf("%d", model.LifeSkillTypeCount)] = "Life" + suffix
 	return v
 }
 
 func masteryVariants() map[string]string {
 	v := map[string]string{}
-	for id, name := range lifeSkillNames {
-		if id == 15 {
-			v["15"] = "Life Skill Mastery"
-			continue
+	for _, info := range model.LifeSkillTypes.Infos() {
+		if info.Playable {
+			v[fmt.Sprintf("%d", info.Wire())] = info.Title + " Mastery"
 		}
-		v[fmt.Sprintf("%d", id)] = name + " Mastery"
 	}
+	v[fmt.Sprintf("%d", model.LifeSkillTypeCount)] = "Life Skill Mastery"
 	return v
 }
 

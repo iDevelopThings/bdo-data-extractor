@@ -6,11 +6,17 @@
 /data/
 /data_previous_version/
 /scripts/
+/_probe/
+/cmd/gen
+/cmd/seedeffectfuncs
+/exp/
+
 
 /.claude/
 /.agents/
 AGENTS.md
 CLAUDE.md
+
 
 # Never commit any game files / assets pulled from a Black Desert install
 *.paz

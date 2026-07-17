@@ -1,0 +1,227 @@
+# slots_equip.yaml
+package: model
+type: SlotName
+underlying: byte
+out: ..
+values:
+  - name: MainWeapon
+    wire: 0
+    title: "Main Weapon"
+    desc: "RightHand"
+
+  - name: SubWeapon
+    wire: 1
+    title: "Sub-weapon"
+    desc: "LeftHand"
+
+  - name: FishingChair
+    wire: 2
+    title: "Tool"
+    desc: "(life-tool seat; GatheringTools)"
+
+  - name: Armor
+    wire: 3
+    title: "Armor"
+    desc: "Chest"
+
+  - name: Gloves
+    wire: 4
+    title: "Gloves"
+    desc: "Glove"
+
+  - name: Shoes
+    wire: 5
+    title: "Shoes"
+    desc: "Boots"
+
+  - name: Helmet
+    wire: 6
+    title: "Helmet"
+    desc: "Helm"
+
+  - name: Necklace
+    wire: 7
+    title: "Necklace"
+    desc: "Necklace"
+
+  - name: RingI
+    wire: 8
+    title: "Ring I"
+    desc: "Ring1"
+
+  - name: RingII
+    wire: 9
+    title: "Ring II"
+    desc: "Ring2"
+    otherSlot: 8
+
+  - name: EarringI
+    wire: 10
+    title: "Earring I"
+    desc: "Earing1"
+
+  - name: EarringII
+    wire: 11
+    title: "Earring II"
+    desc: "Earing1"
+    otherSlot: 10
+
+  - name: Belt
+    wire: 12
+    title: "Belt"
+    desc: "Belt"
+
+  - name: Lantern
+    wire: 13
+    title: "Lantern"
+    desc: "Lantern"
+
+  - name: CostumeArmor
+    wire: 14
+    title: "Costume: Armor"
+    desc: "AvatarChest"
+
+  - name: CostumeGloves
+    wire: 15
+    title: "Costume: Gloves"
+    desc: "AvatarGlove"
+
+  - name: CostumeShoes
+    wire: 16
+    title: "Costume: Shoes"
+    desc: "AvatarBoots"
+
+  - name: CostumeHelmet
+    wire: 17
+    title: "Costume: Helmet"
+    desc: "AvatarHelm"
+
+  - name: CostumeMainWeapon
+    wire: 18
+    title: "Costume: Main Weapon"
+    desc: "AvatarWeapon"
+
+  - name: CostumeSubWeapon
+    wire: 19
+    title: "Costume: Sub-weapon"
+    desc: "AvatarSubWeapon"
+
+  - name: Underwear
+    wire: 20
+    title: "Underwear"
+    desc: "AvatarUnderwear"
+
+  - name: CostumeEarring
+    wire: 21
+    title: "Head & Ear"
+    desc: "Bottom slot head and ears accessory"
+
+  - name: CostumeHeadpiece
+    wire: 22
+    title: "Eye"
+    desc: "Bottom slot eyes(typically glasses)"
+
+  - name: CostumePiercing
+    wire: 23
+    title: "Nose, Mouth, Chin"
+    desc: "Bottom slot nose, mouth, chin accessory"
+
+  - name: ShipGear
+    wire: 25
+    title: "ShipGear"
+    desc: "(mount/ship equipment)"
+
+  - name: ShipGear2
+    wire: 26
+    title: "ShipGear"
+    desc: "(mount/ship equipment)"
+
+  - name: AlchemyStone
+    wire: 27
+    title: "Alchemy Stone"
+    desc: "AlchemyStone"
+
+  - name: AwakeningWeapon
+    wire: 29
+    title: "Awakening Weapon"
+    desc: "AwakenWeapon"
+
+  - name: CostumeAwakeningWeapon
+    wire: 30
+    title: "Costume: Awakening Weapon"
+    desc: "AvatarAwakenWeapon"
+
+  - name: Tome
+    wire: 31
+    title: "Tome"
+    desc: "QuestBook"
+
+  - name: ArtifactI
+    wire: 32
+    title: "Artifact I"
+    desc: "Artifact1"
+
+  - name: ArtifactII
+    wire: 33
+    title: "Artifact II"
+    desc: "Artifact2"
+    otherSlot: 32 # Dirty hack, but we need a way to link between them
+
+  - name: LumberingAxe
+    wire: 34
+    title: "Lumbering Axe"
+    desc: "Axe"
+
+  - name: FluidCollector
+    wire: 35
+    title: "Fluid Collector"
+    desc: "Syringe"
+
+  - name: Hoe
+    wire: 36
+    title: "Hoe"
+    desc: "Hoe"
+
+  - name: ButcherKnife
+    wire: 37
+    title: "Butcher Knife"
+    desc: "ButcheryKnife"
+
+  - name: TanningKnife
+    wire: 38
+    title: "Tanning Knife"
+    desc: "SkinKnife"
+
+  - name: Pickaxe
+    wire: 39
+    title: "Pickaxe"
+    desc: "PickAx"
+
+  - name: FishingRod
+    wire: 40
+    title: "Fishing Rod"
+    desc: "FishingRod"
+
+  - name: FishingFloat
+    wire: 41
+    title: "Fishing Float"
+    desc: "Bobber"
+
+  - name: FishingHarpoon
+    wire: 42
+    title: "Fishing Harpoon"
+    desc: "FishingHarpoon"
+
+  - name: GatheringCarrier
+    wire: 45
+    title: "Carrier"
+    desc: "Bottom slot carrier, things like fishing carrier, snowboard"
+
+  - name: None
+    wire: 46
+    title: "None"
+    desc: "Non-equipment sentinel"
+
+  - name: MAX
+    wire: 47
+    sentinel: true

@@ -26,7 +26,6 @@ package loc
 
 import (
 	"bytes"
-	"compress/zlib"
 	"fmt"
 	"io"
 	"os"
@@ -36,6 +35,7 @@ import (
 	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
+	"github.com/klauspost/compress/zlib"
 )
 
 // loc key0 values are stable semantic categories (not shifting indices), so
@@ -52,6 +52,7 @@ const (
 	nodeNameTable       = 29 // worldmap node names, keyed by exploration node key
 	questTable          = 18 // quest names, keyed (group=id, index=key1)
 	marketCatTable      = 44
+	itemSetTable        = 52  // skillpiece set-effect text, keyed by skillNo and apply index
 	houseTable          = 123 // house function / workshop names, keyed by house type (eHouseIconType)
 	jewelGroupTable     = 121 // crystal transfusion groups: id=group, key1=max count, text=name
 	subCatTable         = 115 // Monster Zone Info sub-category (content filter) names
@@ -77,12 +78,22 @@ func readBody(gameDir, lang string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	body, err := io.ReadAll(zr)
-	if err != nil {
-		return nil, err
+	defer func() {
+		// ReadFull reports stream errors; Close only releases decoder state.
+		_ = zr.Close()
+	}()
+
+	declared := int(bss.U32(raw, 0))
+	body := make([]byte, declared)
+	if _, err := io.ReadFull(zr, body); err != nil {
+		return nil, fmt.Errorf("loc %s: read decompressed body: %w", path, err)
 	}
-	if declared := bss.U32(raw, 0); int(declared) != len(body) {
-		return nil, fmt.Errorf("loc %s: decompressed %d bytes, header declares %d", path, len(body), declared)
+	var extra [1]byte
+	if _, err := io.ReadFull(zr, extra[:]); err != io.EOF {
+		if err == nil {
+			err = fmt.Errorf("output exceeds declared size")
+		}
+		return nil, fmt.Errorf("loc %s: validate decompressed size: %w", path, err)
 	}
 	return body, nil
 }
@@ -107,7 +118,7 @@ func forEachRecord(body []byte, fn func(key0, id, key1 uint32, raw []byte)) {
 }
 
 // MarketCat is a central-market category from loc table 44: its display name plus
-// its sub-category names (keyed by sub id, matching item byte @189).
+// its sub-category names (keyed by sub id, matching item byte @201).
 type MarketCat struct {
 	Name string
 	Subs map[uint32]string
@@ -141,6 +152,7 @@ type GameStrings struct {
 	ExchangeTexts map[uint32]string // item id -> NPC exchange offers (table 0, column 3)
 	MarketCats    map[uint32]MarketCat
 	BuffNames     map[uint32]string
+	ItemSetTexts  Table // skillpiece text (table 52), indexed by skillNo and packed field
 	// Monster Zone Info linkage (inline names):
 	Titles         map[uint32]string               // title id -> name (table 1)
 	TitleDescs     map[uint32]string               // title id -> requirement/description (table 1 desc field)
@@ -179,6 +191,7 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 		ExchangeTexts:  map[uint32]string{},
 		MarketCats:     map[uint32]MarketCat{},
 		BuffNames:      map[uint32]string{},
+		ItemSetTexts:   make(Table),
 		Titles:         map[uint32]string{},
 		TitleDescs:     map[uint32]string{},
 		EntityNames:    map[uint32]string{},
@@ -250,6 +263,13 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 				if _, ok := gs.BuffNames[id]; !ok {
 					gs.BuffNames[id] = name
 				}
+			}
+		case itemSetTable:
+			if t := text(raw); t != "" {
+				if gs.ItemSetTexts[id] == nil {
+					gs.ItemSetTexts[id] = make(map[uint32]string)
+				}
+				gs.ItemSetTexts[id][key1] = t
 			}
 		case titleTable:
 			if t := text(raw); t != "" {
@@ -400,4 +420,23 @@ func LoadAll(gameDir, lang string) ([]Record, error) {
 		recs = append(recs, Record{Key0: key0, ID: id, Key1: key1, Text: bss.DecodeUTF16(raw)})
 	})
 	return recs, nil
+}
+
+// LoadTable decodes one localization table, indexed by id and packed field.
+func LoadTable(gameDir, lang string, key uint32) (Table, error) {
+	body, err := readBody(gameDir, lang)
+	if err != nil {
+		return nil, err
+	}
+	table := make(Table)
+	forEachRecord(body, func(key0, id, field uint32, raw []byte) {
+		if key0 != key {
+			return
+		}
+		if table[id] == nil {
+			table[id] = make(map[uint32]string)
+		}
+		table[id][field] = bss.DecodeUTF16(raw)
+	})
+	return table, nil
 }

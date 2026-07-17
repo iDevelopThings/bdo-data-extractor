@@ -12,6 +12,16 @@ func U32(b []byte, o int) uint32  { return binary.LittleEndian.Uint32(b[o:]) }
 func U64(b []byte, o int) uint64  { return binary.LittleEndian.Uint64(b[o:]) }
 func F32(b []byte, o int) float64 { return float64(math.Float32frombits(U32(b, o))) }
 
+// AllZero reports whether every byte in b is zero.
+func AllZero(b []byte) bool {
+	for _, value := range b {
+		if value != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // Cursor is a bounds-checked, byte-granular sequential reader over a (sub)slice
 // of a decoded table. Records in these tables are byte-packed, so fields land at
 // arbitrary offsets; the cursor advances by the exact field width. A read past
@@ -119,6 +129,28 @@ func (c *Cursor) Bytes(n int) []byte {
 	v := c.b[c.pos : c.pos+n]
 	c.pos += n
 	return v
+}
+
+// Zero consumes n bytes and reports whether they are all zero. A read past the
+// cursor boundary returns false and sets the cursor's sticky error.
+func (c *Cursor) Zero(n int) bool {
+	b := c.Bytes(n)
+	return c.OK() && AllZero(b)
+}
+
+// Repeated consumes n bytes and reports whether every byte equals value. A read
+// past the cursor boundary returns false and sets the cursor's sticky error.
+func (c *Cursor) Repeated(n int, value byte) bool {
+	b := c.Bytes(n)
+	if !c.OK() {
+		return false
+	}
+	for _, current := range b {
+		if current != value {
+			return false
+		}
+	}
+	return true
 }
 
 // PeekByte / PeekU32 read without advancing.

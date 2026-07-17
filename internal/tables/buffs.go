@@ -180,6 +180,11 @@ var krStatEN = map[string]string{
 	"생명력 자연 회복량": "HP Recovery",
 	"기운 자연 회복량":  "Energy Recovery",
 	"정신력 자연 회복량": "MP/WP/SP Recovery",
+	"탑승물 생명력":    "Mount HP",
+	"말 생명력 회복":   "Horse HP Recovery",
+	// Tiered horse-stamina buff "말 지구력 회복 5-1": the "5" stays in the name and
+	// "-1" is mis-parsed as the value; the label is still right.
+	"말 지구력 회복 5": "Horse Stamina Recovery",
 	// life skill
 	"생활 숙련도":       "Life Mastery",
 	"가공 성공률":       "Processing Success Rate",
@@ -206,6 +211,9 @@ var krStatEN = map[string]string{
 	"힘 경험치":        "Strength EXP",
 	"조련 경험치 획득":    "Taming EXP",
 	"획득 생활 경험치":    "Life EXP",
+	"지구력 경험치":      "Stamina EXP",
+	"공헌도 경험치":      "Contribution EXP",
+	"건강 경험치 획득량":   "Health EXP",
 	// long tail
 	"이동 속도":           "Movement Speed",
 	"다운어택 피해량":        "Down Attack Damage",
@@ -220,6 +228,10 @@ var krStatEN = map[string]string{
 	"희귀 어종을 낚을 확률":    "Rare Fish Catch Rate",
 	"일꾼 행동력 추가":       "Worker Stamina",
 	"사망 시 불이익 감소":     "Reduced Death Penalty",
+	"사망 시 불이익 저항":     "Death Penalty Resistance",
+	"길드 성향치":          "Guild Karma",
+	"[식목일] 성향치":       "Karma",
+	"[영웅] 즉시 회복 물약":   "Instant HP Recovery",
 }
 
 // ParseHiddenStat parses a hidden buff's Korean name into a stat modifier. The

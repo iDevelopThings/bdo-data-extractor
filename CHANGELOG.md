@@ -11,6 +11,121 @@ Consumers should re-run extraction after upgrading — most releases change the 
 
 ## [Unreleased]
 
+## [0.1.4] — 2026-07-17
+
+Adds item sets, playable classes with level/fitness progression, and life-skill progression,
+plus a symbolic UI-string table. A large internal shift moves the game's enum-like fields —
+grades, equip slots, classes, life skills, stats, effect functions — to typed enums generated
+from YAML: a single documented source of truth, with compile-time type safety, shared with the
+frontend as generated TypeScript. Many decoders were rewritten to consume and validate every
+byte of a record, and now fail loudly on an unexpected layout instead of silently dropping rows.
+
+### ⚠ Breaking
+
+- **`Item.grade` is now a number, not a string, and is always emitted.** Was
+  `"grade":"white"` (omitempty); now `"grade":0`. Mapping: white 0, green 1, blue 2, yellow 3,
+  red 4, purple 5, none -1. The Go field type changed `string` → `model.ItemGrade` (`int8`).
+- **`EquipInfo.slot` / `slots` are now numbers, not strings.** `"slot":"Main Weapon"` → `"slot":0`;
+  `slots` is now an array of numbers. Types changed `string`/`[]string` →
+  `model.SlotName`/`[]model.SlotName`. `slot` also lost `omitempty`, so Main Weapon (0) now
+  emits (it was silently dropped in 0.1.3 — see Fixed).
+- **`WorldNode.flag` removed**, replaced by `enabled` (bool, always emitted) and
+  `unknown17` (bool, omitempty). Anything reading `worldNode.flag` breaks.
+- **`src/model/dsl.go` exported tables removed:** `EffectFuncs`, `EffectNamedFuncs`,
+  `EffectSectionMarker`. They are superseded by the generated `EffectFuncStat` enum. The JSON
+  `effect.func` value is unchanged (still a string). New `EffectFuncToStatMods` can now emit
+  several `StatMod`s from one DSL func, so effect arrays may be longer, and `StatMod.note`
+  wording changed (don't match on it).
+- **`itemenchant`/`enchantstaticstatus` `unknown*` keys renumbered.** The item header/icon
+  layout was corrected (~+12 byte shift), so many `unknownNNN` keys in `items.json` and inside
+  `enhancement.levels[]` were added, removed, or repointed. These are debug/deviation fields
+  with low consumer impact, but the keys changed.
+- **`paz_dirs.json` shape changed** (from the `index` command): was
+  `{interesting_dirs, dirs}`, now a flat sorted `[]string` of folder names.
+- Numeric enum fields serialize as **bare integers** (no `MarshalJSON`): `grade`, `slot`,
+  `slots`, and the new class/life-skill enums. `effect.func` and stat ids remain strings.
+
+### Added
+
+- **Item sets** — new `item_sets.json` (`skillpiece.dbss`), each with its N-piece bonus tiers
+  and localized bonus text. Every item gains an `itemSets` ref array, and each set lists its
+  member `items`. Membership is derived from effect-DSL markers/functions and an explicit
+  boss-gear list (Blackstar, Deboreka, Tungrad, Loggia, Geranoa, Manos/Preonne, boss armor, …).
+- **Playable classes + progression** — new `character_progression.json`: the real playable
+  classes (name, gender, starter/preview weapons), per-class level rules (`experience.bss`,
+  incl. the level-60 AP and level-56 DP bonuses), and character fitness curves
+  (Breath/Strength/Health, from `fitnesslevel.dbss`).
+- **Life-skill progression** — the game's life-skill XP tables are now processed: the max level
+  and full experience-per-level curve for each of the 15 life-skill types (`lifeexp.dbss`),
+  exposed as `life_skill_progression.json`.
+- **Symbolic UI strings** — new `lua-strings` CLI command → `lua_strings_<lang>.json`, decoding
+  `stringtable.bss` (~48k `PAGetString` keys) resolved through loc. Not part of the default
+  `build`.
+- **New exported enum types** (generated, package `model`): `ItemGrade`, `SlotName`,
+  `CharacterClassType`, `LifeSkillType`, `LifeSkillGrade`, `EffectFuncStat` (313 DSL funcs),
+  `StatId` (158 canonical stat ids). Each carries typed metadata and `FromWire`/`Parse`/`Info`
+  helpers.
+- **New domain types**: `ItemSet`/`ItemSetBonus`, `CharacterClass`/`CharacterProgression`,
+  `LifeSkillProgression`, and richer enchant detail on `EnchantLevel` (`CombatStats`,
+  `SpeciesAP`, `EnhancementAids`, `CaphrasMinLevel`/`MaxLevel`). New `urn.ItemSet` domain and
+  `ItemSetRefList`.
+- **`index` command filters**: `-ignore-exts`, `-only-exts`, `-only-dirs`.
+- **A YAML-driven enum generator** (`cmd/enum_codegen`, `go generate ./src/model`) — a large
+  shift in how these values are maintained. The enum-like fields above are now defined once in
+  `src/model/enums/*.yml`, self-documenting with per-value metadata, and generated into typed Go
+  enums (compile-time safety, replacing the old stringly-typed lookup maps) plus matching
+  TypeScript, so the backend and the viewer's frontend share one source of truth instead of
+  hand-maintaining parallel lists.
+
+### Fixed
+
+- **Caphras `MaxMP` values were wrong** — the last Caphras stat column was decoded as a
+  floating-point value in 0.1.3 but is actually an integer, so per-step MaxMP bonuses came out
+  garbled. Now read correctly.
+- **More buff-stat translations** — buff stats that previously came through untranslated (mount
+  HP, horse recovery, stamina/contribution/health EXP, death-penalty resistance, karma, …) now
+  carry English labels.
+
+### Changed
+
+- **Decoders now fail loudly on an unexpected layout.** The item, enchant-curve, caphras,
+  region-info and exploration decoders (and the caphras build stage) moved from silently
+  skipping a bad row / returning a nil no-op to returning an error that aborts the whole build.
+  This is safer against shipping a partial or empty table, but a game patch that changes a table
+  layout will now block extraction until the decoder is updated, rather than dropping a row.
+- **The item decoder was partially rewritten** for stability and to capture more fields — the
+  fixed header now extends to @208 with the post-icon block correctly mapped, extra typed fields
+  are surfaced, and a malformed record is rejected rather than mis-read.
+- **Enhancement (enchant-curve) decoding was largely rewritten**, now fully decoding each curve's
+  per-lane melee/ranged/magic combat stats, its species-AP table, and a validated footer, rather
+  than reading a partial fixed skeleton.
+- **Caphras enhancement decoding was rewritten** with strict validation — totals must increase
+  monotonically, stat columns are re-typed to match the game, and NaN/negative stats are rejected
+  (see Fixed for the MaxMP correction).
+- `regioninfo` was rewritten as a full sequential decode that consumes and validates every byte,
+  surfacing many previously-unknown region fields.
+- More generally, these decoders now consume and validate every byte of a record instead of
+  reading a fixed skeleton and trusting the rest.
+- UTF-16 decoding now handles surrogate pairs correctly (lone surrogates → U+FFFD).
+- Unknown enum bytes now surface as `UnknownN` instead of an empty string.
+- New offset-index parser `ParseU8OneBasedOffsetIndex`, and cursor helpers (`AllZero`, `Zero`,
+  `Repeated`) used to consume and assert reserved spans.
+- New dependencies: `gopkg.in/yaml.v3` (enum specs), `golang.org/x/tools` (codegen struct
+  columns), `github.com/klauspost/compress` (loc zlib), `github.com/goccy/go-json`.
+- `FORMATS.md` gained large new sections (item sets, classes, fitness, life skills, the string
+  table, and the rewritten `itemenchant`/`enchantstaticstatus`/`regioninfo` layouts); `README.md`
+  documents the `lua-strings` command and new outputs.
+
+### Performance
+
+- Faster localization decode at startup — the loc tables now decompress via
+  `klauspost/compress` and pre-size their buffers, reducing allocations and GC pressure on boot.
+- Item decoding no longer holds onto the source archive buffer: each record's preserved
+  variable-length tail is copied into one compact arena, so decoded items don't pin the whole
+  decompressed table in memory.
+- Safer file reads — decompressed bodies are read to their declared size with explicit
+  EOF/overrun checks instead of an unbounded read-all.
+
 ## [0.1.3] — 2026-07-14
 
 The world map becomes a real zoomable tile pyramid, world nodes gain their full graph
@@ -209,7 +324,8 @@ the PAZ archives, the `.bss`/`.dbss` binary tables, the per-item recipe XMLs and
 localization — into JSON (`items.json`, `recipes.json`, and more), plus decoded item icons.
 Distributed via `go install …@latest`.
 
-[Unreleased]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.0...v0.1.1

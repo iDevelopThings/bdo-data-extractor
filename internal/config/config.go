@@ -19,6 +19,11 @@ type Config struct {
 	Region      *string
 	Pretty      *bool
 	DumpItemIds []uint32 // optional list of item IDs to dump (for debugging)
+
+	// Index CMD related:
+	IgnoreExts *string // comma-separated list of file extensions to ignore when indexing
+	OnlyExts   *string // comma-separated list of file extensions to include when indexing (overrides IgnoreExts)
+	OnlyDirs   *string // comma-separated list of directories to include when indexing (overrides IgnoreExts)
 }
 
 var GlobalConfig *Config
@@ -52,6 +57,11 @@ func InitConfig() (*Config, string, []string) {
 	GlobalConfig.Lang = fs.String("lang", "en", "localization language (en/de/fr/sp)")
 	GlobalConfig.Region = fs.String("region", "", "game service region, e.g. na")
 	GlobalConfig.Pretty = fs.Bool("pretty", false, "indent JSON output (build command)")
+
+	// Index cmd related:
+	GlobalConfig.IgnoreExts = fs.String("ignore-exts", ".ai,.txt,.paa,.pae,.vnl,.bnk,.paac,.pac,.xml", "comma-separated list of file extensions to ignore when indexing")
+	GlobalConfig.OnlyExts = fs.String("only-exts", "", "comma-separated list of file extensions to include when indexing (overrides ignore-exts)")
+	GlobalConfig.OnlyDirs = fs.String("only-dirs", "", "comma-separated list of directories to include when indexing (overrides ignore-exts)")
 
 	fs.Func("dump-item-ids", "comma-separated list of item IDs to dump (for debugging)", func(s string) error {
 		if s == "" {
@@ -96,10 +106,11 @@ func usage() {
   meta                       parse pad00000.meta, print summary
   extract <substr> <outDir>  extract decoded files whose path contains substr
   table <name>               decode one table via a known schema -> JSON (stdout)
-  index                      dump the archive listing -> <out>/paz_files.json + paz_dirs.json
+  index <outDir> <(opt)ignore-exts> <(opt)only-exts> <(opt)only-dirs> dump the archive listing -> <out>/paz_files.json + paz_dirs.json
   icons [outDir]             decode each item's icon to <id>.webp (default <out>/icons)
   knowledge-icons            decode each knowledge card's encyclopedia image to <out>/knowledge_icons/<image>
   loc [outPath]              dump the ENTIRE localization file (all tables) -> JSON
+  lua-strings [outPath]      dump PAGetString symbolic keys resolved through localization -> JSON
   worldmap                   decode the world map to a tile pyramid in <out>/worldmap/<layer>/
   maps                       same as worldmap (region masks are built by regionmaps)
   regionmaps                 decode each region map to <out>/regionmaps/<map>.png

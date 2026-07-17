@@ -177,7 +177,7 @@ func parseFolderTable(raw []byte) []string {
 
 // file table: repeating [NUL-terminated name]
 func parseNameTable(raw []byte) []string {
-	var names []string
+	names := make([]string, 0, bytes.Count(raw, []byte{0}))
 	cur := 0
 	for cur < len(raw) {
 		nul := bytes.IndexByte(raw[cur:], 0)

@@ -2,6 +2,7 @@ package build
 
 import (
 	"fmt"
+	"math"
 	"slices"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
@@ -39,16 +40,15 @@ func (b *Builder) buildCaphras() error {
 type caphrasChart map[int]map[int][]model.CaphrasLevel
 
 // loadCaphrasChart reads cronenchant.bss, caches the decoded categories on the
-// Builder (reused by buildCaphras for caphras.json), and returns the chart. A nil
-// chart (table missing) makes applyCaphras a no-op.
-func (b *Builder) loadCaphrasChart() caphrasChart {
+// Builder, and returns the category/enhancement-level index.
+func (b *Builder) loadCaphrasChart() (caphrasChart, error) {
 	data, err := b.src.Read("cronenchant.bss")
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("read cronenchant: %w", err)
 	}
 	cats, err := tables.DecodeCaphras(data)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	b.caphras = cats
 	chart := make(caphrasChart, len(cats))
@@ -59,7 +59,7 @@ func (b *Builder) loadCaphrasChart() caphrasChart {
 		}
 		chart[c.Key] = byLevel
 	}
-	return chart
+	return chart, nil
 }
 
 // applyCaphras stamps the Caphras category and its per-level chart onto an eligible
@@ -79,7 +79,7 @@ func applyCaphras(it *model.Item, chart caphrasChart, maxlv map[uint32]int) bool
 	if chart == nil || it.Enhancement == nil || it.EquipInfo == nil || maxlv[it.ID] != 20 {
 		return false
 	}
-	if it.Grade == "white" || it.Grade == "" || len(it.EquipInfo.Slots) > 0 {
+	if it.Grade == model.ItemGradeWhite || len(it.EquipInfo.Slots) > 0 {
 		return false
 	}
 	tier := 0 // green
@@ -93,7 +93,7 @@ func applyCaphras(it *model.Item, chart caphrasChart, maxlv map[uint32]int) bool
 	switch it.Category {
 	case "MainWeapon":
 		switch {
-		case tier == 2 && it.EquipInfo.Slot == "Awakening Weapon":
+		case tier == 2 && it.EquipInfo.Slot == model.SlotNameAwakeningWeapon:
 			cat = 2
 		case tier == 2:
 			cat = 1
@@ -129,8 +129,19 @@ func applyCaphras(it *model.Item, chart caphrasChart, maxlv map[uint32]int) bool
 	enh.CaphrasCategory = model.CaphrasRef(cat)
 	byLevel := chart[cat]
 	for i := range enh.Levels {
+		minLvl, maxLvl := math.MaxInt, math.MinInt
 		if steps := byLevel[enh.Levels[i].Level]; steps != nil {
 			enh.Levels[i].Caphras = steps
+			for _, s := range steps {
+				if s.Level < minLvl {
+					minLvl = s.Level
+				}
+				if s.Level > maxLvl {
+					maxLvl = s.Level
+				}
+			}
+			enh.Levels[i].CaphrasMinLevel = minLvl
+			enh.Levels[i].CaphrasMaxLevel = maxLvl
 		}
 	}
 	it.Enhancement = &enh

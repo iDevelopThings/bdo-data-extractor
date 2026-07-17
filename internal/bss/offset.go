@@ -142,6 +142,46 @@ func ParseU16OffsetIndex(name string, b []byte, dataLen int) ([]IndexEntry, erro
 	return out, nil
 }
 
+// ParseU8OneBasedOffsetIndex decodes an index whose rows are
+// [u8 key, u32 oneBasedOffset, u32 sizeMinusOne]. The returned entries use
+// ordinary zero-based offsets and byte sizes, matching IndexEntry.Slice.
+func ParseU8OneBasedOffsetIndex(name string, b []byte, dataLen int) ([]IndexEntry, error) {
+	if len(b) < 4 {
+		return nil, fmt.Errorf("%s: u8 offset index too small (%d bytes)", name, len(b))
+	}
+	count := int(U32(b, 0))
+	if count <= 0 || 4+count*9 > len(b) {
+		return nil, fmt.Errorf("%s: bad u8 offset-index count %d (index is %d bytes)", name, count, len(b))
+	}
+
+	out := make([]IndexEntry, 0, count)
+	for i := range count {
+		o := 4 + i*9
+		storedOffset := U32(b, o+1)
+		if storedOffset == 0 {
+			log.Printf("%s: offset-index row %d (key %d) has a zero one-based offset — skipping row", name, i, b[o])
+			continue
+		}
+		entry := IndexEntry{
+			Key:    uint32(b[o]),
+			Offset: storedOffset - 1,
+			Size:   U32(b, o+5) + 1,
+		}
+		if uint64(entry.Offset)+uint64(entry.Size) > uint64(dataLen) {
+			log.Printf("%s: offset-index row %d (key %d) is out of bounds (offset %d + size %d > data %d) — skipping row",
+				name, i, entry.Key, entry.Offset, entry.Size, dataLen)
+			continue
+		}
+		out = append(out, entry)
+	}
+
+	out = dropOverlappingRows(name, out)
+	if len(out) == 0 {
+		return nil, fmt.Errorf("%s: offset index declares %d rows, none usable", name, count)
+	}
+	return out, nil
+}
+
 // dropOverlappingRows removes rows whose [offset, offset+size) range overlaps a
 // row that already claimed those bytes. Overlap is only visible in offset order,
 // so it's detected over a sorted view while out keeps its original index order.

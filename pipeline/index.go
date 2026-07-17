@@ -22,13 +22,44 @@ func Index() error {
 	}
 	defer src.Close()
 
-	skipExts := []string{".ai", ".txt", ".paa", ".pae", ".vnl", ".bnk", ".paac", ".pac", ".xml"}
+	skipExts := make([]string, 0)
+	onlyExts := make([]string, 0)
+	onlyDirs := make([]string, 0)
+
+	if config.GlobalConfig.IgnoreExts != nil && *config.GlobalConfig.IgnoreExts != "" {
+		skipExts = strings.Split(*config.GlobalConfig.IgnoreExts, ",")
+	}
+	if config.GlobalConfig.OnlyExts != nil && *config.GlobalConfig.OnlyExts != "" {
+		onlyExts = strings.Split(*config.GlobalConfig.OnlyExts, ",")
+	}
+	if config.GlobalConfig.OnlyDirs != nil && *config.GlobalConfig.OnlyDirs != "" {
+		onlyDirs = strings.Split(*config.GlobalConfig.OnlyDirs, ",")
+	}
+
+	log.Printf("Indexing %d files from %s", len(src.Index.Files), gameDir)
+	log.Printf("Ignoring extensions: %v", skipExts)
+	log.Printf("Including only extensions: %v", onlyExts)
+	log.Printf("Including only directories: %v", onlyDirs)
+
 	files := make([]string, 0)
 	for _, file := range src.Index.Files {
 		p := src.Index.PathOf(file)
-
-		if slices.ContainsFunc(skipExts, func(ext string) bool { return strings.HasSuffix(p, ext) }) {
-			continue
+		ext := strings.ToLower(filepath.Ext(p))
+		if len(onlyExts) > 0 {
+			if slices.IndexFunc(onlyExts, func(s string) bool { return s == ext }) < 0 {
+				continue
+			}
+		}
+		if len(skipExts) > 0 {
+			if slices.IndexFunc(skipExts, func(s string) bool { return s == ext }) >= 0 {
+				continue
+			}
+		}
+		if len(onlyDirs) > 0 {
+			dir := filepath.Dir(p)
+			if slices.IndexFunc(onlyDirs, func(s string) bool { return strings.HasPrefix(dir, s) }) < 0 {
+				continue
+			}
 		}
 
 		files = append(files, p)
@@ -49,23 +80,31 @@ func Index() error {
 
 	log.Printf("Wrote %d file names to paz_files.json", len(files))
 
-	type DirData struct {
-		InterestingDirs []string `json:"interesting_dirs"`
-		Dirs            []string `json:"dirs"`
-	}
-	data := DirData{
-		Dirs: slices.Clone(src.Index.FolderNames),
+	dirs := slices.Clone(src.Index.FolderNames)
+	outDirs := make([]string, 0, len(dirs))
+	for _, dir := range dirs {
+		if len(onlyDirs) > 0 {
+			if slices.IndexFunc(onlyDirs, func(s string) bool { return strings.HasPrefix(dir, s) }) < 0 {
+				continue
+			}
+		}
+		outDirs = append(outDirs, dir)
 	}
 
-	data.InterestingDirs = slices.DeleteFunc(slices.Clone(data.Dirs), func(s string) bool {
-		return !strings.Contains(strings.ToLower(s), "map")
+	slices.SortFunc(outDirs, func(a, b string) int {
+		depthA := strings.Count(a, "/")
+		depthB := strings.Count(b, "/")
+		if depthA != depthB {
+			return depthA - depthB
+		}
+		return strings.Compare(strings.ToLower(a), strings.ToLower(b))
 	})
 
-	if err := jsonio.WriteFile(filepath.Join(dataDir, "paz_dirs.json"), data, *config.GlobalConfig.Pretty); err != nil {
+	if err := jsonio.WriteFile(filepath.Join(dataDir, "paz_dirs.json"), outDirs, *config.GlobalConfig.Pretty); err != nil {
 		return err
 	}
 
-	log.Printf("Wrote %d folder names to paz_dirs.json", len(data.Dirs))
+	log.Printf("Wrote %d folder names to paz_dirs.json", len(outDirs))
 
 	return nil
 }

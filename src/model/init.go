@@ -9,6 +9,7 @@ import "github.com/idevelopthings/bdo-data-extractor/src/urn"
 // reusing the handler vars in src/urn as the single source of domain/kind truth.
 func init() {
 	urn.RegisterHandler[Item](urn.Item)
+	urn.RegisterHandler[ItemSet](urn.ItemSet)
 	urn.RegisterHandler[Enhancement](urn.Enhancement)
 	urn.RegisterHandler[NPC](urn.NPC)
 	urn.RegisterHandler[Character](urn.Character)

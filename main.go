@@ -53,6 +53,11 @@ func main() {
 		err = pipeline.KnowledgeIcons()
 	case "loc":
 		err = pipeline.Loc()
+	case "lua-strings":
+		var out string
+		if out, err = outFile(filepath.Join(*conf.Out, "lua_strings_"+*conf.Lang+".json"), rest); err == nil {
+			err = pipeline.LuaStrings(out)
+		}
 	default:
 		config.DumpUsageAndExit()
 	}

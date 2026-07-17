@@ -1,0 +1,169 @@
+package: model
+type: CharacterClassType
+underlying: int8
+marshalText: false
+out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/character-classes.gen.ts
+iterators: [title]
+values:
+  - name: Unknown
+    wire: -1
+    reserved: true
+
+  - name: Warrior
+    wire: 0
+    title: "Warrior"
+
+  - name: Hashashin
+    wire: 1
+    title: "Hashashin"
+
+  - name: Sage
+    wire: 2
+    title: "Sage"
+
+  - name: Wukong
+    wire: 3
+    title: "Wukong"
+
+  - name: Ranger
+    wire: 4
+    title: "Ranger"
+
+  - name: Guardian
+    wire: 5
+    title: "Guardian"
+
+  - name: Scholar
+    wire: 6
+    title: "Scholar"
+
+  - name: Drakania
+    wire: 7
+    title: "Drakania"
+
+  - name: Sorceress
+    wire: 8
+    title: "Sorceress"
+
+  - name: Nova
+    wire: 9
+    title: "Nova"
+
+  - name: Corsair
+    wire: 10
+    title: "Corsair"
+
+  - name: Lahn
+    wire: 11
+    title: "Lahn"
+
+  - name: Berserker
+    wire: 12
+    title: "Berserker"
+
+  - name: Reserved13
+    wire: 13
+    title: ""
+    reserved: true
+
+  - name: Reserved14
+    wire: 14
+    title: ""
+    reserved: true
+
+  - name: Maegu
+    wire: 15
+    title: "Maegu"
+
+  - name: Tamer
+    wire: 16
+    title: "Tamer"
+
+  - name: Shai
+    wire: 17
+    title: "Shai"
+
+  - name: Reserved18
+    wire: 18
+    title: ""
+    reserved: true
+
+  - name: Striker
+    wire: 19
+    title: "Striker"
+
+  - name: Musa
+    wire: 20
+    title: "Musa"
+
+  - name: Maehwa
+    wire: 21
+    title: "Maehwa"
+
+  - name: Reserved22
+    wire: 22
+    title: ""
+    reserved: true
+
+  - name: Mystic
+    wire: 23
+    title: "Mystic"
+
+  - name: Valkyrie
+    wire: 24
+    title: "Valkyrie"
+
+  - name: Kunoichi
+    wire: 25
+    title: "Kunoichi"
+
+  - name: Ninja
+    wire: 26
+    title: "Ninja"
+
+  - name: DarkKnight
+    wire: 27
+    title: "Dark Knight"
+
+  - name: Wizard
+    wire: 28
+    title: "Wizard"
+
+  - name: Archer
+    wire: 29
+    title: "Archer"
+
+  - name: Woosa
+    wire: 30
+    title: "Woosa"
+
+  - name: Witch
+    wire: 31
+    title: "Witch"
+
+  - name: Seraph
+    wire: 32
+    title: "Seraph"
+
+  - name: Dosa
+    wire: 33
+    title: "Dosa"
+
+  - name: Deadeye
+    wire: 34
+    title: "Deadeye"
+
+  - name: Reserved35
+    wire: 35
+    title: ""
+    reserved: true
+
+  - name: Reserved36
+    wire: 36
+    title: ""
+    reserved: true
+
+  - name: MAX
+    wire: 37
+    sentinel: true

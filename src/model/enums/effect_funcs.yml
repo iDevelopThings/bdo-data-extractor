@@ -1,0 +1,1338 @@
+# DSL effect functions — the single hand-maintained source for func metadata
+# (label/unit/negate) and gear-stat routing (stat, or stats for duals). Argless
+# presentation directives carry curveFields (value read from the EnchantLevel).
+# Seeded once from scripts/effect_labels.json + func_stat_keys.json (kept on
+# disk) via cmd/seedeffectfuncs; edit here going forward.
+package: model
+type: EffectFuncStat
+underlying: string
+marshalText: false
+case: snake
+out: ..
+# Route gear-stat fields to the StatId enum; the generator validates every name
+# against stats.yml and emits StatId constants. curveFields stays []string — it
+# names EnchantLevel curve columns (durability, addedEvasion, …), not StatIds.
+fields:
+  stat: StatId
+  stats: "[]StatId"
+  # Fixed client values and bundled derived effects (was effectFuncRules in
+  # dsl.go). derived is a slice of the package's EffectDsl struct — resolved and
+  # rendered against its real fields by cmd/enum_codegen.
+  fixedValue: float64
+  derived: "[]EffectDsl"
+values:
+
+  - name: ACCSET_1GRADE_LIFE_EXP_POINT_ADD
+    label: "Life EXP"
+    unit: "%"
+    stat: lifeExp
+
+  - name: ACCSET_2GRADE_LIFE_EXP_POINT_ADD
+    label: "Life EXP"
+    unit: "%"
+    stat: lifeExp
+
+  - name: ACCSET_5GRADE_LIFE_EXP_POINT_ADD
+    label: "Life EXP"
+    unit: "%"
+    stat: lifeExp
+
+  - name: ACCSET_6GRADE_LIFE_EXP_POINT_ADD
+    label: "Life EXP"
+    unit: "%"
+    stat: lifeExp
+
+  - name: ACC_ADD
+    label: "Acceleration"
+    unit: "%"
+
+  - name: ADD_EFFECT
+    sectionMarker: "Additional Effect"
+
+  - name: ADD_EFFECT_START
+    sectionMarker: "Additional Effect"
+
+  - name: ADD_SLOT_EQUIP_EFFECT
+    label: "Outfit Slot Equip Effect"
+
+  - name: AFFINITY_ACQUISITION_ADD
+    label: "Amity"
+    unit: "%"
+    stat: amity
+
+  - name: AIN_DAM_ADD
+    label: "Extra AP Against Demihumans"
+    stat: demihumanAp
+
+  - name: AIN_DAM_ADD_INCRE
+    label: "Extra AP Against Ahibs Up"
+    valueless: true
+
+  - name: ALCHEMY_4_SET
+    sectionMarker: "Set Effect"
+
+  - name: ALCHEMY_EXP_POINT_ADD
+    label: "Alchemy EXP"
+    unit: "%"
+    stat: alchemyExp
+
+  - name: ALCHEMY_REDUCE_TIME_DOWN
+    label: "Alchemy Time"
+    unit: "sec"
+    negate: true
+    stat: alchemyTime
+
+  - name: ALL_AP_DOWN
+    label: "All AP"
+    negate: true
+    stat: hiddenAp
+
+  - name: ALL_AP_INCRE
+    label: "All AP"
+    curveFields: [ap]
+
+  - name: ALL_AP_INCRE_VALUE
+    label: "All AP"
+    curveFields: [ap]
+
+  - name: ALL_AP_UP
+    label: "All AP"
+
+  - name: ALL_DAM_REDUCE_ADD
+    label: "All Damage Reduction"
+
+  - name: ALL_DAM_REDUCE_INCRE
+    label: "All Damage Reduction"
+    curveFields: [damageReduction, addedDamageReduction]
+
+  - name: ALL_DP_INCRE
+    label: "All DP"
+    curveFields: [dp]
+
+  - name: ALL_DP_UP
+    label: "All DP"
+
+  - name: ALL_EVA_INCRE
+    label: "All Evasion"
+    curveFields: [evasion, addedEvasion]
+
+  - name: ALL_EVA_UP
+    label: "All Evasion"
+
+  - name: ALL_HIT_INCRE
+    label: "All Accuracy"
+    curveFields: [accuracy]
+
+  - name: ALL_HIT_UP
+    label: "All Accuracy"
+    stat: accuracy
+
+  - name: ALL_REG_ADD
+    label: "All Resistance"
+    unit: "%"
+    stat: allResistance
+
+  - name: ALL_SPECIAL_ATT_DAM_ADD
+    label: "All Special Attack Extra Damage"
+    unit: "%"
+    stat: specialAttackDamage
+
+  - name: ALL_TRIBE_DAM_ADD_NOHUMAN
+    label: "Extra AP Against All Species (Except Humans)"
+
+  - name: ALL_TRIBE_DAM_ADD_NOHUMAN_INCRE
+    label: "Extra AP Against All (except Humans) Up"
+    valueless: true
+
+  - name: ALL_TRIBE_DAM_ADD_NOHUMAN_NOAIN
+    label: "Extra AP Against All Species Except Humans and Demihumans"
+
+  - name: ASADAL_EFFECT_1
+    label: "Instant HP Recovery"
+    valueless: true
+
+  - name: ATTACK_RESIST
+    label: "Attack damage"
+    unit: "%"
+    negate: true
+
+  - name: ATT_CAS_ADD
+    label: "Attack/Casting Speed"
+    unit: "%"
+    stats: [attackSpeed, castingSpeed]
+
+  - name: ATT_CAS_MINUS
+    label: "Attack/Casting Speed"
+    unit: "%"
+    negate: true
+    stats: [attackSpeed, castingSpeed]
+
+  - name: ATT_CAS_UP
+    label: "Attack/Casting Speed"
+    stats: [attackSpeedLevel, castingSpeedLevel]
+
+  - name: ATT_HP_RECOV_POINT
+    label: "HP Recovery on Hit"
+
+  - name: ATT_UP
+    label: "Attack Speed"
+    stat: attackSpeedLevel
+
+  - name: AUTO_FISHING_REDUCE_TIME_DOWN_2
+    label: "Auto-fishing Time"
+    unit: "%"
+    negate: true
+    stat: autoFishingTime
+
+  - name: AUTO_FISHING_REDUCE_TIME_DOWN_INCRE
+    label: "Auto-Fishing Time Up"
+    valueless: true
+
+  - name: BACK_ATT_DAM_ADD
+    label: "Back Attack Extra Damage"
+    unit: "%"
+    stat: backAttackDamage
+
+  - name: BLACK_SPIRIT_FURY_INCRE
+    label: "Self-obtainable Black Spirit's Rage"
+    unit: "%"
+    stat: blackSpiritRage
+
+  - name: BLEEDING__DAM_ADD
+    label: "Extra Bleeding Damage"
+
+  - name: BOARDING_EXP
+    label: "Mount EXP"
+    unit: "%"
+    stat: mountExp
+
+  - name: BOARDING_EXP_POINT_ACQUISITION
+    label: "Mount EXP"
+    unit: "%"
+    stat: mountExp
+
+  - name: BOTTOM_TIME_ADD
+    label: "Underwater Breathing"
+    unit: "sec"
+    stat: underwaterBreathing
+
+  - name: BRAKE_ADD
+    label: "Brake"
+    unit: "%"
+
+  - name: CAMEL_ENDURANCE_UP
+    label: "Camel Max Stamina"
+
+  - name: CAMEL_HP_UP
+    label: "Camel Max HP"
+
+  - name: CAMP_REPAIR_USE
+    label: "Camp Repair"
+    valueless: true
+
+  - name: CAMP_SHOP_USE
+    label: "Camp Shop"
+    valueless: true
+
+  - name: CAMP_WAREHOUSE_WEIGHT_ADD
+    label: "Campsite Container Weight"
+    unit: "LT"
+
+  - name: CANNON_DAM_CAL
+    label: "Cannon Damage"
+    valueless: true
+
+  - name: CANNON_DAM_CARAVEL
+    label: "Cannon Damage (Caravel)"
+    valueless: true
+
+  - name: CANNON_DAM_FRIGATE
+    label: "Cannon Damage (Frigate)"
+    valueless: true
+
+  - name: CANNON_ROLOADING_SPEED
+    label: "Cannon Reload Speed"
+    unit: "sec"
+    negate: true
+
+  - name: CAS_UP
+    label: "Casting Speed"
+    stat: castingSpeedLevel
+
+  - name: CATCH_WORD
+    label: "Horse Capture Rate"
+    unit: "%"
+    stat: horseCaptureRate
+
+  - name: CA_REDUCE_TIME_DOWN
+    label: "Cooking/Alchemy Time"
+    unit: "sec"
+    negate: true
+    stats: [cookingTime, alchemyTime]
+
+  - name: CHANCE_LARGE_SPECIES_FISH_INCRE
+    label: "Chance to Catch High-quality Fish"
+    unit: "%"
+
+  - name: CHANCE_RARE_SPECIES_FISH_INCRE
+    label: "Chance to Catch Rare Fish"
+    unit: "%"
+    stat: rareFishChance
+
+  - name: COLLECT_4_SET
+    sectionMarker: "Set Effect"
+
+  - name: COLLECT_DROPRATE_ADD
+    label: "Gathering Item Drop Rate"
+    unit: "%"
+    stat: gatheringDropRate
+
+  - name: COLLECT_DROPRATE_DIG_ADD
+    label: "Gathering Item Drop Rate (with Pickaxe)"
+    unit: "%"
+    stat: gatheringDropRate
+
+  - name: COLLECT_DROPRATE_FAN_ADD
+    label: "Gathering Item Drop Rate (with Tanning Knife)"
+    unit: "%"
+    stat: gatheringDropRate
+
+  - name: COLLECT_DROPRATE_HOE_ADD
+    label: "Gathering Item Drop Rate (with Hoe)"
+    unit: "%"
+    stat: gatheringDropRate
+
+  - name: COLLECT_DROPRATE_LOG_ADD
+    label: "Gathering Item Drop Rate (with Lumbering Axe)"
+    unit: "%"
+    stat: gatheringDropRate
+
+  - name: COLLECT_DROPRATE_SAP_ADD
+    label: "Gathering Item Drop Rate (with Fluid Collector)"
+    unit: "%"
+    stat: gatheringDropRate
+
+  - name: COLLECT_DROPRATE_SLAUGHTER_ADD
+    label: "Gathering Item Drop Rate (with Butcher Knife)"
+    unit: "%"
+    stat: gatheringDropRate
+
+  - name: COLLECT_EXP_POINT_ADD
+    label: "Gathering EXP"
+    unit: "%"
+    stat: gatheringExp
+
+  - name: COLLECT_POINT
+    label: "Gathering"
+    stat: gatheringSpeed
+
+  - name: COLLECT_TIME_DECRE
+    label: "Gathering Time"
+    unit: "sec"
+    negate: true
+    stat: gatheringTime
+
+  - name: COMBAT_EXP_ACQUISITION_ADD
+    label: "Combat EXP"
+    unit: "%"
+    stat: combatExp
+
+  - name: CONTRIBUTION_EXP_ADD
+    label: "Contribution EXP"
+    unit: "%"
+
+  - name: COOK_EXP_POINT_ADD
+    label: "Cooking EXP"
+    unit: "%"
+    stat: cookingExp
+
+  - name: COOK_REDUCE_TIME_DOWN
+    label: "Cooking Time"
+    unit: "sec"
+    negate: true
+    stat: cookingTime
+
+  - name: CRI_ADD
+    label: "Critical Hit Rate"
+    unit: "%"
+    stat: critLevel
+
+  - name: CRI_ATT_DAM_ADD
+    label: "Critical Hit Damage"
+    unit: "%"
+    stat: critDamage
+
+  - name: CRI_POINT
+    label: "Critical Hit"
+    stat: critLevel
+
+  - name: CULTURE_EXP_POINT_ADD
+    label: "Farming EXP"
+    unit: "%"
+    stat: farmingExp
+
+  - name: DAM_REDUCE_EFFECT
+    label: "Damage Reduction Rate"
+    unit: "%"
+    stat: damageReductionRate
+
+  - name: DEATH_DISAD_DOWN
+    label: "Death Penalty Resistance"
+    unit: "%"
+    stat: deathPenaltyResistance
+
+  - name: DEATH_DISAD_DOWN_1
+    label: "Death Penalty Resistance"
+    unit: "%"
+    stat: deathPenaltyResistance
+
+  - name: DEFENCEDOOR_DAM_ADD
+    label: "Medium/Large Siege Tower, Cannon, and Annex for Node/Conquest War Extra Damage (Excluding Hwacha, Flame Tower)"
+
+  - name: DESERT_DIS_ADD
+    label: "Desert Illness Resistance"
+    unit: "%"
+
+  - name: DISPLAYED_DAM_ADD
+    label: "Displayed AP"
+
+  - name: DONKEY_ENDURANCE_UP
+    label: "Donkey Max Stamina"
+
+  - name: DONKEY_HP_UP
+    label: "Donkey Max HP"
+
+  - name: DOWN_ATT_DAM_ADD
+    label: "Down Attack Extra Damage"
+    unit: "%"
+    stat: downAttackDamage
+
+  - name: DROP_THE_DAMAGE_DOWN
+    label: "Fall Damage"
+    unit: "%"
+    negate: true
+    stat: fallDamage
+
+  - name: DUR_AWAKEN_WEAPONS_CON_DOWN
+    label: "Durability Reduction Resistance"
+    unit: "%"
+    stat: durabilityLossResistance
+
+  - name: DUR_AWAKEN_WEAPONS_CON_DOWN_SHAI
+    label: "Sol Durability Reduction Resistance"
+    unit: "%"
+
+  - name: DUR_INCRE
+    label: "Max Durability"
+    curveFields: [durability]
+
+  - name: DUR_WEAPONS_CON_DOWN
+    label: "Durability Reduction Resistance"
+    unit: "%"
+    stat: durabilityLossResistance
+
+  - name: ENDURANCE_ADD
+    label: "Max Stamina"
+    stat: maxStamina
+
+  - name: ENDURANCE_DOWN
+    label: "Max Stamina"
+    negate: true
+    stat: maxStamina
+
+  - name: ENDURANCE_UP
+    label: "Max Stamina"
+    stat: maxStamina
+
+  - name: ENERGY_FISH_REDUCE
+    label: "Energy Consumption for Fishing Reduction"
+    valueless: true
+
+  - name: EXP_POINT_ADD
+    label: "Combat EXP"
+    unit: "%"
+    stat: combatExp
+
+  - name: FISHING_EXP_POINT_ADD
+    label: "Fishing EXP"
+    unit: "%"
+    stat: fishingExp
+
+  - name: FISHING_POINT
+    label: "Fishing"
+    stat: fishingSpeed
+
+  - name: GUILD_WAR_COSTUME_EFFECT
+    label: "Durability Reduction Resistance"
+    unit: "%"
+    stat: durabilityLossResistance
+
+  - name: HAETAE_BLESSING
+    label: "Weight Limit"
+    unit: "LT"
+    stat: weightLimit
+
+  - name: HAETAE_BLESSING_SIMPLE
+    label: "Weight Limit"
+    valueless: true
+    stat: weightLimit
+
+  - name: HARNESS_WHIP_EFFECT_1
+    label: "Max Horse Speed"
+    unit: "%"
+    valueless: true
+
+  - name: HARNESS_WHIP_EFFECT_2
+    label: "Max Horse Speed"
+    unit: "%"
+    valueless: true
+
+  - name: HARNESS_WHIP_EFFECT_3
+    label: "Max Horse Speed"
+    unit: "%"
+    valueless: true
+
+  - name: HARNESS_WHIP_FAST_EFFECT_1
+    label: "Horse Speed (Fast Gait)"
+    valueless: true
+
+  - name: HARNESS_WHIP_FAST_EFFECT_2
+    label: "Horse Speed (Fast Gait)"
+    valueless: true
+
+  - name: HARNESS_WHIP_FAST_EFFECT_3
+    label: "Horse Speed (Fast Gait)"
+    valueless: true
+
+  - name: HARNESS_WHIP_RUN_EFFECT_1
+    label: "Horse Speed (Running)"
+    valueless: true
+
+  - name: HARNESS_WHIP_RUN_EFFECT_2
+    label: "Horse Speed (Running)"
+    valueless: true
+
+  - name: HARNESS_WHIP_RUN_EFFECT_3
+    label: "Horse Speed (Running)"
+    valueless: true
+
+  - name: HARNESS_WHIP_WAGON_EFFECT_1
+    label: "Horse Speed (Wagon-Hitched)"
+    valueless: true
+
+  - name: HARNESS_WHIP_WAGON_EFFECT_2
+    label: "Horse Speed (Wagon-Hitched)"
+    valueless: true
+
+  - name: HARNESS_WHIP_WAGON_EFFECT_3
+    label: "Horse Speed (Wagon-Hitched)"
+    valueless: true
+
+  - name: HARNESS_WHIP_WAGON_F_RUN_EFFECT_1
+    label: "Horse Speed (Wagon Fast Run)"
+    valueless: true
+
+  - name: HARNESS_WHIP_WAGON_F_RUN_EFFECT_2
+    label: "Horse Speed (Wagon Fast Run)"
+    valueless: true
+
+  - name: HARNESS_WHIP_WAGON_F_RUN_EFFECT_3
+    label: "Horse Speed (Wagon Fast Run)"
+    valueless: true
+
+  - name: HARNESS_WHIP_WAGON_RUN_EFFECT_1
+    label: "Horse Speed (Wagon Running)"
+    valueless: true
+
+  - name: HARNESS_WHIP_WAGON_RUN_EFFECT_2
+    label: "Horse Speed (Wagon Running)"
+    valueless: true
+
+  - name: HARNESS_WHIP_WAGON_RUN_EFFECT_3
+    label: "Horse Speed (Wagon Running)"
+    valueless: true
+
+  - name: HIDDEN_DAM_REDUCE_INCRE
+    label: "Damage Reduction (Hidden)"
+    valueless: true
+
+  - name: HIDDEN_EVA_INCRE
+    label: "Evasion (Hidden)"
+    valueless: true
+
+  - name: HORSE_ENDURANCE_UP
+    label: "Horse Max Stamina"
+
+  - name: HORSE_HP_UP
+    label: "Horse Max HP"
+
+  - name: HORSE_SKILL_EXP_UP
+    label: "Mount Skill EXP"
+    unit: "%"
+    stat: mountSkillExp
+
+  - name: HORSE_SKILL_UP
+    label: "Chance of Acquiring Horse Skill"
+    unit: "%"
+
+  - name: HP_ADD
+    label: "Max HP"
+
+  - name: HP_RECOV_INCRE
+    label: "HP Recovery Up"
+    valueless: true
+
+  - name: HP_RECOV_NATURAL
+    label: "HP Recovery"
+    stat: hpRecovery
+
+  - name: HP_UP
+    label: "Max HP"
+    stat: maxHp
+
+  - name: HP_UP_16
+    label: "Max HP"
+    curveFields: [maxHp]
+
+  - name: HUMAN_DAM_ADD
+    label: "Extra AP Against Humans"
+    stat: humanAp
+
+  - name: HUNTING_DAM_ADD
+    label: "Hunting Damage"
+    stat: huntingDamage
+
+  - name: HUNTING_EXP_POINT_ADD
+    label: "Hunting EXP"
+    unit: "%"
+    stat: huntingExp
+
+  - name: INSTALL_EFFECT
+    sectionMarker: "Install Effect"
+
+  - name: IN_SITE_FROM_ADD
+    label: "Discovery Radius"
+
+  - name: ITEM_DESTROY_SUCC_DOWN
+    label: "Item Destruction Chance"
+    unit: "%"
+    negate: true
+
+  - name: ITEM_EFFECT
+    sectionMarker: "Effects"
+
+  - name: ITEM_INCREASE_1
+    label: "Item Drop Rate"
+    unit: "%"
+    stat: itemDropRate
+
+  - name: JUMPING_INCRE
+    label: "Jump Height Up"
+    valueless: true
+
+  - name: JUMP_HEIGHT_ADD
+    label: "Jump Height"
+    stat: jumpHeight
+
+  - name: KAMASILVIA_DAM_ADD
+    label: "Extra AP Against Kamasylvian Monsters"
+    stat: kamasylvianAp
+
+  - name: KNOCKBACK_AIRBORNE_REG_ADD
+    label: "Knockback/Floating Resistance"
+    unit: "%"
+    stat: knockbackResistance
+
+  - name: KNOCKDOWN_BOUND_REG_ADD
+    label: "Knockdown/Bound Resistance"
+    unit: "%"
+    stat: knockdownResistance
+
+  - name: KNOWLEDGE_ACQUISITION_ADD
+    label: "Knowledge Gain Chance"
+    unit: "%"
+    stat: knowledgeChance
+
+  - name: KNOWLEDGE_ACQUISITION_ADD_GRADE_UP
+    label: "Higher Grade Knowledge Gain Chance"
+    unit: "%"
+
+  - name: KNOWLEDGE_ACQUISITION_ADD_INCRE
+    label: "Knowledge EXP Up"
+    valueless: true
+
+  - name: KNOWLEDGE_ACQUISITION_ADD_INCRE_GRADE_UP
+    label: "Knowledge EXP Up"
+    valueless: true
+
+  - name: KU_ALL_REG_ADD
+    label: "All Resistance"
+    unit: "%"
+    stat: allResistance
+    fixedValue: 10
+    derived:
+      - func: ALL_SPECIAL_ATT_DAM_ADD
+        args: [10]
+
+  - name: LIFESTAT_ALCHEMYPOINT_ALL_ADD
+    label: "Alchemy Mastery"
+    stat: alchemyMastery
+
+  - name: LIFESTAT_ALCHEMY_ALL_ADD
+    label: "Alchemy Mastery"
+    stat: alchemyMastery
+
+  - name: LIFESTAT_ALL
+    label: "All Life Skill Mastery"
+    stat: allMastery
+
+  - name: LIFESTAT_ALL_ADD
+    label: "All Life Skill Mastery"
+    stat: allMastery
+
+  - name: LIFESTAT_BREATH_ADD
+    label: "Breath EXP"
+    unit: "%"
+    stat: breathExp
+
+  - name: LIFESTAT_CA_ADD
+    label: "Cooking/Alchemy Mastery"
+    stats: [cookingMastery, alchemyMastery]
+
+  - name: LIFESTAT_COLLECT_ALL
+    label: "All Gathering Mastery"
+    stat: gatheringMastery
+
+  - name: LIFESTAT_COLLECT_ALL_ADD
+    label: "Gathering Mastery"
+    stat: gatheringMastery
+
+  - name: LIFESTAT_COLLECT_DIG
+    label: "Pickaxe Mastery"
+    stat: pickaxeMastery
+
+  - name: LIFESTAT_COLLECT_DIG_ADD
+    label: "Pickaxe Mastery"
+    stat: pickaxeMastery
+
+  - name: LIFESTAT_COLLECT_FAN
+    label: "Tanning Knife Mastery"
+    stat: tanningMastery
+
+  - name: LIFESTAT_COLLECT_FAN_ADD
+    label: "Tanning Knife Mastery"
+    stat: tanningMastery
+
+  - name: LIFESTAT_COLLECT_HOE
+    label: "Hoe Mastery"
+    stat: hoeMastery
+
+  - name: LIFESTAT_COLLECT_HOE_ADD
+    label: "Hoe Mastery"
+    stat: hoeMastery
+
+  - name: LIFESTAT_COLLECT_LOG
+    label: "Lumbering Axe Mastery"
+    stat: lumberingMastery
+
+  - name: LIFESTAT_COLLECT_LOG_ADD
+    label: "Lumbering Axe Mastery"
+    stat: lumberingMastery
+
+  - name: LIFESTAT_COLLECT_SAP
+    label: "Fluid Collector Mastery"
+    stat: fluidCollectorMastery
+
+  - name: LIFESTAT_COLLECT_SAP_ADD
+    label: "Fluid Collector Mastery"
+    stat: fluidCollectorMastery
+
+  - name: LIFESTAT_COLLECT_SLAUGHTER
+    label: "Butcher Knife Mastery"
+    stat: butcherMastery
+
+  - name: LIFESTAT_COLLECT_SLAUGHTER_ADD
+    label: "Butcher Knife Mastery"
+    stat: butcherMastery
+
+  - name: LIFESTAT_COOK_ADD
+    label: "Cooking Mastery"
+    stat: cookingMastery
+
+  - name: LIFESTAT_COOK_ALL_ADD
+    label: "Cooking Mastery"
+    stat: cookingMastery
+
+  - name: LIFESTAT_CRAFT
+    label: "Processing Mastery"
+    stat: processingMastery
+
+  - name: LIFESTAT_CRAFT_ADD
+    label: "Processing Mastery"
+    stat: processingMastery
+
+  - name: LIFESTAT_CRAFT_ALL
+    stat: processingMastery
+
+  - name: LIFESTAT_CRAFT_ALL_ADD
+    label: "All Processing Mastery"
+    stat: processingMastery
+
+  - name: LIFESTAT_CRAFT_DRY
+    label: "Processing (Drying) Mastery"
+    stat: dryingMastery
+
+  - name: LIFESTAT_CRAFT_DRY_ADD
+    label: "Processing (Drying) Mastery"
+    stat: dryingMastery
+
+  - name: LIFESTAT_CRAFT_GRIND
+    label: "Processing (Grinding) Mastery"
+    stat: grindingMastery
+
+  - name: LIFESTAT_CRAFT_GRIND_ADD
+    label: "Processing (Grinding) Mastery"
+    stat: grindingMastery
+
+  - name: LIFESTAT_CRAFT_HEAT
+    label: "Processing (Heating) Mastery"
+    stat: heatingMastery
+
+  - name: LIFESTAT_CRAFT_HEAT_ADD
+    label: "Processing (Heating) Mastery"
+    stat: heatingMastery
+
+  - name: LIFESTAT_CRAFT_MIX
+    label: "Processing (Shaking) Mastery"
+    stat: shakingMastery
+
+  - name: LIFESTAT_CRAFT_MIX_ADD
+    label: "Processing (Shaking) Mastery"
+    stat: shakingMastery
+
+  - name: LIFESTAT_CRAFT_PICK
+    label: "Processing (Filtering) Mastery"
+    stat: filteringMastery
+
+  - name: LIFESTAT_CRAFT_PICK_ADD
+    label: "Processing (Filtering) Mastery"
+    stat: filteringMastery
+
+  - name: LIFESTAT_CRAFT_WOODCHOP
+    label: "Processing (Chopping) Mastery"
+    stat: choppingMastery
+
+  - name: LIFESTAT_CRAFT_WOODCHOP_ADD
+    label: "Processing (Chopping) Mastery"
+    stat: choppingMastery
+
+  - name: LIFESTAT_FISHINGPOINT_ALL_ADD
+    label: "Fishing Mastery"
+    stat: fishingMastery
+
+  - name: LIFESTAT_FISHING_ALL_ADD
+    label: "Fishing Mastery"
+    stat: fishingMastery
+
+  - name: LIFESTAT_FISHING_HOE
+    label: "Fishing Mastery"
+    stat: fishingMastery
+
+  - name: LIFESTAT_HEALTH_ADD
+    label: "Strength EXP"
+    unit: "%"
+    stat: strengthExp
+
+  - name: LIFESTAT_HUNTINGPOINT_ALL_ADD
+    label: "Hunting Mastery"
+    stat: huntingMastery
+
+  - name: LIFESTAT_HUNTING_ALL_ADD
+    label: "Hunting Mastery"
+    stat: huntingMastery
+
+  - name: LIFESTAT_TRAININGPOINT_ALL_ADD
+    label: "Training Mastery"
+    stat: trainingMastery
+
+  - name: LIFESTAT_TRAINING_ALL_ADD
+    label: "Training Mastery"
+    stat: trainingMastery
+
+  - name: LIFESTAT_VOYAGEPOINT_ALL_ADD
+    label: "Sailing Mastery"
+    stat: sailingMastery
+
+  - name: LIFESTAT_VOYAGE_ALL_ADD
+    label: "Sailing Mastery"
+    stat: sailingMastery
+
+  - name: LIFE_EXP_0
+    label: "Life EXP"
+    unit: "%"
+    stat: lifeExp
+
+  - name: LIFE_EXP_1
+    label: "Gathering EXP"
+    unit: "%"
+    stat: gatheringExp
+
+  - name: LIFE_EXP_10
+    label: "Sailing EXP"
+    unit: "%"
+    stat: sailingExp
+
+  - name: LIFE_EXP_11
+    label: "Barter EXP"
+    unit: "%"
+    stat: barteringExp
+
+  - name: LIFE_EXP_2
+    label: "Fishing EXP"
+    unit: "%"
+    stat: fishingExp
+
+  - name: LIFE_EXP_3
+    label: "Hunting EXP"
+    unit: "%"
+    stat: huntingExp
+
+  - name: LIFE_EXP_4
+    label: "Cooking EXP"
+    unit: "%"
+    stat: cookingExp
+
+  - name: LIFE_EXP_4_5
+    label: "Cooking/Alchemy EXP"
+    unit: "%"
+    stats: [cookingExp, alchemyExp]
+
+  - name: LIFE_EXP_5
+    label: "Alchemy EXP"
+    unit: "%"
+    stat: alchemyExp
+
+  - name: LIFE_EXP_6
+    label: "Processing EXP"
+    unit: "%"
+    stat: processingExp
+
+  - name: LIFE_EXP_7
+    label: "Training EXP"
+    unit: "%"
+    stat: trainingExp
+
+  - name: LIFE_EXP_8
+    label: "Trading EXP"
+    unit: "%"
+    stat: tradingExp
+
+  - name: LIFE_EXP_9
+    label: "Farming EXP"
+    unit: "%"
+    stat: farmingExp
+
+  - name: LIFE_EXP_POINT_ADD
+    label: "Life EXP"
+    unit: "%"
+    stat: lifeExp
+
+  - name: LIFE_STAT_0
+    label: "Life Skill Mastery"
+    stat: allMastery
+
+  - name: LIFE_STAT_1
+    label: "Gathering Mastery"
+    stat: gatheringMastery
+
+  - name: LIFE_STAT_2
+    label: "Fishing Mastery"
+    stat: fishingMastery
+
+  - name: LIFE_STAT_3
+    label: "Hunting Mastery"
+    stat: huntingMastery
+
+  - name: LIFE_STAT_4
+    label: "Cooking Mastery"
+    stat: cookingMastery
+
+  - name: LIFE_STAT_5
+    label: "Alchemy Mastery"
+    stat: alchemyMastery
+
+  - name: LIFE_STAT_6
+    label: "Processing Mastery"
+    stat: processingMastery
+
+  - name: LIFE_STAT_7
+    label: "Training Mastery"
+    stat: trainingMastery
+
+  - name: LIFE_STAT_8
+    label: "Sailing Mastery"
+    stat: sailingMastery
+
+  - name: LONG_AP_UP
+    label: "Ranged AP"
+    stat: rangedAp
+
+  - name: LONG_DAM_REDUCE_ADD
+    label: "Ranged Damage Reduction"
+    stat: rangedDamageReduction
+
+  - name: LONG_EVA_UP
+    label: "Ranged Evasion"
+    stat: rangedEvasion
+
+  - name: LONG_HIT_UP
+    label: "Ranged Accuracy"
+    stat: rangedAccuracy
+
+  - name: LUCK_POINT_UP
+    label: "Luck"
+    stat: luck
+
+  - name: MAGIC_AP_UP
+    label: "Magic AP"
+    stat: magicAp
+
+  - name: MAGIC_DAM_REDUCE_ADD
+    label: "Magic Damage Reduction"
+    stat: magicDamageReduction
+
+  - name: MAGIC_EVA_UP
+    label: "Magic Evasion"
+    stat: magicEvasion
+
+  - name: MAGIC_HIT_UP
+    label: "Magic Accuracy"
+    stat: magicAccuracy
+
+  - name: MANUFACTURE_EXP_POINT_ADD
+    label: "Processing EXP"
+    unit: "%"
+    stat: processingExp
+
+  - name: MANUFACTURE_SUCC_SLI_INCRE
+    label: "Processing Success Rate Up"
+    valueless: true
+
+  - name: MANUFACTURE_SUCC_UP
+    label: "Processing Success Rate"
+    unit: "%"
+    stat: processingSuccessRate
+
+  - name: MAXIMUM_FOOD
+    label: "Max Rations"
+
+  - name: MAXIMUM_POWER
+    label: "Max Power"
+
+  - name: MAX_DUR_ADD
+    label: "Max Durability"
+
+  - name: MAX_INDURANCE_INCRE
+    label: "Max Durability Up"
+    curveFields: [durability]
+
+  - name: MERMAID_HOPE_ADD
+    label: "Mermaid's Wish"
+    stat: mermaidsWish
+
+  - name: MINIGAMEFIND
+    label: "No. of (Shallow) Digs"
+
+  - name: MONSTER_DAM_ADD
+    label: "Extra AP Against Monsters"
+    stat: monsterAp
+
+  - name: MONSTER_DAM_ADD_INCRE
+    label: "Extra AP Against Monsters Up"
+    valueless: true
+
+  - name: MONSTER_DAM_ADD_INCRE_16
+    label: "Extra AP Against Monsters Up"
+    valueless: true
+
+  - name: MONSTER_DAM_REDUCE
+    label: "Monster Damage Reduction Rate"
+    unit: "%"
+    valueless: true
+
+  - name: MON_DAM_REDUCE_ADD
+    label: "Monster Damage Reduction"
+    stat: monsterDamageReduction
+
+  - name: MON_DAM_REDUCE_INCRE
+    label: "Monster Damage Reduction Up"
+    valueless: true
+
+  - name: MON_DAM_REDUCE_INCRE_16
+    label: "Monster Damage Reduction Up"
+    valueless: true
+
+  - name: MOVE_ADD
+    label: "Movement Speed"
+    unit: "%"
+    stat: moveSpeed
+
+  - name: MOVE_SUB
+    label: "Movement Speed"
+    unit: "%"
+    negate: true
+    stat: moveSpeed
+
+  - name: MOVE_UP
+    label: "Movement Speed"
+    stat: movementSpeedLevel
+
+  - name: MP_WP_SP_ADD
+    stat: maxResource
+
+  - name: MP_WP_SP_RECOV_NATURAL
+    label: "MP/WP/SP Recovery"
+    stat: resourceRecovery
+
+  - name: MP_WP_SP_UP
+    label: "Max MP/WP/SP"
+    stat: maxResource
+
+  - name: NU_ALL_REG_ADD
+    label: "All Resistance"
+    unit: "%"
+    stat: allResistance
+    fixedValue: 10
+    derived:
+      - func: ALL_SPECIAL_ATT_DAM_ADD
+        args: [10]
+
+  - name: PLAYER_DAM_ADD
+    label: "Extra AP Against Adventurers"
+    stat: adventurerAp
+
+  - name: POTENTIAL_EFFECT
+    sectionMarker: "Enhancement Effect"
+
+  - name: POTENTIAL_EFFECT_START
+    sectionMarker: "Enhancement Effect"
+
+  - name: PO_LIFE_EXP_1
+    label: "Gathering EXP"
+    stat: gatheringExp
+
+  - name: PO_LIFE_EXP_10
+    label: "Sailing EXP"
+    stat: sailingExp
+
+  - name: PO_LIFE_EXP_2
+    label: "Fishing EXP"
+    stat: fishingExp
+
+  - name: PO_LIFE_EXP_3
+    label: "Hunting EXP"
+    stat: huntingExp
+
+  - name: PO_LIFE_EXP_4
+    label: "Cooking EXP"
+    stat: cookingExp
+
+  - name: PO_LIFE_EXP_5
+    label: "Alchemy EXP"
+    stat: alchemyExp
+
+  - name: PO_LIFE_EXP_6
+    label: "Processing EXP"
+    stat: processingExp
+
+  - name: PO_LIFE_EXP_6_1
+    label: "Processing EXP"
+    stat: processingExp
+
+  - name: PO_LIFE_EXP_7
+    label: "Training EXP"
+    stat: trainingExp
+
+  - name: PO_LIFE_EXP_7_1
+    label: "Training EXP"
+    stat: trainingExp
+
+  - name: P_H_DAM_ADD
+    label: "Extra AP Against Adventurers / Humans"
+    stats: [adventurerAp, humanAp]
+
+  - name: P_H_DAM_ADD_INCRE
+    label: "Extra AP Against All Up"
+    valueless: true
+
+  - name: P_M_DAM_ADD
+    label: "Extra AP Against Adventurers / All Species"
+    stats: [adventurerAp, allSpeciesAp]
+
+  - name: P_M_DAM_ADD_INCRE
+    label: "Extra AP Against All Up"
+    valueless: true
+
+  - name: P_M_DAM_ADD_INCRE_6
+    label: "Extra AP Against All Up"
+    valueless: true
+
+  - name: QUEST_EXP
+    label: "Combat Grade EXP obtained through Quest Reward"
+    unit: "%"
+
+  - name: SEA_COMPASS_SHIP_DASH_EFFECT_1
+    label: "Ship Dash Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_DASH_EFFECT_2
+    label: "Ship Dash Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_DASH_EFFECT_3
+    label: "Ship Dash Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_EFFECT_1
+    label: "Ship Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_EFFECT_2
+    label: "Ship Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_EFFECT_3
+    label: "Ship Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_RUNDASH_EFFECT_1
+    label: "Ship Run-Dash Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_RUNDASH_EFFECT_2
+    label: "Ship Run-Dash Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_RUNDASH_EFFECT_3
+    label: "Ship Run-Dash Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_RUN_EFFECT_1
+    label: "Ship Run Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_RUN_EFFECT_2
+    label: "Ship Run Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SEA_COMPASS_SHIP_RUN_EFFECT_3
+    label: "Ship Run Speed (Sailing Mastery)"
+    valueless: true
+
+  - name: SET_DECORATE_COOK
+    sectionMarker: "Costume Set Effect"
+
+  - name: SET_DECORATE_TERMIAN
+    sectionMarker: "Summer Outfit Set Effect"
+
+  - name: SET_DECORATE_Training
+    sectionMarker: "Costume Set Effect"
+
+  - name: SET_EFFECT
+    sectionMarker: "Set Effect"
+
+  - name: SHIP_MON_DAM_ADD_1
+    label: "Extra Damage to Ships and Sea Monsters"
+
+  - name: SHIP_MON_DAM_ADD_9
+    label: "Extra Damage to Ships and Sea Monsters"
+
+  - name: SHORT_AP_UP
+    label: "Melee AP"
+    stat: meleeAp
+
+  - name: SHORT_DAM_REDUCE_ADD
+    label: "Melee Damage Reduction"
+    stat: meleeDamageReduction
+
+  - name: SHORT_EVA_UP
+    label: "Melee Evasion"
+    stat: meleeEvasion
+
+  - name: SHORT_HIT_UP
+    label: "Melee Accuracy"
+    stat: meleeAccuracy
+
+  - name: SILVERBAR
+    label: "Prognyl Silver Bar Gain"
+    unit: "%"
+
+  - name: SKILL_EXP_ACQUISITION_ADD
+    label: "Skill EXP"
+    unit: "%"
+    stat: skillExp
+
+  - name: SKILL_NAME_CLOUD_UP
+    label: "[Misty Haze] All Damage Reduction & Evasion"
+    negate: true
+
+  - name: SKILL_NAME_SECRET_UP
+    label: "[Delusive Light/Sun's Fury] Movement Speed"
+    unit: "%"
+    negate: true
+
+  - name: SKILL_NAME_SUNMOONSTAR_UP
+    label: "[Sun, Moon, Stars] All Speed"
+    unit: "%"
+
+  - name: SPECIAL_EFFECT
+    sectionMarker: "Special Effect"
+
+  - name: SPECIAL_EFFECT2
+    sectionMarker: "Special Effect"
+
+  - name: STUN_STIFFNESS_FREEZING_REG_ADD
+    label: "Stun/Stiffness/Freezing Resistance"
+    unit: "%"
+    stat: stunResistance
+
+  - name: SWIMMING_ENDURANCE_DOWN
+    label: "Less Stamina Consumed While Swimming"
+    valueless: true
+
+  - name: SWIM_SPEED_INCRE_NO_1
+    label: "Swimming Speed"
+    unit: "%"
+
+  - name: SWIM_SPEED_INCRE_NO_2
+    label: "Swim Speed Up"
+    valueless: true
+
+  - name: SWIM_SPEED_INCRE_NO_3
+    label: "Swim Speed Up"
+    valueless: true
+
+  - name: TORQUE_ADD
+    label: "Turn"
+    unit: "%"
+
+  - name: TRADING_EXP_POINT_ADD
+    label: "Trading EXP"
+    unit: "%"
+    stat: tradingExp
+
+  - name: TRADING_STABILITY
+    label: "Trade Item Stability"
+
+  - name: VEHICLE_TRAINING_EXP_POINT_ADD
+    label: "Training EXP"
+    unit: "%"
+    stat: trainingExp
+
+  - name: VOYAGE_EXP_POINT_ADD
+    label: "Sailing EXP"
+    unit: "%"
+    stat: sailingExp
+
+  - name: WEAR_EFFECT
+    sectionMarker: "Set Effect"

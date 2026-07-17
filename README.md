@@ -118,6 +118,7 @@ bdo-data-extractor knowledge-icons             # decode knowledge card images ->
 bdo-data-extractor worldmap                    # decode the world map -> ./data/worldmap/<layer>/ (tile pyramid + meta.json)
 bdo-data-extractor regionmaps                  # decode the region masks -> ./data/regionmaps/*.png
 bdo-data-extractor loc                         # dump the entire localization -> ./data/loc_<lang>.json
+bdo-data-extractor lua-strings                 # dump resolved PAGetString keys -> ./data/lua_strings_<lang>.json
 bdo-data-extractor meta                        # parse the archive index, print a summary
 bdo-data-extractor extract <substr> <outDir>   # extract decoded archive files whose path contains substr
 bdo-data-extractor table <name>                # decode one schema-known table -> JSON (stdout)
@@ -142,6 +143,7 @@ A full `build` reads each source table once and finishes in a few seconds for
 | `data/recipes.json` | crafting recipes `{output, type, station, inputs:[{item,count}]}` — cooking/alchemy/processing **and House Crafting** (`station` = the workshop, e.g. "Jeweler"); merged from both the localized and base per-item XMLs |
 | `data/marketcategories.json` | the Central Market category tree `[{id, name, subCategories:[{id, name}]}]` in the game's display order (mains by id, subs by sub-id); the `id`/sub-`id` are the same values items carry as `marketCategory`/`marketSubCategory` |
 | `data/knowledge.json` | the full knowledge/ecology dataset — `themes` (the category tree, `{key,name,parent,item}`) + `entries` (cards, `{key,theme,name,description,image,minFavor,maxFavor,interest,item,character}`); linked to items and NPCs by name |
+| `data/character_progression.json` | the 31 playable classes (`classType`, `characterKey`, localized prototype name, Korean source name/description, gender, curated and weapon skill keys, consume animations, class-selection movie and weapon model assets; unidentified fields are retained as `unknown*`), character-level rules including the level-56 DP and level-60 AP bonuses, and all 51 levels of the family-wide Breath, Strength and Health XP/stat-bonus curves |
 | `data/mastery.json` | life-skill **mastery proc/yield curves** keyed by mastery value — `cooking`/`alchemy` (rate columns) + `processing` (`procRate`, mass-process `batch`). These are the client-side proc rates the game applies on top of a base output of 1; the per-recipe yield range itself is server-side |
 | `data/manufacture.json` | manufacture/processing recipes from `manufacture.bss` — `{group, type, success, inputs}` (success rate + action type; the output is the `group`/ResultDropGroup, resolved server-side, so it isn't listed) |
 | `data/world.json` | the geographic database `{territories, regions, nodes}` — territories, every map region (`{key, name, type, territory, position, variantOf, bounds:{min,max}, spawns:[{key, pos, dialogIndex}]}` — world-bounds + layered common/resource/service-region NPC and monster placements), and exploration nodes with positions, links, owning `manager` refs, affiliate `managerNode` refs, town-representative NPC refs, and normal worker-production item refs in `products` |
@@ -154,6 +156,7 @@ A full `build` reads each source table once and finishes in a few seconds for
 | `data/regionmaps/*.png` | decoded region/territory mask images (via `bdo-data-extractor regionmaps`) |
 | `data/icons/zonecategories/<iconId>.webp` | Monster Zone Info main/sub-category icons, cropped from their UI atlas (the `icon` ids in `zones.json`), in all three UI states: `<iconId>.webp` (normal), `<iconId>_Over.webp`, `<iconId>_Click.webp`; produced by `bdo-data-extractor icons` |
 | `data/loc_<lang>.json` | the full localization dump, grouped `table → id → field → text` (via `bdo-data-extractor loc`) |
+| `data/lua_strings_<lang>.json` | client `PAGetString` symbolic keys grouped by string sheet, with numeric localization id/field, Korean source text and localized text (via `bdo-data-extractor lua-strings`) |
 
 Icons are named by **item id** (the client stores them under unrelated icon ids),
 so they map straight back to `items.json`.

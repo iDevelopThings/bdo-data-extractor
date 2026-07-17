@@ -2,6 +2,7 @@ package bss
 
 import (
 	"encoding/binary"
+	"slices"
 	"testing"
 )
 
@@ -90,5 +91,27 @@ func TestParseU16OffsetIndexErrorsOnBadHeader(t *testing.T) {
 	index := binary.LittleEndian.AppendUint32(nil, 99) // count far exceeds the buffer
 	if _, err := ParseU16OffsetIndex("test", index, 12); err == nil {
 		t.Fatal("expected an error for a count that overruns the index")
+	}
+}
+
+func TestParseU8OneBasedOffsetIndex(t *testing.T) {
+	index := binary.LittleEndian.AppendUint32(nil, 2)
+	index = append(index, 7)
+	index = binary.LittleEndian.AppendUint32(index, 5)
+	index = binary.LittleEndian.AppendUint32(index, 2)
+	index = append(index, 9)
+	index = binary.LittleEndian.AppendUint32(index, 8)
+	index = binary.LittleEndian.AppendUint32(index, 4)
+
+	entries, err := ParseU8OneBasedOffsetIndex("test", index, 12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []IndexEntry{
+		{Key: 7, Offset: 4, Size: 3},
+		{Key: 9, Offset: 7, Size: 5},
+	}
+	if !slices.Equal(entries, want) {
+		t.Fatalf("entries = %+v, want %+v", entries, want)
 	}
 }

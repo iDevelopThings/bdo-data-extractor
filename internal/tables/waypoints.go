@@ -69,7 +69,7 @@ func DecodeWorldWaypoints(data []byte) (map[uint32]WorldWaypoint, error) {
 		waypoint.Links = append(waypoint.Links, to)
 		waypoints[from] = waypoint
 	}
-	if reserved := c.Bytes(5); !c.OK() || !allZero(reserved) || c.Pos() != h.StringTablePos {
+	if !c.Zero(5) || c.Pos() != h.StringTablePos {
 		return nil, fmt.Errorf("world waypoints: numeric section ended at %d, want %d", c.Pos(), h.StringTablePos)
 	}
 

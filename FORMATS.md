@@ -17,6 +17,7 @@ Contents:
 3. [itemenchant.dbss — item table](#3-itemenchantdbss--item-table)
 4. [itemmaxlevel.dbss](#4-itemmaxleveldbss)
 5. [enchantstaticstatus.dbss — enhancement curves](#5-enchantstaticstatusdbss--enhancement-curves)
+   - [skillpiece.dbss — item-set definitions](#skillpiecedbss--item-set-definitions)
 6. [cronenchant.bss — Caphras chart](#6-cronenchantbss--caphras-chart)
 7. [Consumable effect chain](#7-consumable-effect-chain-itemskillbuff)
 8. [.loc localization](#8-loc-localization)
@@ -56,12 +57,16 @@ fileNames[fileId]`. After ICE-decrypt, the folder table is repeating
 
 Read `compSize` bytes at `offset` from `pad{pazNumber:05}.paz`, then:
 
-1. If `compSize == origSize` → **stored / plaintext**, use as-is.
+1. If `compSize == origSize` → **stored**, use as-is initially.
 2. Otherwise **ICE-decrypt** — *unless* `len % 8 != 0` or the data already begins with
    `PABR` (those are stored unencrypted despite `compSize != origSize`).
 3. If the result is an LZ container — `len > 9`, first byte `0x6E`/`0x6F`, **and**
    `u32(data[5:9]) == origSize` — **BDO-LZ-decompress** it. Otherwise truncate to
    `origSize`.
+4. A small number of stored binary tables carry one additional ICE layer. When the
+   result is not `PABR` and its length is divisible by 8, ICE-decrypt a copy and keep
+   it only if that copy begins with `PABR`. `commonlifestatdata.bss`,
+   `pcgrowthsimply.bss` and `dropuimaincategoryinfo.bss` use this form.
 
 ### ICE cipher
 
@@ -121,7 +126,7 @@ enchant-entry rows (keys ~3e8); a true item row also has `u32 @0 == key`.
 
 ### Fixed scalar header
 
-Read positionally from @0 to @196 (`internal/tables/items.go`). Offsets are byte-exact
+Read positionally from @0 to @208 (`internal/tables/items.go`). Offsets are byte-exact
 and unaligned:
 
 | @ | Type | Field | Notes |
@@ -133,7 +138,8 @@ and unaligned:
 | 7 | byte | equipType | equip slot sub-type → `equipInfo.type` |
 | 14 | byte | equipSlot | `__eEquipSlotNo` → `equipInfo.slot` (equip only) |
 | 15 | byte | equipKind | 0 Weapon / 1 Armor / 2 Other |
-| 16 | byte×46 | extraSlots | front-packed slot list (46 = none); ≤3 used (multi-slot costumes) |
+| 16 | byte×3 | extraSlots | front-packed occupied slots for multi-slot costumes; 46 = none |
+| 19 | byte×43 | slot filler | always `0x2e` |
 | 62 | byte | itemMaterial | material/model family |
 | 63 | i32 | weight | ÷10000 = LT |
 | 67 | bool | stackable | |
@@ -153,20 +159,25 @@ and unaligned:
 | 134 | byte | eventType | 0/171 = none |
 | 136 | u32 | eventParam1 | |
 | 140 | u32 | eventParam2 | |
-| 151 | byte | hideFromNote | `shownInNote = (== 0)` |
-| 152 | bool | cash | pearl-shop item |
-| 153 | byte | cronEnchant | |
-| 156 | bool | dyeable | |
-| 160 | byte | dyeParts | kept when 0 < v ≤ 30 |
-| 184 | bool | personalTrade | |
-| 185 | u16 | maxDurability | equipment only; large value = no-durability sentinel |
-| 188 | byte | marketCategory id | → localization table 44 |
-| 189 | byte | marketSubCategory id | |
-| 190 | bool | nodeFreeTrade | |
-| 192 | u32 | skillKey | consumables → skill chain (§7) |
+| 146 | u32 | unknown146 | 0 dominant; `0xffffffff` sentinel on some rows |
+| 150 | u16 | unknown150 | 0 dominant; `0xffff` sentinel on some rows |
+| 152 | u16 | unknown152 | 0 dominant; commonly 1000 when set |
+| 154 | u32 | unknown154 | 0 dominant |
+| 163 | byte | hideFromNote | `shownInNote = (== 0)` |
+| 164 | bool | cash | pearl-shop item |
+| 165 | byte | cronEnchant | |
+| 168 | bool | dyeable | |
+| 172 | byte | dyeParts | kept when 0 < v ≤ 30 |
+| 196 | bool | personalTrade | |
+| 197 | u16 | maxDurability | equipment only; large value = no-durability sentinel |
+| 200 | byte | marketCategory id | → localization table 44 |
+| 201 | byte | marketSubCategory id | |
+| 202 | bool | nodeFreeTrade | |
+| 204 | u32 | skillKey | consumables → skill chain (§7) |
 
-Bytes not yet identified are captured verbatim as deviation-only `ItemUnknowns`
-(`unknown8`, `unknown85`, …), so the header is fully consumed.
+Bytes not yet identified are captured as typed, deviation-only `ItemUnknowns`
+(`unknown8`, `unknown85`, …). Constant runs are consumed and validated, so the
+header ends exactly at @208 without relying on an anchor.
 
 ### Name / Icon / EnchantKey (positional)
 
@@ -182,17 +193,55 @@ by field walk:
 
 ### After the icon
 
-- **Post-icon block** (~59 bytes from `icEnd`): among it, `marketable` (bool +0),
-  `familyInventory` (bool +13, nonzero = allowed), `bindType` (u8 +15), and
-  `marketRegisterLimit` (i64 +42, kept when 0 < v < 2³²).
+The first 18 bytes after `icEnd` are fixed. They are followed by three variable UTF-16
+strings and then the market registration limit; reading the limit at a fixed icon
+offset only works when all three strings are empty.
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | bool | marketable | may be listed on the Central Market |
+| 1 | u8 | unknownIcon1 | |
+| 2 | u8 | unknownIcon2 | defaults to 9 |
+| 3 | u8 | unknownIcon3 | |
+| 4 | byte×4 | reserved | zero |
+| 8 | u8 | unknownIcon8 | cooking-product candidate |
+| 9 | u8 | unknownIcon9 | |
+| 10 | u8 | unknownIcon10 | food-tier candidate |
+| 11 | byte×2 | reserved | zero |
+| 13 | u8 | familyInventory | 2 permits Family Inventory; 0 does not |
+| 14 | u8 | unknownIcon14 | |
+| 15 | u8 | bindType | item binding behavior |
+| 16 | u8 | unknownIcon16 | resource/source-class candidate |
+| 17 | byte | reserved | zero |
+| 18 | UTF-16×3 | client messages | three `[i64 chars][UTF-16LE]` strings |
+| variable | i64 | marketRegisterLimit | follows the third string; positive values below 2³² are retained |
+
+The limit is followed by an 84-byte fixed prefix:
+
+| Relative @ from limit end | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 | unknown | small enum |
+| 1 | u32 | unknown | |
+| 5 | u32 | unknown | |
+| 9 | byte×3 | unknown enum array | front-packed |
+| 12 | byte×43 | filler | always `0x77` |
+| 55 | u8 | unknown | |
+| 56 | u8 | unknown | flag-like |
+| 57 | byte | reserved | zero |
+| 58 | u8 | unknown | flag-like |
+| 59 | u8 | unknown | small enum |
+| 60 | u32×6 | unknown rates | commonly 1,000,000 |
+
+The remaining type-dependent bytes are consumed and preserved as
+`ItemUnknowns.UnknownPostIconTail` for Go consumers. They are excluded from JSON to
+avoid duplicating hundreds or thousands of opaque bytes on every item.
+
 - **Contribution-point cost** — search from `icEnd` for the 7-byte marker
   `13 06 00 00 00 00 13`; cost = `u32(marker + 20)`, kept when 1..1000 ("[CP]" rental
   gear and placeables).
-- **Footer** — ends `[u32 self-id][u16 crystalGroup][0x0100]`; group `!= 0xFFFF` is the
-  crystal transfusion group (name + max count from localization table 121).
-
-The ~700–1300-byte binary tail after the icon (per-slot stat arrays, price/tax rates,
-scripts, embedded description) is otherwise unmapped (§15).
+- **Footer** — ends `[u32 self-id][u16 crystalGroup][u16 unknown]`; group `!= 0xFFFF`
+  is the crystal transfusion group (name + max count from localization table 121).
+  The final word currently uses 0, 1 and 256 and is not a constant marker.
 
 ---
 
@@ -206,7 +255,8 @@ The index has a zero size-column (fixed-stride records), so it's read directly.
 ## 5. `enchantstaticstatus.dbss` — enhancement curves
 
 Per-(item-family, level) stat curve. Record key = `(enhanceLevel << 24) | baseId`, so
-`baseId = key & 0xFFFFFF` and `level = key >> 24` (levels 0–25).
+`baseId = key & 0xFFFF` and `level = key >> 24`. Key bits 16–23 are reserved and zero;
+the current table uses levels 0–25. The record's first `u32` repeats `baseId`.
 
 Each record is one front-to-back sequential field stream (no fixed offsets), read
 largest-type-first — mostly `u32`, with a `u16` block at @53–60 (where a `u32` would
@@ -214,41 +264,82 @@ straddle two fields) and lone shift bytes at @24/@59. The meaningful fields:
 
 | @ | Type | Field | Notes |
 |---|---|---|---|
-| 0 | u32 | baseId | == key |
+| 0 | u32 | baseId | == low 16 bits of the index key |
+| 4 | u32×5 | unknown | typed values retained as `unknown4`…`unknown20` |
+| 24 | u8 | unknown24 | flag-like |
+| 25 | u32×4 | unknown | enhancement-process values retained as `unknown25`…`unknown37` |
 | 41 | u32 | enhanceChance | value ÷ 1e6 = base success probability at this level (0 failstacks): 1.0 for +1–7, then falling. Also flags the scheme (below) |
+| 45 | u32×2 | unknown | rate/process values |
 | 53 | u16 | durability | base 100 → PRI 120 / DUO 140 / TRI 160 / TET 180 / PEN 200 |
+| 55 | u16×2 | unknown | enhancement-process values |
+| 59 | u8 | unknown59 | flag-like |
+| 60 | u16 | unknown60 | enhancement-process value |
 | 62 | f32 | maxHP | 0 unless the DSL carries `HP_UP(n)` |
-| 66 | f32×25 | per-species AP | only slot 1 (@70) is ever nonzero |
+| 66 | f32×25 | indexed species AP | populated slots are retained as `{index,value}` until the client enum is mapped |
+| 166 | u8 | unknown166 | combat-stat lane flag |
 | 167 | f32 tri-dice ×7 | AP / defense | slots: —, —, minAP, maxAP, displayAP, damageReduction, evasion |
-| 263 | i64 + UTF-16 | effect DSL | length-prefixed (below) |
+| 251 | u32 | unknown251 | packed field before the strings |
+| 255 | inline UTF-16 | sourceDescription | optional formatted Korean enhancement text, used by ship equipment |
+| variable | inline UTF-16 | effect DSL | follows `sourceDescription`; length-prefixed (below) |
 
-The remaining header scalars (@4/@8/@25/@45/@55/@57/@60 and the tail rates) are
-enhancement-process parameters (material/cron cost, rates), captured verbatim as
-`EnchantUnknowns`.
+Each inline UTF-16 string is `[i64 code-unit count][UTF-16LE]`. The remaining header
+scalars and display-tail rates are captured as typed, offset-named `EnchantUnknowns`.
 
 **AP is three dice side by side** — melee, ranged, magic. A sword fills only melee, a
 staff only magic; hybrids fill two equally — take the max across the three slots. The
 display slot is the game's rounded `(min+max)/2`. `dp = evasion + damageReduction` (base
 values).
 
-**The display-stat tail** follows the DSL: an accuracy block — 3× `[i64 dice-len][UTF-16
-dice, e.g. "1D3" / "1D7+130"][f32 value]` — then a defense block — 3× `[f32 evasion][f32
-addedEvasion][f32 damageReduction][f32 addedDamageReduction]`. Accuracy and the `+N`
-added-defense values appear **only** here (take the max of the three slots); base
-evasion/DR duplicate the header.
+**The display-stat tail** follows the DSL. It begins with 13 typed bytes
+`[u8,u8,u32,u32,u8,u8,u8]`, including two commonly 1,000,000 and 700,000 rate fields.
+Next is an accuracy block — 3× `[inline UTF-16 dice][f32 value]` — then a defense block
+— 3× `[f32 evasion][f32 addedEvasion][f32 damageReduction][f32
+addedDamageReduction]`. The three lanes are melee, ranged and magic. Accuracy and the
+`+N` added-defense values appear only here; base evasion/DR duplicate the header.
 
-**Effect DSL** — a length-prefixed UTF-16 string at @263: a `;`-separated list of
+The record footer is fully counted and bounded:
+
+| Order | Type | Field | Notes |
+|---:|---|---|---|
+| 1 | i32×3 | sentinels | all three are `-1` |
+| 2 | byte×65 | unknownTail12 | fixed structured block, preserved verbatim |
+| 3 | u32 | enhancementAidCount | 0–3 in the current table |
+| 4 | u32 × count | enhancementAids | valid item ids, including enhancement hammers and Crystals of Origin |
+| 5 | byte×6 | unknownFooter | retained when nonzero |
+
+**Effect DSL** — the second length-prefixed UTF-16 string after @251: a `;`-separated list of
 `NAME(args)` formulas (item + set effects) — `HP_UP(110)`, `MON_DAM_REDUCE_ADD(10)`,
 `NO_3_SET_EFFECT()`, `ALL_AP_INCRE()`. Parsing notes:
 
 - Func names are usually SCREAMING_CASE but some are mixed-case (`Donkey_Harness_SET_EFFECT_1_2`).
 - Args can be fractional (`ALCHEMY_REDUCE_TIME_DOWN(0.7)`) or roman numerals
   (`MERMAID_HOPE_ADD(IV)` = the tier).
-- Argless funcs are markers (`ITEM_EFFECT`, `POTENTIAL_EFFECT`), enhancement-scaling
-  effects whose value is the item's own stat curve (`ALL_AP_INCRE`, `ALL_HIT_INCRE`),
-  set-effect references, or a few **family constants** whose magnitude is baked into the
-  client rather than the data — e.g. `NU_/KU_ALL_REG_ADD` = "All Resistance +10%"
-  (Nouver / Kutum). The generic `ALL_REG_ADD(n)` carries its value in the arg.
+- Argless funcs may be section markers, set markers, named capabilities, or display
+  directives whose value comes from the containing row. Confirmed row-backed
+  directives are exposed as `curveFields`:
+
+| DSL function | EnchantLevel field(s) |
+|---|---|
+| `ALL_AP_INCRE`, `ALL_AP_INCRE_VALUE` | `ap` |
+| `ALL_HIT_INCRE` | `accuracy` |
+| `ALL_DP_INCRE` | `dp` |
+| `ALL_EVA_INCRE` | `evasion`, `addedEvasion` |
+| `ALL_DAM_REDUCE_INCRE` | `damageReduction`, `addedDamageReduction` |
+| `HP_UP_16` | `maxHp` |
+| `DUR_INCRE`, `MAX_INDURANCE_INCRE` | `durability` |
+
+`NU_ALL_REG_ADD()` and `KU_ALL_REG_ADD()` are fixed client constants displayed as
+All Resistance +10%. Both also represent the All Special Attack Extra Damage +10%
+granted to Nouver and Kutum sub-weapons; neither co-occurs with the explicit
+`ALL_SPECIAL_ATT_DAM_ADD` encoding. The additional output line uses the canonical
+`ALL_SPECIAL_ATT_DAM_ADD(10)` function and retains the raw marker in `derivedFrom`,
+allowing stat routers to use the ordinary special-attack mapping while preserving
+whether it came from Kutum or Nouver. The raw marker argument list remains empty; the generic
+`ALL_REG_ADD(n)` carries its value in the argument. Other argless functions remain
+argless unless their value source is independently identified. The
+`curveFields` interpretation applies only when the function is argless. A function
+with an explicit argument retains that magnitude; `cronenchant.bss`, for example,
+emits `ALL_EVA_INCRE(8)` as a normal +8 effect.
 
 **Enhancement level names.** Levels are named "+1"…"+15" then PRI…DEC, or PRI…DEC
 directly (accessories and the post-PEN boss/season lines). The scheme is not derivable
@@ -272,6 +363,67 @@ level — artifacts, lightstones, old reward gear) still carries its base stats 
 DSL in a single level-0 curve (e.g. `SHORT_AP_UP(4)`), so a single-level curve attaches
 to those Equip rows too.
 
+### `skillpiece.dbss` — item-set definitions
+
+This table supplies the item-set headings and piece-count bonus text used by the UI.
+It is indexed by `skillpieceoffset.dbss`; the index key is the record's `skillNo`.
+There are no skipped or padding bytes in a valid record.
+
+| Order | Type | Field | Notes |
+|---|---|---|---|
+| 1 | u32 | skillNo | matches the offset-index key |
+| 2 | u32 | bonusCount | number of set-bonus tiers |
+| 3 | u32 | firstPieces | piece count for the first tier |
+| 4 | repeated | bonuses | first tier begins with `u16 apply`; later tiers begin with `u32 pieces, u16 apply` |
+| 5 | u32 | footer | always zero |
+
+Each bonus then carries three inline strings in order: `groupTitle`,
+`descriptionTitle`, and `description`. Each string is `[i64 UTF-16 code-unit count]`
+followed by that many UTF-16LE units. `pieces` is the equipped-piece threshold;
+`apply` is the client's tier/application ordinal exposed by Lua as `getApply()`.
+
+Localized versions are in `.loc` table **52**, with `id = skillNo`. The low 24 bits
+of the field selector are `apply`; its high byte selects which string is requested:
+
+| Field selector | String |
+|---|---|
+| `apply` | description |
+| `0x01000000 \| apply` | description title / piece label |
+| `0x02000000 \| apply` | group title |
+
+Every non-empty inline source string has a corresponding table-52 localization. Empty
+source tiers also have no localization entry and should remain empty.
+
+The table defines bonuses, but does **not** contain a universal list of member item
+ids. Some life-accessory families expose the relation in enhancement DSL functions:
+
+| DSL function | skillNo | Family |
+|---|---:|---|
+| `ACCSET_1GRADE_LIFE_EXP_POINT_ADD` | 57991 | Loggia |
+| `ACCSET_2GRADE_LIFE_EXP_POINT_ADD` | 57992 | Geranoa |
+| `ACCSET_5GRADE_LIFE_EXP_POINT_ADD` | 57993 | Manos and Preonne combined |
+| `ACCSET_6GRADE_LIFE_EXP_POINT_ADD` | 57551 | Preonne |
+
+Several families mint a distinctive section-marker prefix in the item enhancement
+DSL. These provide locale-independent membership even though the record contains no
+numeric `skillNo` foreign key:
+
+| DSL marker prefix | skillNo | Family |
+|---|---:|---|
+| `GBEAR_` | 47639 | Bear Necessities |
+| `BLACKSTAR_` | 52494 | Blackstar armor |
+| `ANCIENT_`, `EDANA_` | 57337 | Slumbering Origin and Edana defense gear |
+| `SET_DECORATE_Training` | 57482 | Venia Riding attire |
+| `DEBOREKA_` | 58080 | Deboreka accessories |
+| `TUNGRAD_` | 58454 | Tungrad accessories |
+
+Generic markers such as `NO_2_SET_EFFECT`, `NO_3_SET_EFFECT`, and `SET_EFFECT`
+are reused by unrelated families. Neither `skillpiece` nor the item tables expose a
+universal numeric relation for those definitions, so the marker alone cannot identify
+their `skillNo`. Do not match localized description text: wording and stat names vary
+by language. Families without a distinctive marker require another confirmed client
+relation or a small explicit, auditable member list.
+
 ---
 
 ## 6. `cronenchant.bss` — Caphras chart
@@ -291,7 +443,8 @@ Caphras-eligible enhancement levels (18/19/20 = TRI/TET/PEN) × 20 Caphras steps
 | 0 | u8 | cronKey | == the row's key (1..10) |
 | 2 | u8 | enchantLevel | 18/19/20 |
 | 3 | u32 | totalStones | cumulative Caphras Stones to reach this level |
-| 7 | f32×8 | added stats | getter order: DD (AP), HIT (accuracy), DV (evasion), HDV (hidden evasion), PV (DR), HPV (hidden DR), MaxHP, MaxMP |
+| 7 | f32×7 | added stats | getter order: DD (AP), HIT (accuracy), DV (evasion), HDV (hidden evasion), PV (DR), HPV (hidden DR), MaxHP |
+| 35 | u32 | added MaxMP | cumulative Max MP/WP/SP; small integer, not a float |
 
 **The item → category (cronKey) mapping is not a stored field** — it's computed in the
 client executable. But it follows the equipment taxonomy exactly, so the build derives
@@ -310,9 +463,11 @@ it from client-side fields:
 
 Cost tiers pair up (rows 1/2 and 4/5 share weapon charts, 7/8 the top armor chart).
 `tables.DecodeCaphras` → `caphras.json`; the chart is also embedded per item as
-`enhancement.levels[].caphras`. Step stats are emitted as DSL effects in the same
-`{func, args}` shape as enhancement effects, with two extension names for the hidden
-stats (`HIDDEN_EVA_INCRE`, `HIDDEN_DAM_REDUCE_INCRE`).
+`enhancement.levels[].caphras`. Each step exposes the eight columns directly under
+`stats` and also emits them as DSL effects in the same `{func, args}` shape as
+enhancement effects. The two hidden columns use extension names
+`HIDDEN_EVA_INCRE` and `HIDDEN_DAM_REDUCE_INCRE`. These DSL functions carry explicit
+arguments and therefore do not use `curveFields`.
 
 Why it's easy to miss: the totals are cumulative u32s spaced 39 bytes apart, the stat
 ramps are floats, and the system is named "cron", not "caphras" — so find a system by
@@ -442,6 +597,7 @@ file is ~1.38M strings across ~114 `key0` tables. The ones this tool joins:
 | 18 | quests — name, description, giver, objective |
 | 29 | worldmap node names |
 | 34 | knowledge card name / description / acquisition |
+| 37 | compiled UI string sheets (`GAME`, `RESOURCE`, `ACTIONCHART`, etc.) |
 | 44 | central-market categories (see below) |
 | 115/116/117 | Monster Zone Info sub-category / zone / tag names |
 | 121 | crystal transfusion group — id = group, key1 = max count, text = name |
@@ -451,11 +607,367 @@ Internal table text (Name fields in `.dbss`) is **Korean** even on the EU client
 display text is resolved through `.loc` by id. Searching the binaries for English finds
 nothing — search Korean (UTF-16).
 
+### `stringtable.bss` — symbolic UI keys
+
+Lua calls such as `PAGetString(Defines.StringSheet_GAME, "LUA_...")` use symbolic
+keys, while localization table 37 stores numeric ids. `gamecommondata/binary/stringtable.bss`
+bridges the two: each symbolic key is paired with the numeric hash used as the
+localization id and with its Korean source text.
+
+The file is PABR with eight variable records, 48,673 symbolic entries and a shared
+UTF-16 string table. Each record is one string sheet:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | sheetHash | Hash of the sheet name |
+| 4 | u32 | sheetNameStrIdx | String-table index, e.g. `GAME` or `RESOURCE` |
+| 8 | u32 | entryCount | Number of entries in this sheet |
+| 12 + n×16 | u32 | localizationId | Primary id in localization table 37 |
+| 16 + n×16 | u32 | symbolicKeyStrIdx | String-table index of the `LUA_...`/`PANEL_...` key |
+| 20 + n×16 | u32 | sourceTextStrIdx | String-table index of the Korean source text |
+| 24 + n×16 | u32 | reserved | Zero |
+
+The sheet normally selects the secondary field in localization table 37:
+
+| Sheet | Field |
+|---|---:|
+| `CUTSCENE` | 0 |
+| `GAME` | 1 |
+| `RESOURCE` | 2 |
+| `ACTIONCHART` | 3 |
+| `TOOL` | 4 |
+| `WEB` | 5 |
+| `SymbolNo` | 6 |
+| `IMAGESLIDE` | 7 |
+
+Resolve an entry by `(localizationId, sheet field)` in localization table 37. If that
+base field is absent, try `field | 0x10000`; the packed alternate is required by a
+small number of `GAME` and `RESOURCE` entries. If neither exists, retain the Korean
+source text from `stringtable.bss`. The optional `lua-strings` command performs this
+join and writes `lua_strings_<lang>.json`; the normal build does not run it.
+
+### Playable character classes
+
+Playable classes use two different identifiers. `CharacterKey` identifies the player
+prototype in `characterstatic.dbss` and localization table 6. `ClassType` is the
+gameplay enum returned by `getClassType()`; it is also the bit position in an item's
+class-restriction mask. They are not interchangeable: Ranger is CharacterKey 2 but
+ClassType 4.
+
+`pcgrowthsimply.bss` is the direct active-class list. It is a PABR table with 47
+fixed 10-byte rows and a UTF-16 string table. The stored archive entry has an extra
+ICE layer.
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 | classType | Gameplay enum and item-mask bit |
+| 1 | u32 | sourceNameStringIndex | Korean class name in the table string pool |
+| 5 | u8 | playable | 1 for the 31 playable classes; 0 for reserved/test slots |
+| 6 | u32 | unknown6 | Zero in every row; retained if a future row uses it |
+
+`pcgrowth.dbss` contains the full ClassType → CharacterKey relation plus class
+selection data. Its companion `pcgrowthoffset.dbss` begins with a `u32` row count,
+followed by 9-byte index rows:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 | classType | Record key |
+| 1 | u32 | oneBasedOffset | Subtract 1 before slicing `pcgrowth.dbss` |
+| 5 | u32 | sizeMinusOne | Add 1 for the record byte length |
+
+The confirmed prefix of each variable `pcgrowth.dbss` record is:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 | classType | Matches the offset-index key |
+| 1 | u8 | classTypeCopy | Exact duplicate of `classType` |
+| 2 | u16 | characterKey | Joins `characterstatic.dbss` and localization table 6 |
+| 4 | u16 | unknown4 | Small class-selection value |
+| 6 | u16 | unknown6 | Small class-selection value |
+| 8 | u16 | unknown8 | Small class-selection value |
+| 10 | u32 | unknown10 | Packed/high-valued class-selection value |
+| 14 | u8 | unknown14 | Small class-selection value |
+| 15 | u32 | starterWeaponCount | Count for the following item keys |
+| 19 | u32 × starterWeaponCount | starterWeaponItems | Low-tier weapon item ids for the class |
+| 19 + n×4 | 94 bytes | unknownConfiguration0 | Invariant opaque prefix, retained verbatim |
+| 113 + n×4 | u8 | unknownConfiguration94 | Values 0–3 across the 47 class slots |
+| 114 + n×4 | 4 bytes | unknownConfiguration95 | Invariant opaque suffix, retained verbatim |
+| 118 + n×4 | inline UTF-16 | sourceName | `[i64 characterCount][UTF-16LE]` |
+| variable | inline UTF-16 | sourceDescription | Korean class-selection description |
+| variable | inline UTF-16 | selectionMovie | Class-selection `.webm` asset path |
+
+The tail after `selectionMovie` is fully tiled. It starts with the gender flag and
+four potion/food consume animations, each encoded as `[i64 byteCount][UTF-8]`:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 | gender | 0 = male, 1 = female |
+| 1 | inline UTF-8 ×4 | consumeAnimations | Level 1 through 4 consume action names |
+
+After those variable strings is a common 71-byte presentation block. Offsets in this
+table are relative to the start of that block:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | f32 ×6 | unknownPresentation0 | Class-specific values; retained as floats |
+| 24 | u8 | unknownPresentation24 | Small enum/flag |
+| 25 | u32 ×3 | previewWeaponItems | Main, sub and awakening weapon item ids used by class presentation |
+| 37 | u16 | unknownPresentation37 | Usually 1 |
+| 39 | f32 ×7 | unknownPresentation39 | Class-specific presentation values |
+| 67 | u32 | unknownPresentation67 | Usually zero |
+| 71 | u32 ×4 | unknownPresentationExtra | Present only for Shai: `[31, 4, 31, 0]` |
+
+Two weapon-asset lists follow. Each list is
+`[u32 count][count × {u8 slot, inline UTF-8 path}]`. Current playable rows contain
+three assets per list; slots 1, 2 and 3 correspond to the main, sub and awakening
+weapon models. The two lists are currently identical, but both are retained because
+their separate purpose is not identified. All 47 indexed records are consumed to
+their exact byte boundaries; 31 are playable and 16 are reserved or test slots.
+
+`playercharacterstatic.bss` is a PABR membership list:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u16 | characterKey | Joins `characterstatic.dbss` and localization table 6 |
+
+The table contains 96 player-like prototypes, including live classes, reserved/test
+characters, mercenaries and alternate modes. It is therefore not an active-class list
+by itself. In each matching `characterstatic.dbss` record, the direct relation is:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| record end - 23 | u32 | classType | CharacterKey → ClassType; verified for every active class |
+
+`classskilllist.bss` provides the active playable ClassTypes. It is a variable-record
+PABR table whose 31 rows tile the record area exactly:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 | classType | Active playable class enum value |
+| 1 | u64 | skillCount | Number of following skill keys |
+| 9 | u16 × skillCount | skillKeys | Small curated class skill list, not the complete skill tree |
+
+Filtering `pcgrowth.dbss` through the `pcgrowthsimply.bss` playable flag produces the
+class identity map without treating reserved ClassType slots as playable:
+
+| ClassType | CharacterKey | Display name |
+|---:|---:|---|
+| 0 | 1 | Warrior |
+| 1 | 6 | Hashashin |
+| 2 | 7 | Sage |
+| 3 | 8 | Wukong |
+| 4 | 2 | Ranger |
+| 5 | 9 | Guardian |
+| 6 | 10 | Scholar |
+| 7 | 11 | Drakania |
+| 8 | 3 | Sorceress |
+| 9 | 12 | Nova |
+| 10 | 13 | Corsair |
+| 11 | 14 | Lahn |
+| 12 | 4 | Berserker |
+| 15 | 17 | Maegu |
+| 16 | 5 | Tamer |
+| 17 | 18 | Shai |
+| 19 | 20 | Striker |
+| 20 | 21 | Musa |
+| 21 | 22 | Maehwa |
+| 23 | 24 | Mystic |
+| 24 | 25 | Valkyrie |
+| 25 | 26 | Kunoichi |
+| 26 | 27 | Ninja |
+| 27 | 28 | Dark Knight |
+| 28 | 29 | Wizard |
+| 29 | 30 | Archer |
+| 30 | 31 | Woosa |
+| 31 | 32 | Witch |
+| 32 | 33 | Seraph |
+| 33 | 34 | Dosa |
+| 34 | 35 | Deadeye |
+
+The exact class-selection text and presentation data live in
+`luacscript/x64/include/global_newclass_data.luac`. Its class-indexed tables include
+main/sub/awakening weapon labels, combat-resource labels, awakening and succession
+descriptions, combat style, weapon categories, class icons, class-selection stat
+textures and content-group gates. Symbolic `PAGetString` keys in that Lua resolve
+through `stringtable.bss` and localization table 37. This is the source of UI spelling
+such as `Sorceress`; localization table 6 calls the underlying prototype `Sorcerer`.
+
+### Character fitness progression
+
+`fitnesslevel.dbss` stores the family-wide Breath, Strength and Health curves. It
+begins with `u32 kindCount = 3`; each kind is `[u32 levelCount][level records]`.
+There are 51 levels, numbered 0 through 50, for each kind.
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 | kind | 0 = Breath, 1 = Strength, 2 = Health |
+| 1 | u32 | level | Fitness level |
+| 5 | u32 | requiredExperience | Experience required for this level |
+| 9 | f32 | unknown9 | Zero in every row; emitted if a future record uses it |
+| 13 | f32 | maxStamina | Breath stamina bonus |
+| 17 | f32 | maxWeight | Internal weight units; divide by 10,000 for LT |
+| 21 | f32 | maxHP | Health HP bonus |
+| 25 | f32 | maxMP | Health MP/WP/SP bonus |
+
+`fitnessleveloffset.dbss` contains three concatenated offset indexes, one per kind.
+Each index is `[u32 count][count × {u32 level, u32 offset, u32 size}]`; every record
+is 29 bytes.
+
+### Character level rules
+
+`experience.bss` stores generic rules indexed by ClassType and character level. Its
+PABR record area contains 47 counted class groups, one for every stored class slot 0
+through 46. Each group is `[u32 levelCount = 131][131 x 228-byte records]` and covers
+levels 0 through 130.
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | classType | Matches the containing class-group index |
+| 4 | u32 | level | Character level, 0 through 130 |
+| 8 | 20 bytes | reserved | Zero |
+| 28 | 200 bytes | characterLevelStat | Shared character-stat structure described below |
+
+The 200-byte stat structure is also the complete body of each row in
+`hardcorecharacterstatstaticstatus.bss`. After its `PABR` marker it has 47 fixed
+201-byte rows, each keyed by a leading u8 ClassType; all 47 bodies match the level-60
+`experience.bss` stat structure exactly.
+Offsets below are relative to the stat structure, so add 28 for their record offsets:
+
+| Stat @ | Record @ | Type | Field | Notes |
+|---:|---:|---|---|---|
+| 0 | 28 | u32 | reserved | Zero |
+| 4 | 32 | f32 | unknownStat4 | 1 in every row |
+| 8 | 36 | u32 | unknownStat8 | 1 in every row |
+| 12 | 40 | 20 bytes | reserved | Zero |
+| 32 | 60 | f32 | unknownStat32 | 1 in every row |
+| 36 | 64 | 24 bytes | reserved | Zero |
+| 60 | 88 | u32 | unknownStat60 | 0 at level 0, otherwise 5 |
+| 64 | 92 | u32 | unknownStat64 | 0 at level 0, otherwise 5 |
+| 68 | 96 | u32 | unknownStat68 | 0 at level 0, otherwise 5 |
+| 72 | 100 | 8 bytes | reserved | Zero |
+| 80 | 108 | f32 | unknownStat80 | 1 in every row |
+| 84 | 112 | 16 bytes | reserved | Zero |
+| 100 | 128 | u32 | unknownStat100 | 0 at level 0, otherwise 5 |
+| 104 | 132 | u32 | unknownStat104 | 0 at level 0, otherwise 5 |
+| 108 | 136 | u32 | unknownStat108 | 0 at level 0, otherwise 5 |
+| 112 | 140 | f32 | unknownStat112 | 1 in every row |
+| 116 | 144 | f32 | apBonus | 0 below level 60, then 1 |
+| 120 | 148 | f32 | dpBonus | 0 below level 56, then 1 |
+| 124 | 152 | 76 bytes | reserved | Zero |
+
+The AP and DP fields are the one-time level milestones shown by the client: level 56
+grants 1 DP and level 60 grants 1 AP. Corresponding records for different classes are
+byte-identical apart from `classType`, so the table does not provide class-specific HP,
+resource or weight curves. The two repeated raw-value triads at stat offsets +60 and
++100 change from 0 at level 0 to 5 from level 1 onward. Their placement and the
+client's `lvdd`/`lvpv` terminology make attack/defence growth plausible, but that
+interpretation is not yet strong enough to expose as a named gameplay stat.
+
+The class groups end exactly 200 zero bytes before the PABR string table.
+
+### Life-skill types and progression
+
+The life-skill wire value is the client's `CppEnums.LifeExperienceType`. The client's
+raw enum names survive in `global_define_cpp_enum.lua` (the "Client raw name" column
+below); localized display names come through the Lua string table. The
+`LifeSkillType` enum normalizes its `nativeName` to the app's canonical skill key
+(lowercase public name, e.g. `processing` not `manufacture`) so it lines up 1:1 with
+the gear-builder's config keys and the per-skill mastery StatIds — each playable skill
+carries a typed `masteryStat` (`gatheringMastery`, …). `Type_Count = 15` is a sentinel,
+not a sixteenth skill. Some effect modules reuse that sentinel value to mean “all life
+skills.”
+
+| Wire | Public name | Client raw name | nativeName / masteryStat | Notes |
+|---:|---|---|---|---|
+| 0 | Gathering | `gather` | `gathering` / gatheringMastery | |
+| 1 | Fishing | `fishing` | `fishing` / fishingMastery | |
+| 2 | Hunting | `hunting` | `hunting` / huntingMastery | |
+| 3 | Cooking | `cooking` | `cooking` / cookingMastery | |
+| 4 | Alchemy | `alchemy` | `alchemy` / alchemyMastery | |
+| 5 | Processing | `manufacture` | `processing` / processingMastery | |
+| 6 | Training | `training` | `training` / trainingMastery | |
+| 7 | Trading | `trade` | `trading` / tradingMastery | |
+| 8 | Farming | `growth` | `farming` / farmingMastery | |
+| 9 | Sailing | `sail` | `sailing` / sailingMastery | |
+| 10 | Quest | `temp1` | `quest` | The current English UI labels this slot Quest |
+| 11 | Bartering | `barter` | `bartering` | No gear mastery |
+| 12 | Reserved | `temp2` | `temp2` | Current UI label: Temp |
+| 13 | Reserved | `temp3` | `temp3` | Current UI label: Temp |
+| 14 | Reserved | `temp4` | `temp4` | Current UI label: Temp |
+| 15 | Count | `Type_Count` | — | Sentinel; also used as the all-life-skills selector |
+
+The visible grade and grade-level are derived from the raw level. These boundaries are
+defined directly by `PaGlobalFunc_Util_CraftLevelReplace` in the client Lua:
+
+| Grade wire | Name | Raw levels | Displayed levels |
+|---:|---|---:|---:|
+| 0 | Beginner | 1–10 | 1–10 |
+| 1 | Apprentice | 11–20 | 1–10 |
+| 2 | Skilled | 21–30 | 1–10 |
+| 3 | Professional | 31–40 | 1–10 |
+| 4 | Artisan | 41–50 | 1–10 |
+| 5 | Master | 51–80 | 1–30 |
+| 6 | Guru | 81–180 | 1–100 |
+
+#### `lifeexp.dbss`
+
+This table is self-describing and contains the required-experience curve for every
+`LifeExperienceType` slot. It tiles exactly as follows:
+
+```text
+[u32 typeCount = 15]
+15 × {
+    [u32 levelCount = 181]
+    181 × LifeExperienceRow
+}
+```
+
+| Row @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 | lifeSkillType | Matches the containing group, 0–14 |
+| 1 | u32 | level | Raw level, 0–180 |
+| 5 | u64 | requiredExperience | Experience requirement for this row |
+
+The curves are not all interchangeable: Fishing, Trade and Bartering differ from the
+common curve. `lifeexpmaxlevel.bss` is a parallel flat array of 15 `u32` maximum
+levels; every current entry is 180. The extractor writes these tables as
+`life_skill_progression.json` and exposes `LifeSkillType`, `LifeSkillGrade` and
+`LifeSkillLevel` publicly.
+
+#### Life-skill mastery and level-effect tables
+
+These client tables drive the values displayed by the Life Skill tab. Percentage-like
+fields are stored as integer rates where `1,000,000 = 100%`.
+
+| File | Shape | Confirmed purpose |
+|---|---|---|
+| `commonlifestatdata.bss` | extra-ICE PABR; 180 consecutive `f32` values | Base mastery contributed by raw life levels 1–180 |
+| `collectingstatdata.bss` | 7 groups × `[u32 61][61 × 36-byte row]`, then 44 zero bytes | Gathering mastery for water, lumbering, fluid collection, hoe gathering, butchering, tanning and mining |
+| `fishingstatdata.bss` | PABR; 61 × 8-byte row | Prize Catch rate by Fishing mastery |
+| `huntingstatdata.bss` | PABR; 61 × 36-byte row | Hunting resource-quantity rate plus seven unused/reserved columns |
+| `cookingstatdata.bss` | PABR; 61 × 24-byte row | Mass cooking, max products, higher-grade products and Imperial Delivery bonus |
+| `alchemystatdata.bss` | PABR; 61 × 40-byte row | Max products, extra-result tiers and Imperial Delivery bonus |
+| `manufacturingstat.bss` | 6 identical groups × `[u32 76][76 × 16-byte row]` | Processing proc rate and mass-process batch size |
+| `trainingstatdata.bss` | PABR; 61 × 16-byte row | Horse capture, mount EXP and higher-tier breeding rates |
+| `sailstatdata.bss` | PABR; 61 × 44-byte row | Ship acceleration, speed, turn and brake bonuses, plus preserved step/configuration fields |
+| `barterlifelevelinfo.bss` | PABR; 180 × 8-byte row | Parley-cost reduction by raw Bartering level |
+
+All mastery rows begin with an `f32 mastery` threshold. The three Gathering resource
+tiers each occupy `{u32 dropRate, u32 quantityRate}` after that threshold; the final
+two `u32` fields remain unidentified. Processing rows are
+`{f32 mastery, u32 procRate, u32 batchSize, u32 reservedZero}`. The six Processing
+groups correspond to Shaking, Grinding, Chopping, Drying, Filtering and Heating and
+are byte-identical in the current client.
+
+`lifeactionexperience.dbss` and `actionexp.dbss` are additional offset-indexed action
+award tables, not the level requirement curve. Their record payloads do not follow the
+ordinary decoded DBSS/PABR forms yet, so their per-action meanings remain open.
+
 ### Central-market categories — localization table 44
 
-Keyed by the main-category id (item `@188`). Within each entry: `key1 == 0` is the main
+Keyed by the main-category id (item `@200`). Within each entry: `key1 == 0` is the main
 name ("Consumables"); `key1` in `1..0xFFFF` are the sub-category names (matching item
-`@189`); `key1 ≥ 0x10000` are per-category enhancement-level display labels (skipped).
+`@201`); `key1 ≥ 0x10000` are per-category enhancement-level display labels (skipped).
 
 ---
 
@@ -527,37 +1039,135 @@ description = territory). Folds into `world.json`.
 
 ## 11. `regioninfo.bss` — regions
 
-Every map region (1,572): key, names, **territory membership**, world position, and
-warehouse groups. PABR, UTF-16 string table. Records are byte-packed: a fixed 389-byte
-skeleton plus two length-prefixed lists, so consecutive records rotate u32 alignment by
-one byte (389 ≡ 1 mod 4) — under an aligned scan every field smears across four
-byte-rotations. Layout (offsets from record start):
+Every map region (1,572): key, names, territory membership, world positions, flags and
+warehouse groups. The file is PABR with a UTF-16 string table. Each variable record is
+a 210-byte head, two counted lists and a 171-byte tail. Record size is
+`389 + 2×warehouseGroupCount + 12×extraPositionCount`; the odd fixed size means fields
+do not remain naturally aligned between records.
+
+The 210-byte head is:
 
 | @ | Type | Field | Notes |
-|---|---|---|---|
-| 0 | u16 | regionKey | == localization table 17 id (English names) and the regionclientdata key |
-| 6 | u8 | regionType | 1 = town/city, 2 = field, … |
-| 32 | u32 | const 19950 | anchor A |
-| 90 | u8 | territoryIndex | == `territoryinfo` / localization-table-12 index (Velia → 0 Balenos, …) |
-| 92 | u16 | nameStrIdx | own Korean name |
-| 96 | u16 | capitalNameIdx | the territory capital's Korean name |
-| 100 | u16 | capitalKey | the territory's capital region — constant per territory (Balenos → 5 Velia, Mediah → 202 Altinova) |
-| 131 | f32 ×3 | position | world x/y/z |
-| 149 | u32 | const 0x13524B01 | anchor B / format-version marker |
-| 210 | u32 | warehouseGroupCount | |
-| 214 | u16 ×n | warehouseGroup | region keys in this storage/transport group, incl. itself; only the 58 warehouse-bearing places carry it — groups are disjoint, matching the transport topology |
+|---:|---|---|---|
+| 0 | u16 | regionKey | Joins localization table 17, `regionclientdata` and `region_info.xml` |
+| 2 | u8 ×3 | mapColor | RGB world-map color |
+| 5 | u8 | reserved | Zero |
+| 6 | u8 | regionType | Region category; 1 is a town/city and 2 is a field region |
+| 7 | u8 | villageSiegeDay | `CppEnums.VillageSiegeType`: Sunday=0 through Saturday=6; 7 means none |
+| 8 | u8 ×3 | reserved | Zero |
+| 11 | u8 | unknown11 | Small enum; observed values 0, 1, 3 and 4 |
+| 12 | bool | unknown12 | Unidentified flag |
+| 13 | bool | unknown13 | Unidentified flag |
+| 14 | bool | ocean | Open-ocean region |
+| 15 | bool | desert | Desert region |
+| 16 | bool | prison | Prison region |
+| 17 | bool | sea | Sea region |
+| 18 | bool ×9 | unknown18..26 | Unidentified flags, retained individually |
+| 27 | bool | locator | Region participates in the client locator |
+| 28 | bool | unknown28 | Unidentified flag |
+| 29 | u16 | unknown29 | Unidentified value |
+| 31 | bool | unknown31 | Unidentified flag |
+| 32 | u32 | unknown32 | Observed as 19950 in all rows; not a record anchor |
+| 36 | u8 | reserved | Zero |
+| 37 | bool | unknown37 | Unidentified flag |
+| 38 | u32 | villainRespawnWaypointKey | Outlaw/death fallback world-node key |
+| 42 | f32 ×3 | villainRespawnPosition | Position paired with the fallback node |
+| 54 | bool ×5 | unknown54..58 | Unidentified flags, retained individually |
+| 59 | u8 | reserved | Zero |
+| 60 | u32 | unknown60 | Unidentified value |
+| 64 | u8 ×2 | reserved | Zero |
+| 66 | bool | unknown66 | Unidentified flag |
+| 67 | u8 | reserved | Zero |
+| 68 | u32 | unknown68 | Unidentified value |
+| 72 | u8 ×10 | reserved | Zero |
+| 82 | bool | unknown82 | Unidentified flag |
+| 83 | u8 | reserved | Zero |
+| 84 | u32 | unknown84 | Unidentified value |
+| 88 | u8 ×2 | reserved | Zero |
+| 90 | u8 | territoryIndex | Joins `territoryinfo.bss` and localization table 12 |
+| 91 | u8 | reserved | Zero |
+| 92 | u32 | nameStrIdx | Own Korean name in this file's string table |
+| 96 | u32 | capitalNameStrIdx | Territory capital's Korean name |
+| 100 | u16 | capitalRegionKey | Territory capital; constant within each territory |
+| 102 | u16 | affiliatedTownRegionKey | Town responsible for this region |
+| 104 | u16 | regionGroupKey | Joins `regiongroupinfo.bss` |
+| 106 | u8 | reserved | Zero |
+| 107 | u16 | unknown107 | Unidentified relation |
+| 109 | u8 ×2 | reserved | Zero |
+| 111 | u16 | explorationKey | Associated world-node key from `exploration.bss` |
+| 113 | u8 ×2 | reserved | Zero |
+| 115 | bool | unknown115 | Unidentified flag |
+| 116 | u8 ×3 | reserved | Zero |
+| 119 | f32 ×3 | waypointPosition | Position returned by the region waypoint interface |
+| 131 | f32 ×3 | position | Region world position |
+| 143 | u8 ×4 | reserved | Zero |
+| 147 | bool | unknown147 | Unidentified flag |
+| 148 | u8 | reserved | Zero |
+| 149 | u32 | unknown149 | Unidentified patch-varying value; not a structural marker |
+| 153 | f32 ×5 | unknown153 | Unidentified configuration values |
+| 173 | u32 | unknown173 | Unidentified value |
+| 177 | u32 | unknown177 | Unidentified value |
+| 181 | u32 | unknown181 | Observed as `0xffffffff` |
+| 185 | u32 ×6 | unknown185 | Unidentified ids, populated mainly on towns |
+| 209 | bool | unknown209 | Unidentified flag |
 
-After the group list: `u32 extraPositionCount` + n×vec3f (extra worldmap marks — only
-the Great Desert of Valencia), then a fixed color/const tail. Record size =
-`389 + 2×warehouseGroupCount + 12×extraPositionCount`.
-`tables.DecodeRegionInfo` re-validates both anchors per record and the exact tiling, and
-returns the per-territory capital map (validating that `capitalKey` is constant within a
-territory). Unidentified: `+2..+5`, `+7`, the float params at `+153`, six ~105k ids at
-`+185` (towns only), and the color tail — none needed for the geographic database.
+The variable portion immediately follows the head:
 
-Anchor B behaves as a format-version marker. If it differs, identify the u32 that is
-constant at `+149` across all anchor-A records and verify exact record tiling before
-accepting the value.
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | warehouseGroupCount | Number of following region keys |
+| 4 | u16 ×n | warehouseGroup | Regions sharing storage/transport topology; includes the owning region |
+| 4 + n×2 | u32 | extraPositionCount | Number of following positions |
+| 8 + n×2 | f32 ×3 ×m | extraPositions | Additional world-map marks for oversized regions |
+
+The final 171 bytes begin after both lists. Tail offsets below are relative to the start
+of that block:
+
+| Tail @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u8 | reserved | Zero |
+| 1 | u16 | unknownTail1 | Unidentified value |
+| 3 | u16 | unknownTail3 | Unidentified value |
+| 5 | f32 ×3 | unknownTail5 | Unidentified vector |
+| 17 | u32 | unknownTail17 | Unidentified value |
+| 21 | u8 | unknownTail21 | Unidentified value |
+| 22 | u8 | unknownTail22 | Unidentified value |
+| 23 | u8 | unknownTail23 | Unidentified value |
+| 24 | bool | unknownTail24 | Unidentified flag |
+| 25 | f32 ×6 | unknownTail25 | Two unidentified vectors |
+| 49 | u64 | unknownTail49 | Unidentified value |
+| 57 | f32 | unknownTail57 | Unidentified value |
+| 61 | f32 | unknownTail61 | Unidentified value |
+| 65 | u32 | unknownTail65 | Unidentified value |
+| 69 | bool | unknownTail69 | Unidentified flag |
+| 70 | bool | unknownTail70 | Unidentified flag |
+| 71 | u32 | unknownTail71 | Unidentified value |
+| 75 | u16 | unknownTail75 | Unidentified value |
+| 77 | u16 | unknownTail77 | Unidentified value |
+| 79 | u8 | unknownTail79 | Unidentified value |
+| 80 | u8 | reserved | Zero |
+| 81 | f32 | unknownTail81 | Unidentified value |
+| 85 | u32 ×6 | unknownTail85 | Unidentified values |
+| 109 | bool | unknownTail109 | Unidentified flag |
+| 110 | f32 ×3 | unknownTail110 | Unidentified vector |
+| 122 | f32 ×3 | unknownTail122 | Unidentified vector |
+| 134 | u8 | unknownTail134 | Unidentified value |
+| 135 | u8 | unknownTail135 | Unidentified value |
+| 136 | bool | unknownTail136 | Unidentified flag |
+| 137 | u8 | unknownTail137 | Unidentified value |
+| 138 | u8 ×7 | reserved | Zero |
+| 145 | u8 | unknownTail145 | Unidentified value |
+| 146 | u8 ×8 | reserved | Zero |
+| 154 | u32 | unknownTail154 | Unidentified value |
+| 158 | u32 | unknownTail158 | Unidentified value |
+| 162 | u32 | unknownTail162 | Unidentified value |
+| 166 | u8 ×3 | reserved | Zero |
+| 169 | u16 | guildWharfManagerCharacterKey | Joins guild-wharf service characters such as Robert and Sebastian |
+
+`tables.DecodeRegionInfo` reads these fields sequentially, preserves every typed
+unknown, requires all reserved spans to remain zero, validates list and string bounds,
+and requires all records to tile the PABR record area exactly. It also verifies that
+the capital relation is consistent within each territory.
 
 ### `regionclientdata*.xml` — placed characters
 
@@ -613,7 +1223,7 @@ footer table after the last record:
 |---|---|---|---|
 | 0 | u16 | nodeKey | == localization table 29 id and the node ids community sites use |
 | 2 | u16 | unknown2 | Usually zero |
-| 4 | u8 | flag | Normally 1; retained verbatim |
+| 4 | u8 | enabled | 1 for active nodes; 0 on seven unused records whose localized name is `UnKnown` |
 | 5 | u8 | nodeKind | 16-value `model.WorldNodeKind` enum |
 | 6 | u16 | linkedKey | redundant node reference; == `nodeKey` in all 1,037 records |
 | 8 | u16 | unknown8 | Usually zero |
@@ -622,8 +1232,8 @@ footer table after the last record:
 | 14 | u8 | const | 1 |
 | 15 | u8 | zero | Reserved |
 | 16 | u8 | networkFlag | 1 = normal network node; 0 = special town/sea/district/battlefield location |
-| 17 | u8 | mainCopy1 | Copy of the main/sub state at +116 |
-| 18 | u8 | mainCopy2 | Copy of the main/sub state at +116 |
+| 17 | u8 | unknown17 | Tracks main/sub state except on two Ossuary records and Velia Beach |
+| 18 | u8 | mainCopy | Exact copy of the main/sub state at +116 |
 | 19 | u8 | zoneIndex | Sparse special-content index |
 | 20 | u8 | zoneCategory | 1 island; 2 coastal; 5 inland/desert; 6 battlefield/ocean |
 | 21 | u8 | grindZone | Sparse Marni/Elvia grind-zone index |
@@ -979,9 +1589,10 @@ This was reverse-engineered from scratch with no reference, so plenty is still o
 you have schema, headers, field layouts, or any information on the below, please open a
 PR or an issue — even partial notes help.
 
-- **`itemenchant` post-icon tail (~185 columns).** ~700–1300 bytes after the icon:
-  per-slot stat arrays, detailed price/tax rates, pet-feed slots, trade/bind/expiry
-  flags, an embedded description, and scripts. Everything before it is read positionally.
+- **`itemenchant` type-dependent post-icon remainder.** The fixed 18-byte prefix,
+  three strings, market limit and following 84-byte prefix are decoded. The preserved
+  remainder appears to contain per-slot stat arrays, detailed price/tax rates,
+  pet-feed slots, trade/bind/expiry flags and scripts; its variant boundaries are open.
 - **`itemenchant` pre-name variant block (gear).** A type-dependent block between the
   fixed header and the name; ~744 set/boss pieces carry a larger `count`+entries block.
   The entry layout and its trigger sub-type are unmapped (Name/Icon/EnchantKey are

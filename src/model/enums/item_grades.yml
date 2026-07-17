@@ -1,0 +1,33 @@
+package: model
+type: ItemGrade
+underlying: int8
+marshalText: false
+out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/item-grades.gen.ts
+values:
+  - name: "none"
+    wire: -1
+
+  - name: "white"
+    wire: 0
+    color: "#e8eaed"
+
+  - name: "green"
+    wire: 1
+    color: "#7dc86e"
+
+  - name: "blue"
+    wire: 2
+    color: "#5b9dff"
+
+  - name: "yellow"
+    wire: 3
+    color: "#e6c84e"
+
+  - name: "red"
+    wire: 4
+    color: "#db4d3d"
+
+  - name: "purple"
+    wire: 5
+    color: "#c084e6"

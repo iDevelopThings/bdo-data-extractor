@@ -2,6 +2,8 @@ package paz
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 	"sync/atomic"
 
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
@@ -71,6 +73,9 @@ func (s *Source) read(name string) ([]byte, bool, error) {
 	if err != nil {
 		return nil, true, err
 	}
+	if f.CompSize == f.OrigSize && strings.EqualFold(filepath.Ext(name), ".bss") {
+		b = decodeInnerPABR(b)
+	}
 
 	return b, true, nil
 }
@@ -90,5 +95,8 @@ func (s *Source) ReadAny(names ...string) ([]byte, string, error) {
 func (s *Source) Close() {
 	s.Archive.Close()
 
-	isOpen.Store(false)
+	if openSource == s {
+		openSource = nil
+		isOpen.Store(false)
+	}
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/config"
 	"github.com/idevelopthings/bdo-data-extractor/internal/jsonio"
+	"github.com/idevelopthings/bdo-data-extractor/internal/loc"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 	"github.com/idevelopthings/bdo-data-extractor/src/models"
@@ -30,6 +31,9 @@ func (b *Builder) buildItems() error {
 	}
 	stats, err := tables.DecodeItemStats(encOff, encDat)
 	if err != nil {
+		return err
+	}
+	if err := validateItemMarketCategories(stats, b.gs.MarketCats); err != nil {
 		return err
 	}
 	b.logf(fmt.Sprintf("itemenchant: %d item stat rows", len(stats)))
@@ -96,10 +100,16 @@ func (b *Builder) buildItems() error {
 	gathered := b.flagGathered()
 	b.logf(fmt.Sprintf("itemmaking: flagged %d gathered items", gathered))
 
-	untradable, caphrasItems, nv, ng := b.finalizeItems(maxlv)
+	untradable, caphrasItems, nv, ng, err := b.finalizeItems(maxlv)
+	if err != nil {
+		return err
+	}
 	b.logf(fmt.Sprintf("market categories: derived for %d untradeable equipment items", untradable))
 	b.logf(fmt.Sprintf("caphras: derived chart categories for %d items", caphrasItems))
 	b.logf(fmt.Sprintf("item variants: %d copies linked to canonical, %d ghost records flagged", nv, ng))
+	if err := b.buildItemSets(); err != nil {
+		return err
+	}
 
 	// Write items.json + item_enhancements.json (the 400MB+ bulk of the output) in
 	// the background while the sidecar stages build; Run joins via awaitWrite. Safe
@@ -110,6 +120,23 @@ func (b *Builder) buildItems() error {
 		n, size, err := b.writeItems()
 		b.writeDone <- writeResult{n, size, err}
 	}()
+
+	return nil
+}
+
+func validateItemMarketCategories(stats map[uint32]tables.ItemStat, categories map[uint32]loc.MarketCat) error {
+	for id, stat := range stats {
+		if stat.MarketCatID == 0 || stat.MarketCatID == 255 {
+			continue
+		}
+		category, ok := categories[uint32(stat.MarketCatID)]
+		if !ok || category.Name == "" {
+			return fmt.Errorf("itemenchant item %d: market category %d is absent from loc table 44", id, stat.MarketCatID)
+		}
+		if category.Subs[uint32(stat.MarketSubID)] == "" {
+			return fmt.Errorf("itemenchant item %d: market subcategory %d/%d is absent from loc table 44", id, stat.MarketCatID, stat.MarketSubID)
+		}
+	}
 
 	return nil
 }
@@ -212,7 +239,7 @@ func (b *Builder) mergeItems(
 			}
 			ei := &model.EquipInfo{Slot: s.Slot, Kind: s.Kind, Type: typ}
 			if len(s.ExtraSlots) > 0 { // multi-slot costume: full occupied-slot list
-				ei.Slots = append([]string{s.Slot}, s.ExtraSlots...)
+				ei.Slots = append([]model.SlotName{s.Slot}, s.ExtraSlots...)
 			}
 			it.EquipInfo = ei
 		}
@@ -289,7 +316,7 @@ func (b *Builder) backfillShellIcons() int {
 // groups, then an apply pass that fills derived market categories, stamps caphras
 // charts, and moves enchant curves to the sidecar. Per-item writes are independent,
 // so folding them into one pass is order-safe; the counts are returned for logging.
-func (b *Builder) finalizeItems(maxlv map[uint32]int) (untradable, caphras, variants, ghosts int) {
+func (b *Builder) finalizeItems(maxlv map[uint32]int) (untradable, caphras, variants, ghosts int, err error) {
 	market := newMarketLearner()
 	groups := map[vkey][]*model.Item{}
 	for _, it := range b.items {
@@ -304,14 +331,17 @@ func (b *Builder) finalizeItems(maxlv map[uint32]int) (untradable, caphras, vari
 		}
 		slot := ""
 		if it.EquipInfo != nil {
-			slot = it.EquipInfo.Slot
+			slot = it.EquipInfo.Slot.String()
 		}
 		k := vkey{it.Name, it.ItemType, it.Category, it.Grade, it.Icon, slot}
 		groups[k] = append(groups[k], it)
 	}
 	variants = assignVariants(groups)
 
-	chart := b.loadCaphrasChart()
+	chart, err := b.loadCaphrasChart()
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
 
 	b.enhancements = make(map[uint32]*model.Enhancement)
 	for _, it := range b.items {
@@ -323,7 +353,7 @@ func (b *Builder) finalizeItems(maxlv map[uint32]int) (untradable, caphras, vari
 		}
 		b.stashEnhancement(it)
 	}
-	return untradable, caphras, variants, ghosts
+	return untradable, caphras, variants, ghosts, nil
 }
 
 // stashEnhancement moves an item's full enchant curve into b.enhancements (written
@@ -511,7 +541,11 @@ func (b *Builder) writeItems() (count int, size int64, err error) {
 // the equip slot: a Pearl-shop appearance costume ("Costume: Armor") reuses the
 // real gear's name and icon, but an item worn in a different slot is never a
 // reissue of the combat piece, so the two must stay separate records.
-type vkey struct{ name, typ, cat, grade, icon, slot string }
+type vkey struct {
+	name, typ, cat string
+	grade          model.ItemGrade
+	icon, slot     string
+}
 
 // assignVariants picks the canonical record in each multi-copy group and points the
 // others at it via VariantOf, returning the number of copies linked. The canonical

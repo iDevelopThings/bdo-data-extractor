@@ -2,6 +2,7 @@ package tables
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
@@ -23,7 +24,7 @@ import (
 //	  u8  0
 //	  u8  enchantLevel   18 (TRI) / 19 (TET) / 20 (PEN)
 //	  u32 totalStones    cumulative Caphras Stones to REACH this level
-//	  8 × f32            added stats at this level, in the wrapper's getter
+//	  7 × f32 + u32      added stats at this level, in the wrapper's getter
 //	                     order: DD (AP), HIT (accuracy), DV (evasion),
 //	                     HDV (hidden evasion), PV (damage reduction),
 //	                     HPV (hidden DR), MaxHP, MaxMP
@@ -58,63 +59,134 @@ func DecodeCaphras(data []byte) ([]model.CaphrasCategory, error) {
 	if !ok {
 		return nil, fmt.Errorf("cronenchant: records don't tile evenly (rows=%d)", h.Rows)
 	}
-	rows := h.Rows
-
-	out := make([]model.CaphrasCategory, 0, rows)
-	for r := 0; r < rows; r++ {
-		o := 8 + r*rowSize
-		end := o + rowSize
-		groups := int(bss.U32(data, o))
-		o += 4
-		cat := model.CaphrasCategory{BaseFor: models.NewBaseFor[model.CaphrasCategory](uint32(r + 1)), Key: r + 1}
-		for g := 0; g < groups; g++ {
-			if o+4 > end {
-				return nil, fmt.Errorf("cronenchant: row %d group %d truncated", r, g)
-			}
-			steps := int(bss.U32(data, o))
-			o += 4
-			if steps <= 0 || steps > 100 || o+steps*39 > end {
-				return nil, fmt.Errorf("cronenchant: row %d group %d bad step count %d", r, g, steps)
-			}
-			enh := model.CaphrasEnhancement{EnchantLevel: int(data[o+2])}
-			prevTotal := 0
-			for e := 0; e < steps; e++ {
-				key, pad, lvl := data[o], data[o+1], data[o+2]
-				if int(key) != r+1 || pad != 0 || int(lvl) != enh.EnchantLevel || lvl < 18 || lvl > 20 {
-					return nil, fmt.Errorf("cronenchant: row %d group %d entry %d bad prefix [%d %d %d] (layout changed?)",
-						r, g, e, key, pad, lvl)
-				}
-				total := int(bss.U32(data, o+3))
-				if total < prevTotal {
-					return nil, fmt.Errorf("cronenchant: row %d group %d entry %d non-monotonic total %d", r, g, e, total)
-				}
-				// stats become DSL effects (same shape as EnchantLevel.Effects);
-				// funcs reuse the enhancement DSL vocabulary, see model.CaphrasLevel
-				var effects []model.EffectDsl
-				for k, fn := range caphrasEffectFuncs {
-					v := bss.F32(data, o+7+4*k)
-					if v > 0.1 {
-						effects = append(effects, model.EffectDsl{
-							Func: fn,
-							Args: []float64{v},
-						})
-					}
-				}
-				enh.Steps = append(enh.Steps, model.CaphrasLevel{
-					Level:       e + 1,
-					Stones:      total - prevTotal,
-					TotalStones: total,
-					Effects:     model.FormatEffectFunctions(effects, false, "Caphras"),
-				})
-				prevTotal = total
-				o += 39
-			}
-			cat.Levels = append(cat.Levels, enh)
-		}
-		if o != end {
-			return nil, fmt.Errorf("cronenchant: row %d consumed %d of %d bytes", r, o-(8+r*rowSize), rowSize)
+	out := make([]model.CaphrasCategory, 0, h.Rows)
+	for rowIndex := 0; rowIndex < h.Rows; rowIndex++ {
+		start := h.RecordsStart + rowIndex*rowSize
+		cat, err := decodeCaphrasRow(data[start : start+rowSize])
+		if err != nil {
+			return nil, fmt.Errorf("cronenchant: row %d: %w", rowIndex, err)
 		}
 		out = append(out, cat)
 	}
 	return out, nil
+}
+
+func decodeCaphrasRow(record []byte) (model.CaphrasCategory, error) {
+	c := bss.NewCursor(record, 0, len(record))
+	groupCount := int(c.U32())
+	if groupCount <= 0 || groupCount > 16 {
+		return model.CaphrasCategory{}, fmt.Errorf("invalid group count %d", groupCount)
+	}
+
+	categoryKey := 0
+	seenLevels := make(map[int]bool, groupCount)
+	levels := make([]model.CaphrasEnhancement, 0, groupCount)
+	for groupIndex := 0; groupIndex < groupCount; groupIndex++ {
+		stepCount := int(c.U32())
+		if stepCount <= 0 || stepCount > 100 {
+			return model.CaphrasCategory{}, fmt.Errorf("group %d has invalid step count %d", groupIndex, stepCount)
+		}
+
+		level := 0
+		previousTotal := 0
+		steps := make([]model.CaphrasLevel, 0, stepCount)
+		for stepIndex := 0; stepIndex < stepCount; stepIndex++ {
+			key := c.U8()
+			reserved := c.U8()
+			enchantLevel := c.U8()
+			total := int(c.U32())
+			stats := model.CaphrasStats{
+				AP:                    c.F32(),
+				Accuracy:              c.F32(),
+				Evasion:               c.F32(),
+				HiddenEvasion:         c.F32(),
+				DamageReduction:       c.F32(),
+				HiddenDamageReduction: c.F32(),
+				MaxHP:                 c.F32(),
+				MaxMP:                 int(c.U32()),
+			}
+			if !c.OK() {
+				return model.CaphrasCategory{}, fmt.Errorf("group %d step %d is truncated", groupIndex, stepIndex)
+			}
+			if reserved != 0 {
+				return model.CaphrasCategory{}, fmt.Errorf("group %d step %d reserved byte is %d", groupIndex, stepIndex, reserved)
+			}
+			if categoryKey == 0 {
+				categoryKey = key
+			}
+			if key == 0 || key != categoryKey {
+				return model.CaphrasCategory{}, fmt.Errorf("group %d step %d category key %d, want %d", groupIndex, stepIndex, key, categoryKey)
+			}
+			if level == 0 {
+				level = enchantLevel
+			}
+			if enchantLevel != level {
+				return model.CaphrasCategory{}, fmt.Errorf("group %d step %d enhancement level %d, want %d", groupIndex, stepIndex, enchantLevel, level)
+			}
+			if total < previousTotal {
+				return model.CaphrasCategory{}, fmt.Errorf("group %d step %d has non-monotonic total %d", groupIndex, stepIndex, total)
+			}
+			if err := validateCaphrasStats(stats); err != nil {
+				return model.CaphrasCategory{}, fmt.Errorf("group %d step %d: %w", groupIndex, stepIndex, err)
+			}
+
+			effects := caphrasEffects(stats)
+			steps = append(steps, model.CaphrasLevel{
+				Level:       stepIndex + 1,
+				Stones:      total - previousTotal,
+				TotalStones: total,
+				Stats:       stats,
+				Effects:     model.FormatEffectFunctions(effects, false, "Caphras"),
+			})
+			previousTotal = total
+		}
+		if seenLevels[level] {
+			return model.CaphrasCategory{}, fmt.Errorf("duplicate enhancement level %d", level)
+		}
+		seenLevels[level] = true
+		levels = append(levels, model.CaphrasEnhancement{EnchantLevel: level, Steps: steps})
+	}
+	if c.Remaining() != 0 {
+		return model.CaphrasCategory{}, fmt.Errorf("%d trailing bytes at byte %d", c.Remaining(), c.Pos())
+	}
+	if categoryKey == 0 {
+		return model.CaphrasCategory{}, fmt.Errorf("missing category key")
+	}
+
+	return model.CaphrasCategory{
+		BaseFor: models.NewBaseFor[model.CaphrasCategory](uint32(categoryKey)),
+		Key:     categoryKey,
+		Levels:  levels,
+	}, nil
+}
+
+func validateCaphrasStats(stats model.CaphrasStats) error {
+	values := [...]float64{
+		stats.AP, stats.Accuracy, stats.Evasion, stats.HiddenEvasion,
+		stats.DamageReduction, stats.HiddenDamageReduction, stats.MaxHP,
+	}
+	for index, value := range values {
+		if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+			return fmt.Errorf("invalid stat %d value %v", index, value)
+		}
+	}
+	return nil
+}
+
+func caphrasEffects(stats model.CaphrasStats) []model.EffectDsl {
+	values := [...]float64{
+		stats.AP, stats.Accuracy, stats.Evasion, stats.HiddenEvasion,
+		stats.DamageReduction, stats.HiddenDamageReduction, stats.MaxHP, float64(stats.MaxMP),
+	}
+	effects := make([]model.EffectDsl, 0, len(values))
+	for index, value := range values {
+		if value == 0 {
+			continue
+		}
+		effects = append(effects, model.EffectDsl{
+			Func: caphrasEffectFuncs[index],
+			Args: []float64{value},
+		})
+	}
+	return effects
 }

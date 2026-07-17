@@ -1,0 +1,113 @@
+package: model
+type: LifeSkillType
+underlying: uint8
+marshalText: false
+out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/life-skill-types.gen.ts
+# masteryStat is the gear-builder mastery StatId this life skill feeds (see
+# stats.yml). Only the ten skills with a gear mastery carry one.
+fields:
+  masteryStat: StatId
+values:
+  - name: Gathering
+    wire: 0
+    title: "Gathering"
+    nativeName: "gathering"
+    playable: true
+    masteryStat: gatheringMastery
+
+  - name: Fishing
+    wire: 1
+    title: "Fishing"
+    nativeName: "fishing"
+    playable: true
+    masteryStat: fishingMastery
+
+  - name: Hunting
+    wire: 2
+    title: "Hunting"
+    nativeName: "hunting"
+    playable: true
+    masteryStat: huntingMastery
+
+  - name: Cooking
+    wire: 3
+    title: "Cooking"
+    nativeName: "cooking"
+    playable: true
+    masteryStat: cookingMastery
+
+  - name: Alchemy
+    wire: 4
+    title: "Alchemy"
+    nativeName: "alchemy"
+    playable: true
+    masteryStat: alchemyMastery
+
+  - name: Processing
+    wire: 5
+    title: "Processing"
+    nativeName: "processing"
+    playable: true
+    masteryStat: processingMastery
+
+  - name: Training
+    wire: 6
+    title: "Training"
+    nativeName: "training"
+    playable: true
+    masteryStat: trainingMastery
+
+  - name: Trading
+    wire: 7
+    title: "Trading"
+    nativeName: "trading"
+    playable: true
+    masteryStat: tradingMastery
+
+  - name: Farming
+    wire: 8
+    title: "Farming"
+    nativeName: "farming"
+    playable: true
+    masteryStat: farmingMastery
+
+  - name: Sailing
+    wire: 9
+    title: "Sailing"
+    nativeName: "sailing"
+    playable: true
+    masteryStat: sailingMastery
+
+  - name: Quest
+    wire: 10
+    title: "Quest"
+    nativeName: "quest"
+
+  - name: Bartering
+    wire: 11
+    title: "Bartering"
+    nativeName: "bartering"
+    playable: true
+
+  - name: Reserved12
+    wire: 12
+    title: "Temp"
+    nativeName: "temp2"
+    reserved: true
+
+  - name: Reserved13
+    wire: 13
+    title: "Temp"
+    nativeName: "temp3"
+    reserved: true
+
+  - name: Reserved14
+    wire: 14
+    title: "Temp"
+    nativeName: "temp4"
+    reserved: true
+
+  - name: Count
+    wire: 15
+    sentinel: true

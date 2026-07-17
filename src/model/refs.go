@@ -85,6 +85,20 @@ func ItemRefList(ids ...uint32) models.EntityRefList[Item] {
 	return l
 }
 
+// ItemSetRefList builds a list of item-set refs, skipping 0 keys.
+func ItemSetRefList(keys ...uint32) *models.EntityRefList[ItemSet] {
+	l := models.EntityRefList[ItemSet]{}
+	for _, key := range keys {
+		if key != 0 {
+			l.Add(urn.ItemSet.New(key))
+		}
+	}
+	if l.Len() == 0 {
+		return nil
+	}
+	return &l
+}
+
 // WorldRegionRef builds a reference to map region key (urn::world:region:<key>), or
 // nil when key is 0.
 func WorldRegionRef(key uint32) *models.EntityRef[WorldRegion] {

@@ -30,12 +30,12 @@ type Item struct {
 	UseText           string                  `json:"useText,omitempty"`           // languagedata_<lang>.loc  use/open confirmation; lists box/chest contents
 	ExchangeInfo      string                  `json:"exchangeInfo,omitempty"`      // languagedata_<lang>.loc  NPC exchange offers (location + rate)
 	Icon              string                  `json:"icon,omitempty"`              // itemenchant.dbss  (embedded path)
-	Grade             string                  `json:"grade,omitempty"`             // itemenchant.dbss  GradeType
+	Grade             ItemGrade               `json:"grade"`                       // itemenchant.dbss  GradeType
 	Category          string                  `json:"category,omitempty"`          // itemenchant.dbss  ItemClassify (game category)
 	ItemType          string                  `json:"itemType,omitempty"`          // itemenchant.dbss  ItemType
 	EquipInfo         *EquipInfo              `json:"equipInfo,omitempty"`         // itemenchant.dbss  equip slot/kind/type (equipment)
-	MarketCategory    string                  `json:"marketCategory,omitempty"`    // central-market main category (@188, or derived — see Marketable)
-	MarketSubCategory string                  `json:"marketSubCategory,omitempty"` // central-market sub category (@189, or derived)
+	MarketCategory    string                  `json:"marketCategory,omitempty"`    // central-market main category (@200, or derived — see Marketable)
+	MarketSubCategory string                  `json:"marketSubCategory,omitempty"` // central-market sub category (@201, or derived)
 	Marketable        bool                    `json:"marketable,omitempty"`        // the game's central-market-allowed flag (itemenchant iconEnd+0); a market category with marketable=false is derived for unlistable gear (Tuvala/boss gear)
 	// BindType is the game's vestedType (binding behavior) — see the BindType
 	// constants.
@@ -57,7 +57,7 @@ type Item struct {
 	// staff weapons 40, longbow 42, kunai 51, classic boss armor 71 vs other
 	// armor 72, accessories by slot (necklace 73, ring 74, earring 75,
 	// belt 76), horse gear 123. Named by reference-dictionary correlation
-	// (99% match; previously misattributed to NewEquipType — see FORMATS §3).
+	// with 99% agreement; see FORMATS §3.
 	ItemMaterial int `json:"itemMaterial,omitempty"`
 
 	// The following were identified by correlating itemenchant rows against a
@@ -117,15 +117,32 @@ type Item struct {
 	// chain (skill.dbss + buff.dbss), named via loc table 5. Fully client-typed.
 	Effects *Effects `json:"effects,omitempty"`
 
-	MaxEnhance  *int         `json:"maxEnhance,omitempty"`  // itemmaxlevel.dbss
-	Enhancement *Enhancement `json:"enhancement,omitempty"` // enchantstaticstatus.dbss curve
+	MaxEnhance  *int                           `json:"maxEnhance,omitempty"`  // itemmaxlevel.dbss
+	Enhancement *Enhancement                   `json:"enhancement,omitempty"` // enchantstaticstatus.dbss curve
+	ItemSets    *models.EntityRefList[ItemSet] `json:"itemSets,omitempty"`
+}
+
+func (i *Item) GetEnhancementRange() (minLevel, maxLevel int) {
+	if i.Enhancement == nil || len(i.Enhancement.Levels) == 0 {
+		return 0, 0
+	}
+
+	minLevel = i.Enhancement.MinLevel
+	maxLevel = i.Enhancement.MaxLevel
+	return
+}
+func (i *Item) ClampEnhanceLevel(level int) int {
+	mi, ma := i.GetEnhancementRange()
+
+	return min(max(level, mi), ma)
 }
 
 func (i *Item) GetMaxEnhancement() *EnchantLevel {
-	if i.Enhancement == nil || len(i.Enhancement.Levels) == 0 {
+	mi, ma := i.GetEnhancementRange()
+	if mi == 0 && ma == 0 {
 		return nil
 	}
-	return new(i.Enhancement.Levels[len(i.Enhancement.Levels)-1])
+	return i.FindEnchantLevel(ma)
 }
 
 // FindEnchantLevel resolves the EnchantLevel for level, clamped to the
@@ -136,18 +153,32 @@ func (i *Item) FindEnchantLevel(level int) *EnchantLevel {
 		return nil
 	}
 
-	minL := i.Enhancement.Levels[0].Level
-	maxL := i.Enhancement.Levels[len(i.Enhancement.Levels)-1].Level
-	if level < minL {
-		level = minL
+	level = i.ClampEnhanceLevel(level)
+	// Since we know min/max idx, skip to them just for some small savings
+	if level == 0 {
+		return &i.Enhancement.Levels[0]
 	}
-	if level > maxL {
-		level = maxL
+	if level == i.Enhancement.MaxLevel {
+		return &i.Enhancement.Levels[i.Enhancement.MaxLevelIdx]
 	}
 
 	for l := range i.Enhancement.Levels {
 		if i.Enhancement.Levels[l].Level == level {
 			return &i.Enhancement.Levels[l]
+		}
+	}
+
+	return nil
+}
+func (i *Item) FindCaphrasLevel(enhanceLevel, level int) *CaphrasLevel {
+	e := i.FindEnchantLevel(enhanceLevel)
+	if e == nil {
+		return nil
+	}
+
+	for _, c := range e.Caphras {
+		if c.Level == level {
+			return &c
 		}
 	}
 
@@ -169,12 +200,11 @@ func (i *Item) GetDurability(enchant *EnchantLevel) int {
 // (unknown144, unknownIcon19, …). Naming: unknown<off> = the absolute header
 // byte offset; unknownIcon<off> = offset from the end of the icon string (a
 // different region, so the two number spaces overlap and must be distinguished).
-// Every field is deviation-only (a *int, omitempty): nil means the byte holds
-// its dominant default, so presence marks the item as unusual for that field —
-// the raw material for mapping the rest of the schema. Wide-distribution data
-// blocks (header @158-159/@164-165, icon +17..58) are read but deliberately not
-// surfaced here — inspect their raw bytes with `seqtail`. Defaults + value
-// distributions: FORMATS §3.
+// Scalar fields are deviation-only (a *int, omitempty): nil means the field
+// holds its dominant default. The variable post-icon strings and tail remain
+// available to Go consumers but are excluded from JSON because duplicating the
+// raw tail for every item would dominate items.json. Defaults and distributions:
+// FORMATS §3.
 type ItemUnknowns struct {
 	// header @8-13 — a cluster of boolean/enum flags (unknown11 is set on 26,406
 	// items; unknown12 defaults to 2).
@@ -204,27 +234,42 @@ type ItemUnknowns struct {
 	// header @144 (u16) — a per-item-class constant on ~381 Etc/material items
 	// (trade loot 1000, fences 10, reforge stones 149); NOT the CP cost.
 	Unknown144 *int `json:"unknown144,omitempty"`
-	// header @146-150 — @148 small enum; @149/@150 default 255.
+	// Header @146-157 is a four-field block between event data and the
+	// item-property flags: u32, u16, u16, u32. The first two use all-ones
+	// sentinels; unknown152 is commonly 1000.
 	Unknown146 *int `json:"unknown146,omitempty"`
-	Unknown148 *int `json:"unknown148,omitempty"`
-	Unknown149 *int `json:"unknown149,omitempty"`
 	Unknown150 *int `json:"unknown150,omitempty"`
-	// header @154-155 (@155 weakly matched isGuildStockable, 74%), @157 default 1.
+	Unknown152 *int `json:"unknown152,omitempty"`
 	Unknown154 *int `json:"unknown154,omitempty"`
-	Unknown155 *int `json:"unknown155,omitempty"`
-	Unknown157 *int `json:"unknown157,omitempty"`
-	// header @161, @168-169, @176-178. unknown168 + unknown176 are a PAIRED field
+	// Header @158-162 — @159/@161/@162 use 255 sentinels; @160 is a small enum.
+	Unknown158 *int `json:"unknown158,omitempty"`
+	Unknown159 *int `json:"unknown159,omitempty"`
+	Unknown160 *int `json:"unknown160,omitempty"`
+	Unknown161 *int `json:"unknown161,omitempty"`
+	Unknown162 *int `json:"unknown162,omitempty"`
+	// Header @166-167 (@167 weakly matched isGuildStockable, 74%), @169 default 1.
+	Unknown166 *int `json:"unknown166,omitempty"`
+	Unknown167 *int `json:"unknown167,omitempty"`
+	Unknown169 *int `json:"unknown169,omitempty"`
+	// Header @170-171 is an unidentified u16 value.
+	Unknown170 *int `json:"unknown170,omitempty"`
+	// Header @173-181 and @188-190. unknown180 + unknown188 are a PAIRED field
 	// — they fire on the exact same 16,655 items (8 bytes apart, ~20 values each),
 	// a strong candidate for a two-part record.
-	Unknown161 *int `json:"unknown161,omitempty"`
-	Unknown168 *int `json:"unknown168,omitempty"`
-	Unknown169 *int `json:"unknown169,omitempty"`
+	Unknown173 *int `json:"unknown173,omitempty"`
+	Unknown174 *int `json:"unknown174,omitempty"`
 	Unknown176 *int `json:"unknown176,omitempty"`
-	Unknown177 *int `json:"unknown177,omitempty"`
 	Unknown178 *int `json:"unknown178,omitempty"`
-	// header @187, @191 (default 1) — flags.
-	Unknown187 *int `json:"unknown187,omitempty"`
-	Unknown191 *int `json:"unknown191,omitempty"`
+	Unknown180 *int `json:"unknown180,omitempty"`
+	Unknown181 *int `json:"unknown181,omitempty"`
+	Unknown182 *int `json:"unknown182,omitempty"`
+	Unknown188 *int `json:"unknown188,omitempty"`
+	Unknown189 *int `json:"unknown189,omitempty"`
+	Unknown190 *int `json:"unknown190,omitempty"`
+	Unknown192 *int `json:"unknown192,omitempty"`
+	// Header @199, @203 (default 1) — flags.
+	Unknown199 *int `json:"unknown199,omitempty"`
+	Unknown203 *int `json:"unknown203,omitempty"`
 
 	// icon-block +1..+3 — small enums; unknownIcon2 defaults to 9 (its only
 	// deviants are the currencies: Silver/Loyalties/Crow Coin/Hardcore Coin).
@@ -247,8 +292,31 @@ type ItemUnknowns struct {
 	// 0 = special/pearl/cash goods (SpecialGoods, PearlGoods). Best guess: an
 	// item resource/source class.
 	UnknownIcon16 *int `json:"unknownIcon16,omitempty"`
-	UnknownIcon19 *int `json:"unknownIcon19,omitempty"`
-	UnknownIcon27 *int `json:"unknownIcon27,omitempty"`
+
+	// UnknownAfterMarketLimit0 begins the fixed property prefix after the three
+	// variable strings and market registration limit.
+	UnknownAfterMarketLimit0  *int `json:"unknownAfterMarketLimit0,omitempty"`
+	UnknownAfterMarketLimit1  *int `json:"unknownAfterMarketLimit1,omitempty"`
+	UnknownAfterMarketLimit5  *int `json:"unknownAfterMarketLimit5,omitempty"`
+	UnknownAfterMarketLimit55 *int `json:"unknownAfterMarketLimit55,omitempty"`
+	UnknownAfterMarketLimit56 *int `json:"unknownAfterMarketLimit56,omitempty"`
+	UnknownAfterMarketLimit58 *int `json:"unknownAfterMarketLimit58,omitempty"`
+	UnknownAfterMarketLimit59 *int `json:"unknownAfterMarketLimit59,omitempty"`
+	UnknownAfterMarketLimit60 *int `json:"unknownAfterMarketLimit60,omitempty"`
+	UnknownAfterMarketLimit64 *int `json:"unknownAfterMarketLimit64,omitempty"`
+	UnknownAfterMarketLimit68 *int `json:"unknownAfterMarketLimit68,omitempty"`
+	UnknownAfterMarketLimit72 *int `json:"unknownAfterMarketLimit72,omitempty"`
+	UnknownAfterMarketLimit76 *int `json:"unknownAfterMarketLimit76,omitempty"`
+	UnknownAfterMarketLimit80 *int `json:"unknownAfterMarketLimit80,omitempty"`
+
+	// UnknownPostIconStrings are three inline UTF-16 client messages.
+	UnknownPostIconStrings [3]string `json:"-"`
+	// UnknownAfterMarketLimitSlots is a three-byte front-packed enum array.
+	UnknownAfterMarketLimitSlots [3]uint8 `json:"-"`
+	// UnknownPostIconTail preserves the type-dependent bytes before the footer.
+	UnknownPostIconTail []byte `json:"-"`
+	// UnknownFooter6 is the final u16 after the crystal group.
+	UnknownFooter6 *int `json:"unknownFooter6,omitempty"`
 }
 
 // Map returns the populated unknown fields keyed by their JSON name (unknown144,
@@ -314,15 +382,20 @@ func (b BindType) String() string {
 type EquipInfo struct {
 	// Slot is the normalized, class-independent
 	// equip slot (@14) — the only slot source for artifacts, life/gathering tools and
-	// costume accessories whose Type is blank;
-	Slot string `json:"slot,omitempty"`
+	// costume accessories whose Type is blank. Not omitempty: Main Weapon is slot 0,
+	// and EquipInfo only exists for equippables, so the zero value is meaningful.
+	Slot SlotName `json:"slot"`
 	// Kind is the broad gear class (Weapon/Armor/Other, itemenchant @15);
 	Kind string `json:"kind,omitempty"`
 	// Type is the specific EquipType (@7), the weapon class for weapons.
 	Type string `json:"type,omitempty"`
 	// Slots lists every slot the item occupies (@14 + @16-18)
 	// for multi-slot items like functional costumes; absent = single-slot.
-	Slots []string `json:"slots,omitempty"`
+	Slots []SlotName `json:"slots,omitempty"`
+}
+
+func (e *EquipInfo) GetSlotId() byte {
+	return e.Slot.Wire()
 }
 
 // CrystalGroup is a socket crystal's transfusion group: at most Max crystals of
@@ -375,12 +448,55 @@ type EnchantLevel struct {
 	// EnhanceChance is the base success probability (0 failstacks) to enhance at this
 	// level — a fraction 0..1 (@41 ÷ 1,000,000). Follows the game's curve: 1.0 for
 	// +1..+7, then dropping (PRI ~0.13, TET ~0.005, PEN ~0.002).
-	EnhanceChance float64        `json:"enhanceChance,omitempty"`
-	Effects       []EffectGroup  `json:"effects,omitempty"` // item + set effects (DSL formulas)
-	Caphras       []CaphrasLevel `json:"caphras,omitempty"` // Caphras steps at this level (18/19/20 only)
+	EnhanceChance float64       `json:"enhanceChance,omitempty"`
+	Effects       []EffectGroup `json:"effects,omitempty"` // item + set effects (DSL formulas)
+	// SourceDescription is the optional source-language enhancement description
+	// embedded before the effect DSL. Ship equipment uses it for formatted stat text.
+	SourceDescription string `json:"sourceDescription,omitempty"`
+	// CombatStats preserves the melee, ranged, and magic values independently.
+	CombatStats *EnchantCombatStats `json:"combatStats,omitempty"`
+	// SpeciesAP preserves populated slots from the fixed species-damage array.
+	SpeciesAP []EnchantIndexedStat `json:"speciesAp,omitempty"`
+	// EnhancementAids lists alternative enhancement items accepted at this level,
+	// such as J's Hammer of Loyalty, Primordial Hammer, and Crystals of Origin.
+	EnhancementAids models.EntityRefList[Item] `json:"enhancementAids,omitempty"`
+
+	CaphrasMinLevel int            `json:"caphrasMinLevel,omitempty"` // the lowest enhancement level that can carry Caphras
+	CaphrasMaxLevel int            `json:"caphrasMaxLevel,omitempty"` // the highest enhancement level that can carry Caphras
+	Caphras         []CaphrasLevel `json:"caphras,omitempty"`         // Caphras steps at this level (18/19/20 only)
 
 	// Every remaining field of the record, read in sequence so nothing is skipped.
 	EnchantUnknowns
+}
+
+// EnchantIndexedStat preserves a populated slot from a fixed stat array whose
+// client enum index is not fully mapped yet.
+type EnchantIndexedStat struct {
+	Index int `json:"index"`
+	Value int `json:"value"`
+}
+
+// EnchantCombatStats preserves the melee, ranged, and magic lanes stored in an
+// enchant-curve row. The top-level EnchantLevel fields are their display maxima.
+type EnchantCombatStats struct {
+	Melee  *EnchantCombatStat `json:"melee,omitempty"`
+	Ranged *EnchantCombatStat `json:"ranged,omitempty"`
+	Magic  *EnchantCombatStat `json:"magic,omitempty"`
+}
+
+// EnchantCombatStat is one damage-type lane from an enchant-curve row.
+type EnchantCombatStat struct {
+	APMin                int    `json:"apMin,omitempty"`
+	APMax                int    `json:"apMax,omitempty"`
+	AP                   int    `json:"ap,omitempty"`
+	Accuracy             int    `json:"accuracy,omitempty"`
+	AccuracyDice         string `json:"accuracyDice,omitempty"`
+	Evasion              int    `json:"evasion,omitempty"`
+	AddedEvasion         int    `json:"addedEvasion,omitempty"`
+	DamageReduction      int    `json:"damageReduction,omitempty"`
+	AddedDamageReduction int    `json:"addedDamageReduction,omitempty"`
+	UnknownAttack167     int    `json:"unknownAttack167,omitempty"`
+	UnknownAttack179     int    `json:"unknownAttack179,omitempty"`
 }
 
 func (e *EnchantLevel) GetApRange(bonus float64) (ap, apMin, apMax float64, isRange bool) {
@@ -411,17 +527,38 @@ func (e *EnchantLevel) GetCaphrasLevel(level int) *CaphrasLevel {
 // Each is a *int that stays nil (omitted from JSON) when zero, like ItemUnknowns —
 // rename one to a real stat once identified.
 type EnchantUnknowns struct {
-	Unknown4     *int `json:"unknown4,omitempty"`     // @4  u32 per-record value (hash/id-like)
-	Unknown8     *int `json:"unknown8,omitempty"`     // @8  u32
-	Unknown25    *int `json:"unknown25,omitempty"`    // @25 u32 (rises with enhancement — likely material/cron cost)
-	Unknown45    *int `json:"unknown45,omitempty"`    // @45 u32 (often 1,000,000 — rate-like)
-	Unknown55    *int `json:"unknown55,omitempty"`    // @55 u16 (10, steps to 20 at PRI — enhancement param)
-	Unknown57    *int `json:"unknown57,omitempty"`    // @57 u16 (constant 10)
-	Unknown60    *int `json:"unknown60,omitempty"`    // @60 u16 (rises +8→+15 then caps at 100 — enhancement param)
-	Unknown70    *int `json:"unknown70,omitempty"`    // @70 f32 — the one populated slot of the @66-165 per-species-AP band (5-10 on ~336 records, specific gear at TRI/PEN)
-	Unknown167   *int `json:"unknown167,omitempty"`   // @167 tri-block (tracks minAP-1)
-	UnknownRate1 *int `json:"unknownRate1,omitempty"` // post-DSL constant (usually 1,000,000)
-	UnknownRate2 *int `json:"unknownRate2,omitempty"` // post-DSL constant (usually 700,000)
+	Unknown4   *int `json:"unknown4,omitempty"`   // @4 u32; high-cardinality internal value
+	Unknown8   *int `json:"unknown8,omitempty"`   // @8 u32
+	Unknown12  *int `json:"unknown12,omitempty"`  // @12 u32
+	Unknown16  *int `json:"unknown16,omitempty"`  // @16 u32
+	Unknown20  *int `json:"unknown20,omitempty"`  // @20 u32
+	Unknown24  *int `json:"unknown24,omitempty"`  // @24 u8
+	Unknown25  *int `json:"unknown25,omitempty"`  // @25 u32; rises with enhancement
+	Unknown29  *int `json:"unknown29,omitempty"`  // @29 u32
+	Unknown33  *int `json:"unknown33,omitempty"`  // @33 u32
+	Unknown37  *int `json:"unknown37,omitempty"`  // @37 u32
+	Unknown45  *int `json:"unknown45,omitempty"`  // @45 u32; commonly rate-like
+	Unknown49  *int `json:"unknown49,omitempty"`  // @49 u32
+	Unknown55  *int `json:"unknown55,omitempty"`  // @55 u16; enhancement parameter
+	Unknown57  *int `json:"unknown57,omitempty"`  // @57 u16; commonly 10
+	Unknown59  *int `json:"unknown59,omitempty"`  // @59 u8
+	Unknown60  *int `json:"unknown60,omitempty"`  // @60 u16; rises with enhancement
+	Unknown166 *int `json:"unknown166,omitempty"` // @166 u8; combat-stat lane flag
+	Unknown251 *int `json:"unknown251,omitempty"` // @251 u32; packed field before descriptions
+
+	UnknownDisplay0  *int `json:"unknownDisplay0,omitempty"`  // display tail +0 u8
+	UnknownDisplay1  *int `json:"unknownDisplay1,omitempty"`  // display tail +1 u8
+	UnknownRate1     *int `json:"unknownRate1,omitempty"`     // display tail +2 u32; normally 1,000,000
+	UnknownRate2     *int `json:"unknownRate2,omitempty"`     // display tail +6 u32; normally 700,000
+	UnknownDisplay10 *int `json:"unknownDisplay10,omitempty"` // display tail +10 u8
+	UnknownDisplay11 *int `json:"unknownDisplay11,omitempty"` // display tail +11 u8
+	UnknownDisplay12 *int `json:"unknownDisplay12,omitempty"` // display tail +12 u8
+
+	// UnknownTail12 is the 65-byte structured block after three -1 sentinels and
+	// before the counted enhancement-aid item list. JSON encodes it as base64.
+	UnknownTail12 []byte `json:"unknownTail12,omitempty"`
+	// UnknownFooter is the final six bytes after the enhancement-aid item list.
+	UnknownFooter []byte `json:"unknownFooter,omitempty"`
 }
 
 // Enhancement is an item's full per-level curve, linked via its EnchantKey (baseId).

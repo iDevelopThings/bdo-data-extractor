@@ -16,13 +16,13 @@ import (
 // u32 lists, then a global footer table after the last record:
 //
 //	+0    u16 key           (== loc table 29 id, the localized node name)
-//	+4    u8  flag (const 1)
+//	+4    u8  enabled       (1 for active nodes; 0 on seven unused/unlocalized records)
 //	+5    u8  kind          (town/gate/farm/… enum; matches the worldmap icon)
 //	+6    u16 linkedKey     (a second node reference, == key in every current record)
 //	+10   u16 nameStrIdx    Korean node name (string table)
 //	+14   u8  const 1
 //	+16   u8  1 = standard network node, 0 = special location (town/bank/sea/district/battlefield)
-//	+17   u8  == main (a copy of +116)
+//	+17   u8  unknown flag (tracks main except for Ossuary and Velia Beach)
 //	+18   u8  == main (a copy of +116)
 //	+19   u8  special-content index (islands/grind/castle/battlefield; 63 nodes)
 //	+20   u8  special-content category (1 island, 2 coastal, 5 inland/desert grind, 6 battlefield)
@@ -80,18 +80,18 @@ func DecodeExplorationNodes(data []byte) ([]model.WorldNode, error) {
 	for i := 0; i < h.Rows; i++ {
 		key := int(c.U16())  // +0
 		unk2 := int(c.U16()) // +2
-		flag := c.U8()       // +4 (const 1)
+		enabled := c.Bool()  // +4: active/usable record
 		k := c.U8()
 		kind := model.WorldNodeKind(k)               // +5
 		linkedKey := int(c.U16())                    // +6
 		unk8 := int(c.U16())                         // +8
 		nameIdx := int(c.U16())                      // +10
-		pad12 := c.Bytes(2)                          // +12..+13 (zero)
-		c.U8()                                       // +14 (const 1)
-		pad15 := c.U8()                              // +15 (zero)
+		reservedOK := c.Zero(2)                      // +12..+13 (zero)
+		const14 := c.U8()                            // +14 (const 1)
+		reservedOK = c.Zero(1) && reservedOK         // +15 (zero)
 		special := c.U8() == 0                       // +16: 0 = special location, 1 = network node
-		c.U8()                                       // +17 (== main)
-		c.U8()                                       // +18 (== main)
+		unknown17 := c.Bool()                        // +17 (closely tracks main, with three exceptions)
+		mainCopy := c.Bool()                         // +18 (== main)
 		zoneIndex := int(c.U8())                     // +19 special-content index
 		zoneCategory := int(c.U8())                  // +20 special-content category
 		grindZone := int(c.U8())                     // +21 grind-zone marker (Marni/Elvia)
@@ -105,12 +105,18 @@ func DecodeExplorationNodes(data []byte) ([]model.WorldNode, error) {
 		representativeID := int(c.U16())             // +45 town ruler/representative character id
 		nodeIndex := int(c.U32()) & 0x1FFFF          // +47 enumeration id (drop the const 0x20000 flag)
 		areaID := int(c.U32()) >> 16                 // +51 area/sector id (stored as areaId<<16)
-		pad55 := c.Bytes(36)                         // +55..+90 (zero)
-		pad91 := c.Bytes(3)                          // +91..+93 (zero)
+		reservedOK = c.Zero(36) && reservedOK        // +55..+90 (zero)
+		reservedOK = c.Zero(3) && reservedOK         // +91..+93 (zero)
 		contribution := c.U8()                       // +94 contribution-point cost (0 town, 1-3)
-		pad95 := c.Bytes(9)                          // +95..+103 (zero)
+		reservedOK = c.Zero(9) && reservedOK         // +95..+103 (zero)
 		pos := [3]float64{c.F32(), c.F32(), c.F32()} // +104/+108/+112
 		main := c.U8() == 0                          // +116: 0 = main node, 1 = sub; lists start at +117
+		if const14 != 1 {
+			return nil, fmt.Errorf("exploration: node %d has +14 constant %d, want 1", key, const14)
+		}
+		if mainCopy != main {
+			return nil, fmt.Errorf("exploration: node %d has +18 main copy %v, want %v", key, mainCopy, main)
+		}
 
 		// seven counted u32 lists: list0 = grouping hash, lists 1-5 = knowledge keys.
 		var groupHash, knowledge []int
@@ -137,7 +143,7 @@ func DecodeExplorationNodes(data []byte) ([]model.WorldNode, error) {
 			return nil, fmt.Errorf("exploration: record %d invalid (key=%d nameIdx=%d)", i, key, nameIdx)
 		}
 		// ranges that read as all-zero across every current record; warn if that ever breaks.
-		if !allZero(pad12) || pad15 != 0 || !allZero(pad55) || !allZero(pad91) || !allZero(pad95) {
+		if !reservedOK {
 			zeroDrift = true
 		}
 
@@ -155,7 +161,8 @@ func DecodeExplorationNodes(data []byte) ([]model.WorldNode, error) {
 			Radius:             radius,
 			Manager:            model.NPCRef(uint32(managerFamilyID)),
 			TownRepresentative: model.NPCRef(uint32(representativeID)),
-			Flag:               flag,
+			Enabled:            enabled,
+			Unknown17:          unknown17,
 			SubKey2:            subKey2,
 			GroupHash:          groupHash,
 			Unknown2:           unk2,
@@ -187,13 +194,4 @@ func DecodeExplorationNodes(data []byte) ([]model.WorldNode, error) {
 	}
 
 	return out, nil
-}
-
-func allZero(b []byte) bool {
-	for _, x := range b {
-		if x != 0 {
-			return false
-		}
-	}
-	return true
 }

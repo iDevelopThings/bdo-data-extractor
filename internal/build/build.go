@@ -33,6 +33,7 @@ type Builder struct {
 	// cross-stage state, set by an earlier stage and read by later ones
 	items        map[uint32]*model.Item
 	enhancements map[uint32]*model.Enhancement
+	itemSets     []model.ItemSet
 
 	recipes []model.Recipe
 	regions []model.WorldRegion
@@ -100,6 +101,8 @@ func Run() error {
 		fn   func() error
 	}{
 		{name: "strings", fn: b.loadStrings},
+		{name: "character progression", fn: b.buildCharacterProgression},
+		{name: "life skill progression", fn: b.buildLifeSkillProgression},
 		{name: "items", fn: b.buildItems},
 		{name: "recipes", fn: b.buildRecipes},
 		{name: "market categories", fn: b.buildMarketCategories},

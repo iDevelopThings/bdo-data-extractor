@@ -1,0 +1,893 @@
+package: model
+type: StatId
+underlying: string
+marshalText: false
+out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/stats.gen.ts
+# fanout lists the StatIds a composite stat expands into (self-reference); the
+# generator validates each name and emits StatId constants / StatIds.* in TS.
+fields:
+  fanout: "[]StatId"
+values:
+  - name: monsterAp
+    label: "Extra AP Against Monsters"
+    category: ap
+    alias: eaam
+    fanout: [apVsMonster, apVsKamasylvian, apVsHuman, apVsDemihuman, apVsNormal, awakeningApVsMonster, awakeningApVsKamasylvian, awakeningApVsHuman, awakeningApVsDemihuman, awakeningApVsNormal, apVsEdania, awakeningApVsEdania]
+
+  - name: adventurerAp
+    label: "Extra AP Against Adventurers"
+    category: ap
+    alias: edtad
+    fanout: [apVsAdventurer, awakeningApVsAdventurer]
+
+  - name: humanAp
+    label: "Extra AP Against Humans"
+    category: ap
+    alias: edth
+    fanout: [apVsHuman, awakeningApVsHuman]
+
+  - name: demihumanAp
+    label: "Extra AP Against Demihumans"
+    category: ap
+    alias: edtd
+    fanout: [apVsDemihuman, awakeningApVsDemihuman]
+
+  - name: kamasylvianAp
+    label: "Extra AP Against Kamasylvian"
+    category: ap
+    alias: edtkm
+    fanout: [apVsKamasylvian, awakeningApVsKamasylvian]
+
+  - name: allSpeciesAp
+    label: "Extra AP Against All Species"
+    category: ap
+    alias: edtas
+    fanout: [kamasylvianAp, humanAp, demihumanAp, normalAp, edaniaAp]
+
+  - name: hiddenAp
+    label: "Hidden AP"
+    category: ap
+    alias: hap
+    fanout: [totalAp, totalAwakeningAp]
+
+  - name: dp
+    label: "DP"
+    category: defense
+    alias: dp
+
+  - name: meleeAp
+    label: "Melee AP"
+    category: ap
+    alias: mlap
+
+  - name: rangedAp
+    label: "Ranged AP"
+    category: ap
+    alias: rap
+
+  - name: magicAp
+    label: "Magic AP"
+    category: ap
+    alias: map
+
+  - name: critDamage
+    label: "Critical Hit Damage"
+    category: damage
+    unit: "%"
+    alias: chrp
+
+  - name: specialAttackDamage
+    label: "All Special Attack Extra Damage"
+    category: damage
+    unit: "%"
+    alias: asaed
+    fanout: [airAttackDamage, backAttackDamage, counterAttackDamage, downAttackDamage, speedAttackDamage, critDamage]
+
+  - name: backAttackDamage
+    label: "Back Attack Damage"
+    category: damage
+    unit: "%"
+    alias: abad
+
+  - name: downAttackDamage
+    label: "Down Attack Damage"
+    category: damage
+    unit: "%"
+    alias: adad
+
+  - name: huntingDamage
+    label: "Hunting Damage"
+    category: damage
+    alias: huntdmg
+
+  - name: accuracy
+    label: "Accuracy"
+    category: offense
+    alias: acc
+
+  - name: meleeAccuracy
+    label: "Melee Accuracy"
+    category: offense
+    alias: melacc
+    fanout: [accuracy]
+
+  - name: rangedAccuracy
+    label: "Ranged Accuracy"
+    category: offense
+    alias: ranacc
+    fanout: [accuracy]
+
+  - name: magicAccuracy
+    label: "Magic Accuracy"
+    category: offense
+    alias: magacc
+    fanout: [accuracy]
+
+  - name: meleeEvasion
+    label: "Melee Evasion"
+    category: defense
+    alias: meev
+
+  - name: rangedEvasion
+    label: "Ranged Evasion"
+    category: defense
+    alias: raev
+
+  - name: magicEvasion
+    label: "Magic Evasion"
+    category: defense
+    alias: maev
+
+  - name: meleeDamageReduction
+    label: "Melee Damage Reduction"
+    category: defense
+    alias: mldr
+
+  - name: rangedDamageReduction
+    label: "Ranged Damage Reduction"
+    category: defense
+    alias: radr
+
+  - name: magicDamageReduction
+    label: "Magic Damage Reduction"
+    category: defense
+    alias: madr
+
+  - name: damageReductionRate
+    label: "Damage Reduction Rate"
+    category: defense
+    unit: "%"
+    alias: bdrp
+
+  - name: allResistance
+    label: "All Resistance"
+    category: resistance
+    unit: "%"
+    alias: ar
+    fanout: [grappleResistance, knockbackResistance, knockdownResistance, stunResistance]
+
+  - name: stunResistance
+    label: "Stun/Stiffness/Freezing Resistance"
+    category: resistance
+    unit: "%"
+    alias: ssfr
+
+  - name: knockdownResistance
+    label: "Knockdown/Bound Resistance"
+    category: resistance
+    unit: "%"
+    alias: kbr
+
+  - name: knockbackResistance
+    label: "Knockback/Floating Resistance"
+    category: resistance
+    unit: "%"
+    alias: kfr
+
+  - name: attackSpeed
+    label: "Attack Speed"
+    category: combat
+    unit: "%"
+    alias: asp
+
+  - name: castingSpeed
+    label: "Casting Speed"
+    category: combat
+    unit: "%"
+    alias: csp
+
+  - name: moveSpeed
+    label: "Movement Speed"
+    category: combat
+    unit: "%"
+    alias: msp
+
+  - name: luck
+    label: "Luck"
+    category: combat
+    alias: lk
+
+  - name: maxHp
+    label: "Max HP"
+    category: resource
+    alias: hp
+
+  - name: hpRecovery
+    label: "HP Recovery"
+    category: resource
+    alias: hpr
+
+  - name: resourceRecovery
+    label: "MP/WP/SP Recovery"
+    category: resource
+    alias: mpwpspr
+
+  - name: blackSpiritRage
+    label: "Black Spirit's Rage"
+    category: resource
+    unit: "%"
+    alias: bsr
+
+  - name: allMastery
+    label: "All Life Mastery"
+    category: mastery
+    alias: mastall
+    fanout: [alchemyMastery, gatheringMastery, cookingMastery, huntingMastery, farmingMastery, processingMastery, sailingMastery, tradingMastery, trainingMastery, fishingMastery]
+
+  - name: gatheringMastery
+    label: "Gathering Mastery"
+    category: mastery
+    alias: mastgath
+    fanout: [butcherMastery, pickaxeMastery, hoeMastery, tanningMastery, lumberingMastery, fluidCollectorMastery]
+
+  - name: hoeMastery
+    label: "Hoe Mastery"
+    category: mastery
+    alias: masthoe
+
+  - name: lumberingMastery
+    label: "Lumbering Axe Mastery"
+    category: mastery
+    alias: mastlumb
+
+  - name: fluidCollectorMastery
+    label: "Fluid Collector Mastery"
+    category: mastery
+    alias: mastflui
+
+  - name: tanningMastery
+    label: "Tanning Knife Mastery"
+    category: mastery
+    alias: masttann
+
+  - name: butcherMastery
+    label: "Butcher Knife Mastery"
+    category: mastery
+    alias: mastbutc
+
+  - name: pickaxeMastery
+    label: "Pickaxe Mastery"
+    category: mastery
+    alias: mastpick
+
+  - name: fishingMastery
+    label: "Fishing Mastery"
+    category: mastery
+    alias: mastfish
+
+  - name: huntingMastery
+    label: "Hunting Mastery"
+    category: mastery
+    alias: masthunt
+
+  - name: cookingMastery
+    label: "Cooking Mastery"
+    category: mastery
+    alias: mastcook
+
+  - name: alchemyMastery
+    label: "Alchemy Mastery"
+    category: mastery
+    alias: mastalch
+
+  - name: processingMastery
+    label: "Processing Mastery"
+    category: mastery
+    alias: mastproc
+    fanout: [filteringMastery, dryingMastery, grindingMastery, heatingMastery, choppingMastery, shakingMastery]
+
+  - name: trainingMastery
+    label: "Training Mastery"
+    category: mastery
+    alias: masttrai
+
+  - name: sailingMastery
+    label: "Sailing Mastery"
+    category: mastery
+    alias: mastsail
+
+  - name: lifeExp
+    label: "Life EXP"
+    category: life
+    unit: "%"
+    alias: explifeall
+
+  - name: combatExp
+    label: "Combat EXP"
+    category: life
+    unit: "%"
+    alias: expcom
+
+  - name: skillExp
+    label: "Skill EXP"
+    category: life
+    unit: "%"
+    alias: expski
+
+  - name: gatheringExp
+    label: "Gathering EXP"
+    category: life
+    unit: "%"
+    alias: expgat
+
+  - name: huntingExp
+    label: "Hunting EXP"
+    category: life
+    unit: "%"
+    alias: exphun
+
+  - name: cookingExp
+    label: "Cooking EXP"
+    category: life
+    unit: "%"
+    alias: expcoo
+
+  - name: alchemyExp
+    label: "Alchemy EXP"
+    category: life
+    unit: "%"
+    alias: expalc
+
+  - name: fishingExp
+    label: "Fishing EXP"
+    category: life
+    unit: "%"
+    alias: expfis
+
+  - name: processingExp
+    label: "Processing EXP"
+    category: life
+    unit: "%"
+    alias: exppro
+
+  - name: trainingExp
+    label: "Training EXP"
+    category: life
+    unit: "%"
+    alias: exptrai
+
+  - name: sailingExp
+    label: "Sailing EXP"
+    category: life
+    unit: "%"
+    alias: expsai
+
+  - name: barteringExp
+    label: "Bartering EXP"
+    category: life
+    unit: "%"
+    alias: expbar
+
+  - name: tradingExp
+    label: "Trading EXP"
+    category: life
+    unit: "%"
+    alias: exptrad
+
+  - name: farmingExp
+    label: "Farming EXP"
+    category: life
+    unit: "%"
+    alias: expfar
+
+  - name: mountExp
+    label: "Mount EXP"
+    category: life
+    unit: "%"
+    alias: expmou
+
+  - name: mountSkillExp
+    label: "Mount Skill EXP"
+    category: life
+    unit: "%"
+    alias: expsmou
+
+  - name: strengthExp
+    label: "Strength EXP"
+    category: life
+    unit: "%"
+    alias: expstr
+
+  - name: breathExp
+    label: "Breath EXP"
+    category: life
+    unit: "%"
+    alias: expbre
+
+  - name: gatheringTime
+    label: "Gathering Time"
+    category: life
+    unit: "sec"
+    alias: timegath
+
+  - name: cookingTime
+    label: "Cooking Time"
+    category: life
+    unit: "sec"
+    alias: timecook
+
+  - name: alchemyTime
+    label: "Alchemy Time"
+    category: life
+    unit: "sec"
+    alias: timealch
+
+  - name: gatheringDropRate
+    label: "Gathering Item Drop Rate"
+    category: life
+    unit: "%"
+    alias: gatidr
+
+  - name: autoFishingTime
+    label: "Auto-Fishing Time"
+    category: life
+    unit: "%"
+    alias: aft
+
+  - name: rareFishChance
+    label: "Rare Fish Chance"
+    category: life
+    alias: ctcrf
+
+  - name: horseCaptureRate
+    label: "Horse Capture Rate"
+    category: life
+    unit: "%"
+    alias: hcr
+
+  - name: processingSuccessRate
+    label: "Processing Success Rate"
+    category: life
+    unit: "%"
+    alias: psr
+
+  - name: amity
+    label: "Amity"
+    category: misc
+    unit: "%"
+    alias: am
+
+  - name: deathPenaltyResistance
+    label: "Death Penalty Resistance"
+    category: misc
+    unit: "%"
+    alias: dpr
+
+  - name: durabilityLossResistance
+    label: "Durability Reduction Resistance"
+    category: misc
+    unit: "%"
+    alias: drr
+
+  - name: fallDamage
+    label: "Fall Damage"
+    category: misc
+    unit: "%"
+    alias: fd
+
+  - name: itemDropRate
+    label: "Item Drop Rate"
+    category: misc
+    unit: "%"
+    alias: idc
+
+  - name: jumpHeight
+    label: "Jump Height"
+    category: misc
+    unit: "m"
+    alias: jhm
+
+  - name: knowledgeChance
+    label: "Knowledge Gain Chance"
+    category: misc
+    unit: "%"
+    alias: kac
+
+  - name: mermaidsWish
+    label: "Mermaid's Wish"
+    category: misc
+    alias: merwish
+
+  - name: underwaterBreathing
+    label: "Underwater Breathing"
+    category: misc
+    unit: "sec"
+    alias: ub
+
+  - name: weightLimit
+    label: "Weight Limit"
+    category: misc
+    unit: "LT"
+    alias: wl
+
+  - name: ap
+    label: "AP"
+    category: apBucket
+    alias: ap
+    fanout: [totalAp]
+
+  - name: awakeningAp
+    label: "Awakening AP"
+    category: apBucket
+    alias: aap
+    fanout: [totalAwakeningAp]
+
+  - name: totalAp
+    label: "Total AP"
+    category: apBucket
+    alias: totalap
+    fanout: [apVsMonster, apVsAdventurer, apVsKamasylvian, apVsHuman, apVsDemihuman, apVsNormal, apVsEdania]
+
+  - name: totalAwakeningAp
+    label: "Total Awakening AP"
+    category: apBucket
+    alias: totalaap
+    fanout: [awakeningApVsMonster, awakeningApVsAdventurer, awakeningApVsKamasylvian, awakeningApVsHuman, awakeningApVsDemihuman, awakeningApVsNormal, awakeningApVsEdania]
+
+  - name: bracketAp
+    label: "Bracket Bonus AP"
+    category: apBucket
+    alias: bap
+    fanout: [totalAp]
+
+  - name: bracketAwakeningAp
+    label: "Bracket Bonus Awakening AP"
+    category: apBucket
+    alias: baap
+    fanout: [totalAwakeningAp]
+
+  - name: bracketMonsterAp
+    label: "Bracket Bonus AP vs Monsters"
+    category: apBucket
+    alias: beaam
+    fanout: [apVsMonster, apVsKamasylvian, apVsHuman, apVsDemihuman, apVsNormal, apVsEdania]
+
+  - name: bracketMonsterAwakeningAp
+    label: "Bracket Bonus Awakening AP vs Monsters"
+    category: apBucket
+    alias: beaaam
+    fanout: [awakeningApVsMonster, awakeningApVsKamasylvian, awakeningApVsHuman, awakeningApVsDemihuman, awakeningApVsNormal, awakeningApVsEdania]
+
+  - name: apVsMonster
+    label: "AP vs Monsters"
+    category: apBucket
+    alias: monsterap
+
+  - name: apVsAdventurer
+    label: "AP vs Adventurers"
+    category: apBucket
+    alias: adventureap
+
+  - name: apVsHuman
+    label: "AP vs Humans"
+    category: apBucket
+    alias: humanap
+
+  - name: apVsDemihuman
+    label: "AP vs Demihumans"
+    category: apBucket
+    alias: demiap
+
+  - name: apVsKamasylvian
+    label: "AP vs Kamasylvian"
+    category: apBucket
+    alias: kamaap
+
+  - name: apVsEdania
+    label: "AP vs Edania"
+    category: apBucket
+    alias: edaniaap
+
+  - name: apVsNormal
+    label: "AP vs Normal"
+    category: apBucket
+    alias: normalap
+
+  - name: awakeningApVsMonster
+    label: "Awakening AP vs Monsters"
+    category: apBucket
+    alias: monsteraap
+
+  - name: awakeningApVsAdventurer
+    label: "Awakening AP vs Adventurers"
+    category: apBucket
+    alias: adventureaap
+
+  - name: awakeningApVsHuman
+    label: "Awakening AP vs Humans"
+    category: apBucket
+    alias: humanaap
+
+  - name: awakeningApVsDemihuman
+    label: "Awakening AP vs Demihumans"
+    category: apBucket
+    alias: demiaap
+
+  - name: awakeningApVsKamasylvian
+    label: "Awakening AP vs Kamasylvian"
+    category: apBucket
+    alias: kamaaap
+
+  - name: awakeningApVsEdania
+    label: "Awakening AP vs Edania"
+    category: apBucket
+    alias: edaniaaap
+
+  - name: awakeningApVsNormal
+    label: "Awakening AP vs Normal"
+    category: apBucket
+    alias: normalaap
+
+  - name: normalAp
+    label: "Extra AP Against Normal"
+    category: ap
+    alias: edta
+    fanout: [apVsNormal, awakeningApVsNormal]
+
+  - name: edaniaAp
+    label: "Extra AP Against Edanian Monsters"
+    category: ap
+    alias: edtae
+    fanout: [apVsEdania, awakeningApVsEdania]
+
+  - name: damageReduction
+    label: "Damage Reduction"
+    category: aggregate
+    alias: dr
+    fanout: [meleeDamageReduction, rangedDamageReduction, magicDamageReduction, meleeMonsterDamageReduction, rangedMonsterDamageReduction, magicMonsterDamageReduction]
+
+  - name: totalDamageReduction
+    label: "Total Damage Reduction"
+    category: aggregate
+    alias: totaldr
+    fanout: [meleeDamageReduction, rangedDamageReduction, magicDamageReduction, meleeMonsterDamageReduction, rangedMonsterDamageReduction, magicMonsterDamageReduction]
+
+  - name: hiddenDamageReduction
+    label: "Hidden Damage Reduction"
+    category: hidden
+    alias: hdr
+    fanout: [meleeDamageReduction, rangedDamageReduction, magicDamageReduction, meleeMonsterDamageReduction, rangedMonsterDamageReduction, magicMonsterDamageReduction]
+
+  - name: monsterDamageReduction
+    label: "Monster Damage Reduction"
+    category: defense
+    alias: mdr
+    fanout: [meleeMonsterDamageReduction, rangedMonsterDamageReduction, magicMonsterDamageReduction]
+
+  - name: meleeMonsterDamageReduction
+    label: "Melee Damage Reduction vs Monsters"
+    category: defense
+    alias: memdr
+
+  - name: rangedMonsterDamageReduction
+    label: "Ranged Damage Reduction vs Monsters"
+    category: defense
+    alias: ramdr
+
+  - name: magicMonsterDamageReduction
+    label: "Magic Damage Reduction vs Monsters"
+    category: defense
+    alias: mamdr
+
+  - name: hiddenMeleeDamageReduction
+    label: "Hidden Melee Damage Reduction"
+    category: hidden
+    alias: hmedr
+    fanout: [meleeDamageReduction, meleeMonsterDamageReduction]
+
+  - name: hiddenRangedDamageReduction
+    label: "Hidden Ranged Damage Reduction"
+    category: hidden
+    alias: hradr
+    fanout: [rangedDamageReduction, rangedMonsterDamageReduction]
+
+  - name: hiddenMagicDamageReduction
+    label: "Hidden Magic Damage Reduction"
+    category: hidden
+    alias: hmadr
+    fanout: [magicDamageReduction, magicMonsterDamageReduction]
+
+  - name: evasion
+    label: "Evasion"
+    category: aggregate
+    alias: ev
+    fanout: [meleeEvasion, rangedEvasion, magicEvasion]
+
+  - name: hiddenEvasion
+    label: "Hidden Evasion"
+    category: hidden
+    alias: hev
+    fanout: [evasion]
+
+  - name: evasionRate
+    label: "Evasion Rate"
+    category: defense
+    alias: evr
+    fanout: [meleeEvasionRate, rangedEvasionRate, magicEvasionRate]
+
+  - name: meleeEvasionRate
+    label: "Melee Evasion Rate"
+    category: defense
+    alias: meevr
+
+  - name: rangedEvasionRate
+    label: "Ranged Evasion Rate"
+    category: defense
+    alias: raevr
+
+  - name: magicEvasionRate
+    label: "Magic Evasion Rate"
+    category: defense
+    alias: maevr
+
+  - name: hiddenMeleeEvasion
+    label: "Hidden Melee Evasion"
+    category: hidden
+    alias: hmeev
+    fanout: [meleeEvasion]
+
+  - name: hiddenRangedEvasion
+    label: "Hidden Ranged Evasion"
+    category: hidden
+    alias: hraev
+    fanout: [rangedEvasion]
+
+  - name: hiddenMagicEvasion
+    label: "Hidden Magic Evasion"
+    category: hidden
+    alias: hmaev
+    fanout: [magicEvasion]
+
+  - name: grappleResistance
+    label: "Grapple Resistance"
+    category: resistance
+    alias: gr
+
+  - name: airAttackDamage
+    label: "Air Attack Damage"
+    category: damage
+    alias: aaad
+
+  - name: counterAttackDamage
+    label: "Counter Attack Damage"
+    category: damage
+    alias: acad
+
+  - name: speedAttackDamage
+    label: "Speed Attack Damage"
+    category: damage
+    alias: asad
+
+  - name: farmingMastery
+    label: "Farming Mastery"
+    category: mastery
+    alias: mastfarm
+
+  - name: tradingMastery
+    label: "Trading Mastery"
+    category: mastery
+    alias: masttrad
+
+  - name: filteringMastery
+    label: "Filtering Mastery"
+    category: mastery
+    alias: mastfilt
+
+  - name: dryingMastery
+    label: "Drying Mastery"
+    category: mastery
+    alias: mastdryi
+
+  - name: grindingMastery
+    label: "Grinding Mastery"
+    category: mastery
+    alias: mastgrin
+
+  - name: heatingMastery
+    label: "Heating Mastery"
+    category: mastery
+    alias: mastheat
+
+  - name: choppingMastery
+    label: "Chopping Mastery"
+    category: mastery
+    alias: mastchop
+
+  - name: shakingMastery
+    label: "Shaking Mastery"
+    category: mastery
+    alias: mastshak
+
+  - name: maxResource
+    label: "Max MP/WP/SP"
+    category: resource
+    alias: mpwpsp
+
+  - name: maxStamina
+    label: "Max Stamina"
+    category: resource
+    alias: stam
+
+  - name: apMin
+    label: "Min AP"
+    category: apBucket
+    alias: apmin
+
+  - name: apMax
+    label: "Max AP"
+    category: apBucket
+    alias: apmax
+
+  - name: awakeningApMin
+    label: "Min Awakening AP"
+    category: apBucket
+    alias: aapmin
+
+  - name: awakeningApMax
+    label: "Max Awakening AP"
+    category: apBucket
+    alias: aapmax
+
+  - name: critLevel
+    label: "Critical Hit"
+    category: offense
+    alias: chr
+    cap: 5
+
+  - name: critChance
+    label: "Critical Hit Chance"
+    category: offense
+    unit: "%"
+    alias: chc
+
+  - name: fishingSpeed
+    label: "Fishing Speed"
+    category: life
+    alias: fa
+    cap: 5
+
+  - name: attackSpeedLevel
+    label: "Attack Speed Level"
+    category: combat
+    alias: as
+    cap: 5
+
+  - name: castingSpeedLevel
+    label: "Casting Speed Level"
+    category: combat
+    alias: cs
+    cap: 5
+
+  - name: movementSpeedLevel
+    label: "Movement Speed Level"
+    category: combat
+    alias: ms
+    cap: 5
+
+  - name: gatheringSpeed
+    label: "Gathering Speed"
+    category: life
+    alias: ga
+    cap: 5
+

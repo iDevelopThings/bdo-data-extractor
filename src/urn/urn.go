@@ -91,6 +91,7 @@ func Parse(raw string) (URN, error) {
 
 var (
 	Item        = NewHandler("item").EnsureRegistered()
+	ItemSet     = NewHandler("item-set").EnsureRegistered()
 	Enhancement = NewHandler("enhancement").EnsureRegistered()
 	NPC         = NewHandler("npc").EnsureRegistered()
 	GrindSpot   = NewHandler("grindspot").EnsureRegistered()

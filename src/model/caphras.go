@@ -37,5 +37,19 @@ type CaphrasLevel struct {
 	Level       int           `json:"level"`
 	Stones      int           `json:"stones"`
 	TotalStones int           `json:"totalStones"`
+	Stats       CaphrasStats  `json:"stats"`
 	Effects     []EffectGroup `json:"effects,omitempty"`
+}
+
+// CaphrasStats is the eight-column cumulative stat block stored for one
+// Caphras level.
+type CaphrasStats struct {
+	AP                    float64 `json:"ap,omitempty"`
+	Accuracy              float64 `json:"accuracy,omitempty"`
+	Evasion               float64 `json:"evasion,omitempty"`
+	HiddenEvasion         float64 `json:"hiddenEvasion,omitempty"`
+	DamageReduction       float64 `json:"damageReduction,omitempty"`
+	HiddenDamageReduction float64 `json:"hiddenDamageReduction,omitempty"`
+	MaxHP                 float64 `json:"maxHp,omitempty"`
+	MaxMP                 int     `json:"maxMp,omitempty"`
 }

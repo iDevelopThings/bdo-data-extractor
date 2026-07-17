@@ -1,6 +1,7 @@
 package paz
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -108,4 +109,16 @@ func (a *Archive) Content(f PazFile) ([]byte, error) {
 		return data[:f.OrigSize], nil
 	}
 	return data, nil
+}
+
+// decodeInnerPABR removes the extra ICE layer used by stored PABR tables.
+func decodeInnerPABR(data []byte) []byte {
+	if len(data) < 4 || string(data[:4]) == "PABR" || len(data)%8 != 0 {
+		return data
+	}
+	plain := NewICE(BDOICEKey).Decrypt(bytes.Clone(data))
+	if len(plain) >= 4 && string(plain[:4]) == "PABR" {
+		return plain
+	}
+	return data
 }

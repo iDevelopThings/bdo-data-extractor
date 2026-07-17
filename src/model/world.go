@@ -74,11 +74,13 @@ type WorldNode struct {
 	// Quantities and lucky bonus drops are not present in the client tables.
 	Products *models.EntityRefList[Item] `json:"products,omitempty"`
 
-	//  Byte ranges that read all-zero across every record (+12/+13/+15, +55..+90, +95..+103) and the +14 const are
+	// Byte ranges that read all-zero across every record (+12/+13/+15, +55..+90, +95..+103) and the +14 const are
 	// dropped — the decoder warns if that ever changes.
 
-	// Flag is the const-1 byte at +4;
-	Flag int `json:"flag"`
+	// Enabled is false on unused, unlocalized node records.
+	Enabled bool `json:"enabled"`
+	// Unknown17 closely tracks Main but is false on three active main nodes.
+	Unknown17 bool `json:"unknown17,omitempty"`
 	// SubKey2 (a key at +27, == SubKey for 997/1037 nodes)
 	SubKey2 int `json:"subKey2,omitempty"`
 	// GroupHash is list-0 (a coarser grouping hash, 33 distinct values)
@@ -88,7 +90,7 @@ type WorldNode struct {
 
 	// The +16..+22 bytes are a small "location/zone class" subsystem, mapped by testing values
 	// against shrddr's dump and the in-game world map. The names are best-guess (the exact game
-	// terms aren't confirmed), and +17/+18 — which are just copies of Main — are dropped.
+	// terms aren't confirmed. +18 is an exact copy of Main and is dropped.
 	//
 	// Special marks the 119 non-network "special locations" (byte +16 == 0): every town
 	// (kind 2), investment bank (kind 10), sea zone (Margoria/Ross/Juur), trade district and
@@ -123,6 +125,151 @@ type WorldNode struct {
 	AreaID int `json:"areaId,omitempty"`
 }
 
+// WorldRegionUnknowns preserves the typed but unidentified regioninfo fields.
+// Header offsets are record-relative; tail offsets are relative to the fixed
+// 171-byte block after the warehouse and extra-position lists.
+type WorldRegionUnknowns struct {
+	// Unknown11 is a small region-mode enum (observed 0, 1, 3 and 4).
+	Unknown11 uint8 `json:"unknown11"`
+	// Unknown12 is an early region capability flag.
+	Unknown12 bool `json:"unknown12"`
+	// Unknown13 is an early region capability flag.
+	Unknown13 bool `json:"unknown13"`
+	// Unknown18 is part of the environment/capability flag bank.
+	Unknown18 bool `json:"unknown18"`
+	// Unknown19 is part of the environment/capability flag bank.
+	Unknown19 bool `json:"unknown19"`
+	// Unknown20 is part of the environment/capability flag bank.
+	Unknown20 bool `json:"unknown20"`
+	// Unknown21 is part of the environment/capability flag bank.
+	Unknown21 bool `json:"unknown21"`
+	// Unknown22 is part of the environment/capability flag bank.
+	Unknown22 bool `json:"unknown22"`
+	// Unknown23 is part of the environment/capability flag bank.
+	Unknown23 bool `json:"unknown23"`
+	// Unknown24 is part of the environment/capability flag bank.
+	Unknown24 bool `json:"unknown24"`
+	// Unknown25 is part of the environment/capability flag bank.
+	Unknown25 bool `json:"unknown25"`
+	// Unknown26 is part of the environment/capability flag bank.
+	Unknown26 bool `json:"unknown26"`
+	// Unknown28 is a flag adjacent to the locator setting.
+	Unknown28 bool `json:"unknown28"`
+	// Unknown29 is a short locator/region configuration value.
+	Unknown29 uint16 `json:"unknown29"`
+	// Unknown31 is a locator-adjacent region flag.
+	Unknown31 bool `json:"unknown31"`
+	// Unknown32 is a client configuration token, constant in the sampled build.
+	Unknown32 uint32 `json:"unknown32"`
+	// Unknown37 is a flag adjacent to the primary respawn position.
+	Unknown37 bool `json:"unknown37"`
+	// Unknown54 is part of the respawn/configuration flag bank.
+	Unknown54 bool `json:"unknown54"`
+	// Unknown55 is part of the respawn/configuration flag bank.
+	Unknown55 bool `json:"unknown55"`
+	// Unknown56 is part of the respawn/configuration flag bank.
+	Unknown56 bool `json:"unknown56"`
+	// Unknown57 is part of the respawn/configuration flag bank.
+	Unknown57 bool `json:"unknown57"`
+	// Unknown58 is part of the respawn/configuration flag bank.
+	Unknown58 bool `json:"unknown58"`
+	// Unknown60 is a respawn/configuration reference or parameter.
+	Unknown60 uint32 `json:"unknown60"`
+	// Unknown66 qualifies the configuration value at offset 68.
+	Unknown66 bool `json:"unknown66"`
+	// Unknown68 is a region configuration reference or parameter.
+	Unknown68 uint32 `json:"unknown68"`
+	// Unknown82 qualifies the configuration value at offset 84.
+	Unknown82 bool `json:"unknown82"`
+	// Unknown84 is a region configuration reference or parameter.
+	Unknown84 uint32 `json:"unknown84"`
+	// Unknown107 is a relation key near the town and exploration references.
+	Unknown107 uint16 `json:"unknown107"`
+	// Unknown115 is a locality flag observed on Velia and Velia Beach.
+	Unknown115 bool `json:"unknown115"`
+	// Unknown147 is a flag preceding the client configuration block.
+	Unknown147 bool `json:"unknown147"`
+	// Unknown149 is an opaque client-build/configuration value.
+	Unknown149 uint32 `json:"unknown149"`
+	// Unknown153 holds five world/environment scalar parameters.
+	Unknown153 [5]float64 `json:"unknown153"`
+	// Unknown173 is a world/environment configuration reference.
+	Unknown173 uint32 `json:"unknown173"`
+	// Unknown177 is a world/environment configuration reference.
+	Unknown177 uint32 `json:"unknown177"`
+	// Unknown181 is a sentinel field (0xffffffff in the sampled build).
+	Unknown181 uint32 `json:"unknown181"`
+	// Unknown185 holds six optional town/configuration references.
+	Unknown185 [6]uint32 `json:"unknown185"`
+	// Unknown209 is the final flag in the variable record head.
+	Unknown209 bool `json:"unknown209"`
+
+	// UnknownTail1 is the first short parameter in the fixed tail.
+	UnknownTail1 uint16 `json:"unknownTail1"`
+	// UnknownTail3 is the second short parameter in the fixed tail.
+	UnknownTail3 uint16 `json:"unknownTail3"`
+	// UnknownTail5 is a world-space vector or three scalar parameters.
+	UnknownTail5 [3]float64 `json:"unknownTail5"`
+	// UnknownTail17 is a tail configuration reference or parameter.
+	UnknownTail17 uint32 `json:"unknownTail17"`
+	// UnknownTail21 is the first byte in a four-byte mode/flag group.
+	UnknownTail21 uint8 `json:"unknownTail21"`
+	// UnknownTail22 is the second byte in a four-byte mode/flag group.
+	UnknownTail22 uint8 `json:"unknownTail22"`
+	// UnknownTail23 is the third byte in a four-byte mode/flag group.
+	UnknownTail23 uint8 `json:"unknownTail23"`
+	// UnknownTail24 is the flag terminating the four-byte mode group.
+	UnknownTail24 bool `json:"unknownTail24"`
+	// UnknownTail25 holds two world-space vectors or six scalar parameters.
+	UnknownTail25 [6]float64 `json:"unknownTail25"`
+	// UnknownTail49 is an opaque 64-bit key or bitfield.
+	UnknownTail49 uint64 `json:"unknownTail49"`
+	// UnknownTail57 is a world/environment scalar parameter.
+	UnknownTail57 float64 `json:"unknownTail57"`
+	// UnknownTail61 is a world/environment scalar parameter.
+	UnknownTail61 float64 `json:"unknownTail61"`
+	// UnknownTail65 is a tail configuration reference or parameter.
+	UnknownTail65 uint32 `json:"unknownTail65"`
+	// UnknownTail69 is a tail capability flag.
+	UnknownTail69 bool `json:"unknownTail69"`
+	// UnknownTail70 is a tail capability flag.
+	UnknownTail70 bool `json:"unknownTail70"`
+	// UnknownTail71 is a tail configuration reference or parameter.
+	UnknownTail71 uint32 `json:"unknownTail71"`
+	// UnknownTail75 is a short tail configuration value.
+	UnknownTail75 uint16 `json:"unknownTail75"`
+	// UnknownTail77 is a short tail configuration value.
+	UnknownTail77 uint16 `json:"unknownTail77"`
+	// UnknownTail79 is a small mode or enum value.
+	UnknownTail79 uint8 `json:"unknownTail79"`
+	// UnknownTail81 is a world/environment scalar parameter.
+	UnknownTail81 float64 `json:"unknownTail81"`
+	// UnknownTail85 holds six optional configuration references.
+	UnknownTail85 [6]uint32 `json:"unknownTail85"`
+	// UnknownTail109 qualifies the following vector fields.
+	UnknownTail109 bool `json:"unknownTail109"`
+	// UnknownTail110 is a world-space vector or three scalar parameters.
+	UnknownTail110 [3]float64 `json:"unknownTail110"`
+	// UnknownTail122 is a world-space vector or three scalar parameters.
+	UnknownTail122 [3]float64 `json:"unknownTail122"`
+	// UnknownTail134 is the first byte in a short mode/flag group.
+	UnknownTail134 uint8 `json:"unknownTail134"`
+	// UnknownTail135 is the second byte in a short mode/flag group.
+	UnknownTail135 uint8 `json:"unknownTail135"`
+	// UnknownTail136 is a flag in the short mode group.
+	UnknownTail136 bool `json:"unknownTail136"`
+	// UnknownTail137 is the final byte in the short mode group.
+	UnknownTail137 uint8 `json:"unknownTail137"`
+	// UnknownTail145 is a small tail mode or enum value.
+	UnknownTail145 uint8 `json:"unknownTail145"`
+	// UnknownTail154 is a trailing configuration reference or parameter.
+	UnknownTail154 uint32 `json:"unknownTail154"`
+	// UnknownTail158 is a trailing configuration reference or parameter.
+	UnknownTail158 uint32 `json:"unknownTail158"`
+	// UnknownTail162 is a trailing configuration reference or parameter.
+	UnknownTail162 uint32 `json:"unknownTail162"`
+}
+
 // WorldRegion is one map region from regioninfo.bss: Velia, Heidel Pass, Evergart
 // Falls, … Key matches loc table 17 (localized place names), the regionclientdata
 // spawn regions and region_info.xml bounds. Territory indexes into
@@ -130,13 +277,41 @@ type WorldNode struct {
 // capital region lives on Territory.CapitalKey. Type 1 = major city, 2 = field.
 type WorldRegion struct {
 	*models.BaseFor[WorldRegion]
+	WorldRegionUnknowns
 
 	Key  int    `json:"key"`
 	Name string `json:"name"`
 	Type int    `json:"type"`
+	// MapColor is the record's RGB world-map color.
+	MapColor [3]uint8 `json:"mapColor"`
+	// VillageSiegeDay uses CppEnums.VillageSiegeType; 7 means no node-war day.
+	VillageSiegeDay int `json:"villageSiegeDay"`
+	// Ocean marks an open-ocean region.
+	Ocean bool `json:"ocean"`
+	// Desert marks a desert region.
+	Desert bool `json:"desert"`
+	// Prison marks a prison region.
+	Prison bool `json:"prison"`
+	// Sea marks a sea region.
+	Sea bool `json:"sea"`
+	// Locator reports whether the client locator includes this region.
+	Locator bool `json:"locator"`
 	// Territory is the world territory this region belongs to (urn::world:territory:<idx>).
 	Territory *models.EntityRef[Territory] `json:"territory"`
-	Position  [3]float64                   `json:"position"`
+	// AffiliatedTown is the town responsible for this region.
+	AffiliatedTown *models.EntityRef[WorldRegion] `json:"affiliatedTown,omitempty"`
+	// RegionGroupKey joins regiongroupinfo.bss.
+	RegionGroupKey int `json:"regionGroupKey,omitempty"`
+	// Exploration is the world-map node associated with this region.
+	Exploration *models.EntityRef[WorldNode] `json:"exploration,omitempty"`
+	// VillainRespawn is the fallback node used for outlaw/death respawns.
+	VillainRespawn *models.EntityRef[WorldNode] `json:"villainRespawn,omitempty"`
+	// VillainRespawnPosition is the position paired with VillainRespawn.
+	VillainRespawnPosition [3]float64 `json:"villainRespawnPosition"`
+	// WaypointPosition is the region's waypoint-interface position.
+	WaypointPosition [3]float64 `json:"waypointPosition"`
+	// Position is the region's world position.
+	Position [3]float64 `json:"position"`
 	// ExtraPositions are additional worldmap mark placements for oversized
 	// zones (only the Great Desert of Valencia carries them).
 	ExtraPositions [][3]float64 `json:"extraPositions,omitempty"`
@@ -147,6 +322,8 @@ type WorldRegion struct {
 	// the Morning Land villages, and isolated storages listing only themselves
 	// (Iliya Island, Lema Island, Arehaza, Oquilla's Eye).
 	WarehouseGroup []int `json:"warehouseGroup,omitempty"`
+	// GuildWharfManager is the region's guild wharf service NPC.
+	GuildWharfManager *models.EntityRef[NPC] `json:"guildWharfManager,omitempty"`
 	// VariantOf groups spawn-phase variants of the same place: the game keeps
 	// one region record per phase (quest states, Day/Night, …), all sharing a
 	// name and position — e.g. Ancient Stone Chamber is keys 26/137/155.

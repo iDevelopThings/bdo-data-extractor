@@ -3,7 +3,6 @@ package build
 import (
 	"fmt"
 
-	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 	"github.com/idevelopthings/bdo-data-extractor/src/urn"
@@ -29,13 +28,9 @@ func (b *Builder) buildZones() error {
 			tagColor[t.Key] = t
 		}
 	}
-	// category icons (dropui*categoryinfo); names from loc. The main table ships
-	// with an extra ICE layer, so decrypt it if it's not already PABR.
+	// category icons (dropui*categoryinfo); names from loc.
 	mainIcons := map[uint32]string{}
 	if mc, err := b.src.Read("dropuimaincategoryinfo.bss"); err == nil {
-		if len(mc) >= 4 && string(mc[0:4]) != "PABR" {
-			mc = paz.NewICE(paz.BDOICEKey).Decrypt(mc)
-		}
 		mainIcons = tables.DecodeMainCategoryIcons(mc)
 	}
 	subIcons := map[uint32]string{}

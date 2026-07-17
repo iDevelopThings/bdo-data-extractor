@@ -1,0 +1,57 @@
+package: model
+type: LifeSkillGrade
+underlying: int8
+marshalText: false
+out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/life-skill-grades.gen.ts
+values:
+  - name: Unknown
+    wire: -1
+    title: "Unknown"
+    reserved: true
+
+  - name: Beginner
+    wire: 0
+    title: "Beginner"
+    minLevel: 1
+    maxLevel: 10
+
+  - name: Apprentice
+    wire: 1
+    title: "Apprentice"
+    minLevel: 11
+    maxLevel: 20
+
+  - name: Skilled
+    wire: 2
+    title: "Skilled"
+    minLevel: 21
+    maxLevel: 30
+
+  - name: Professional
+    wire: 3
+    title: "Professional"
+    minLevel: 31
+    maxLevel: 40
+
+  - name: Artisan
+    wire: 4
+    title: "Artisan"
+    minLevel: 41
+    maxLevel: 50
+
+  - name: Master
+    wire: 5
+    title: "Master"
+    minLevel: 51
+    maxLevel: 80
+
+  - name: Guru
+    wire: 6
+    title: "Guru"
+    minLevel: 81
+    maxLevel: 180
+
+  - name: Count
+    wire: 7
+    sentinel: true

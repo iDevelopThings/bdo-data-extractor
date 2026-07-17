@@ -1,19 +1,14 @@
 package tables
 
 import (
+	"fmt"
 	"math/bits"
 	"sort"
+
+	"github.com/idevelopthings/bdo-data-extractor/src/model"
 )
 
-// Enum maps transcribed from some private server sources. Used to turn the raw
-// byte enum fields in an item row into human-readable names.
-//
-// Note: the central-market category names (item bytes @188/@189) are NOT here —
-// they come straight from the client loc table 44 (see loc.LoadGame).
-
-var gradeNames = map[byte]string{0: "white", 1: "green", 2: "blue", 3: "yellow", 4: "red", 5: "purple"}
-
-// classBitNames maps a bit of the item class-restriction mask (itemenchant @77) to
+// classBitTypes maps a bit of the item class-restriction mask (itemenchant @77) to
 // the class that can use the item. The mask is a u64 — newer classes live in the high
 // dword (32 Seraph / 33 Dosa / 34 Deadeye), which is why reading it as a u32 silently
 // dropped them. The mask-bit order is its own enum (derived from class-tagged costume
@@ -22,19 +17,21 @@ var gradeNames = map[byte]string{0: "white", 1: "green", 2: "blue", 3: "yellow",
 // reserved class slots. Class-locked gear sets only its own class bit(s); all-class
 // gear sets most bits, but not by a fixed value — older items predate Seraph/Dosa/
 // Deadeye and set fewer bits — so ClassRestriction tests by popcount, not equality.
-var classBitNames = map[int]string{
-	0: "Warrior", 1: "Hashashin", 2: "Sage", 3: "Wukong", 4: "Ranger",
-	5: "Guardian", 6: "Scholar", 7: "Drakania", 8: "Sorceress", 9: "Nova",
-	10: "Corsair", 11: "Lahn", 12: "Berserker", 15: "Maegu", 16: "Tamer",
-	17: "Shai", 19: "Striker", 20: "Musa", 21: "Maehwa", 23: "Mystic",
-	24: "Valkyrie", 25: "Kunoichi", 26: "Ninja", 27: "Dark Knight", 28: "Wizard",
-	29: "Archer", 30: "Woosa", 31: "Witch", 32: "Seraph", 33: "Dosa", 34: "Deadeye",
-}
+var classBitTypes = func() map[int]model.CharacterClassType {
+	types := make(map[int]model.CharacterClassType)
+	for value := 0; value <= int(model.CharacterClassTypeReserved36); value++ {
+		classType := model.CharacterClassType(value)
+		if !classType.Reserved() {
+			types[value] = classType
+		}
+	}
+	return types
+}()
 
 // allClassMask is every known class bit OR'd together; allClassCount is how many.
 var allClassMask, allClassCount = func() (uint64, int) {
 	var m uint64
-	for b := range classBitNames {
+	for b := range classBitTypes {
 		m |= uint64(1) << uint(b)
 	}
 	return m, bits.OnesCount64(m)
@@ -51,7 +48,7 @@ func ClassRestriction(mask uint64) []string {
 		return nil
 	}
 	bitsSet := make([]int, 0, 4)
-	for b := range classBitNames {
+	for b := range classBitTypes {
 		if known&(uint64(1)<<uint(b)) != 0 {
 			bitsSet = append(bitsSet, b)
 		}
@@ -59,7 +56,7 @@ func ClassRestriction(mask uint64) []string {
 	sort.Ints(bitsSet)
 	out := make([]string, len(bitsSet))
 	for i, b := range bitsSet {
-		out[i] = classBitNames[b]
+		out[i] = classBitTypes[b].String()
 	}
 	return out
 }
@@ -77,6 +74,13 @@ var itemTypeNames = map[byte]string{
 	9:  "Interaction",
 	10: "ContentsEvent",
 	11: "ToVehicle",
+	12: "Unknown12",
+	13: "Unknown13",
+	14: "Unknown14",
+	16: "Unknown16",
+	17: "Unknown17",
+	18: "Unknown18",
+	19: "Unknown19",
 }
 
 // EItemClassify — the main item category.
@@ -153,59 +157,9 @@ var equipTypeNames = map[byte]string{
 	75: "Water Balloon",
 }
 
-// slotNames maps the equip-slot enum (itemenchant byte @14 = getEquipSlotNo) to a
-// friendly slot name. The enum itself is the client's __eEquipSlotNo (the equipment
-// window's physical slots); the labels here are ours. Unlike equipTypeNames (@7,
-// the weapon class, blank for artifacts/life-tools), this is the only slot source
-// for artifacts, life/gathering tools and costume accessories. The trailing comment
-// on each line is the client __eEquipSlotNo* constant it corresponds to. A handful
-// of slot numbers are reused across ship/mount contexts; the label is the dominant
-// character-equipment meaning.
-var slotNames = map[byte]string{
-	0:  "Main Weapon",               // RightHand
-	1:  "Sub-weapon",                // LeftHand
-	2:  "Fishing Chair",             // (life-tool seat; GatheringTools)
-	3:  "Armor",                     // Chest
-	4:  "Gloves",                    // Glove
-	5:  "Shoes",                     // Boots
-	6:  "Helmet",                    // Helm
-	7:  "Necklace",                  // Necklace
-	8:  "Ring",                      // Ring1
-	10: "Earring",                   // Earing1
-	12: "Belt",                      // Belt
-	13: "Lantern",                   // Lantern
-	14: "Costume: Armor",            // AvatarChest
-	15: "Costume: Gloves",           // AvatarGlove
-	16: "Costume: Shoes",            // AvatarBoots
-	17: "Costume: Helmet",           // AvatarHelm
-	18: "Costume: Main Weapon",      // AvatarWeapon
-	19: "Costume: Sub-weapon",       // AvatarSubWeapon
-	20: "Underwear",                 // AvatarUnderwear
-	21: "Costume: Earring",          // FaceDecoration1
-	22: "Costume: Headpiece",        // FaceDecoration2
-	23: "Costume: Piercing",         // FaceDecoration3
-	25: "Ship Gear",                 // (mount/ship equipment)
-	26: "Ship Gear",                 // (mount/ship equipment)
-	27: "Alchemy Stone",             // AlchemyStone
-	29: "Awakening Weapon",          // AwakenWeapon
-	30: "Costume: Awakening Weapon", // AvatarAwakenWeapon
-	31: "Tome",                      // QuestBook
-	32: "Artifact",                  // Artifact1
-	34: "Lumbering Axe",             // Axe
-	35: "Fluid Collector",           // Syringe
-	36: "Hoe",                       // Hoe
-	37: "Butcher Knife",             // ButcheryKnife
-	38: "Tanning Knife",             // SkinKnife
-	39: "Pickaxe",                   // PickAx
-	40: "Fishing Rod",               // FishingRod
-	41: "Fishing Float",             // Bobber
-	42: "Fishing Harpoon",           // FishingHarpoon
-	45: "Gathering Carrier",         // SubTool
-}
-
 // equipKindNames maps the coarse equip-kind enum (itemenchant byte @15) to the broad
-// gear class. Only the two combat-stat kinds are distinct; everything else (costumes,
-// accessories, tools, artifacts, …) falls under "Other".
+// gear class. Kind 0 includes combat weapons and weapon-like life/hunting tools;
+// kind 1 is combat armor; costumes, accessories and artifacts use kind 2.
 var equipKindNames = map[byte]string{
 	0: "Weapon",
 	1: "Armor",
@@ -233,5 +187,5 @@ func name(m map[byte]string, v byte) string {
 	if s, ok := m[v]; ok {
 		return s
 	}
-	return ""
+	return fmt.Sprintf("Unknown%d", v)
 }
