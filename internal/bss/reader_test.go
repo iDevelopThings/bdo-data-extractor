@@ -36,3 +36,13 @@ func TestDecodeUTF16(t *testing.T) {
 		})
 	}
 }
+
+func TestEncodeUTF16(t *testing.T) {
+	t.Parallel()
+
+	for _, value := range []string{"", "BDO", "검은사막", "A😀B"} {
+		if got := DecodeUTF16(EncodeUTF16(value)); got != value {
+			t.Fatalf("round trip %q = %q", value, got)
+		}
+	}
+}

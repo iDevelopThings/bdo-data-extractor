@@ -1,0 +1,96 @@
+package: model
+type: ItemType
+underlying: uint8
+marshalText: false
+out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/item-types.gen.ts
+# title is the localized English label selected by the item tooltip for this
+# EItemType. Trade goods apply a contextual override; see ItemType.TooltipTitle.
+values:
+  - name: Normal
+    wire: 0
+    title: "General"
+
+  - name: Equip
+    wire: 1
+    title: "Equipment"
+
+  - name: Skill
+    wire: 2
+    title: "Consumable"
+
+  - name: Tent
+    wire: 3
+    title: "Holding Tool"
+
+  - name: Installation
+    wire: 4
+    title: "Installable Object"
+
+  - name: Jewel
+    wire: 5
+    title: "Socket Item"
+
+  - name: CannonBall
+    wire: 6
+    title: "Cannonball"
+
+  - name: Mapae
+    wire: 7
+    title: "License"
+
+  - name: Material
+    wire: 8
+    title: "Crafting Material"
+
+  - name: Interaction
+    wire: 9
+    title: "Enter Area"
+
+  - name: ContentsEvent
+    wire: 10
+    title: "Special Items"
+
+  - name: ToVehicle
+    wire: 11
+    title: "General"
+
+  - name: Reserved12
+    wire: 12
+    title: "General"
+    reserved: true
+
+  - name: Reserved13
+    wire: 13
+    title: "General"
+    reserved: true
+
+  - name: Reserved14
+    wire: 14
+    title: "General"
+    reserved: true
+
+  - name: Reserved15
+    wire: 15
+    title: "General"
+    reserved: true
+
+  - name: Reserved16
+    wire: 16
+    title: "General"
+    reserved: true
+
+  - name: Reserved17
+    wire: 17
+    title: "General"
+    reserved: true
+
+  - name: Reserved18
+    wire: 18
+    title: "General"
+    reserved: true
+
+  - name: Reserved19
+    wire: 19
+    title: "General"
+    reserved: true

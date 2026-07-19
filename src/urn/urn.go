@@ -90,15 +90,16 @@ func Parse(raw string) (URN, error) {
 }
 
 var (
-	Item        = NewHandler("item").EnsureRegistered()
-	ItemSet     = NewHandler("item-set").EnsureRegistered()
-	Enhancement = NewHandler("enhancement").EnsureRegistered()
-	NPC         = NewHandler("npc").EnsureRegistered()
-	GrindSpot   = NewHandler("grindspot").EnsureRegistered()
-	Character   = NewHandler("character").EnsureRegistered()
-	Caphras     = NewHandler("caphras").EnsureRegistered()
-	Knowledge   = NewHandler("knowledge").Kinds("theme", "entry").EnsureRegistered()
-	World       = NewHandler("world").Kinds("region", "node", "territory").EnsureRegistered()
+	Item                  = NewHandler("item").EnsureRegistered()
+	ItemSet               = NewHandler("item-set").EnsureRegistered()
+	LightstoneCombination = NewHandler("lightstone-combination").EnsureRegistered()
+	Enhancement           = NewHandler("enhancement").EnsureRegistered()
+	NPC                   = NewHandler("npc").EnsureRegistered()
+	GrindSpot             = NewHandler("grindspot").EnsureRegistered()
+	Character             = NewHandler("character").EnsureRegistered()
+	Caphras               = NewHandler("caphras").EnsureRegistered()
+	Knowledge             = NewHandler("knowledge").Kinds("theme", "entry").EnsureRegistered()
+	World                 = NewHandler("world").Kinds("region", "node", "territory").EnsureRegistered()
 	// Recipe URNs are urn::recipe:<outputItemId>:<index> — the kind is the output
 	// item id (dynamic) and the id is the per-output recipe index.
 	Recipe = NewHandler("recipe").DynamicKinds().EnsureRegistered()

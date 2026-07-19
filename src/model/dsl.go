@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -25,21 +26,114 @@ type EffectGroup struct {
 	Stats  []StatMod `json:"stats"`
 }
 
+// BuffStackingCategory is the client category used by broad buff-family rules.
+// Known consumable values include food (1), elixir/draught (2), perfume (6),
+// Cron-meal extras (10), and whale-tendon elixirs (21).
+type BuffStackingCategory uint16
+
+const (
+	BuffStackingCategoryFood                BuffStackingCategory = 1
+	BuffStackingCategoryElixir              BuffStackingCategory = 2
+	BuffStackingCategoryPerfume             BuffStackingCategory = 6
+	BuffStackingCategoryCronMealExtra       BuffStackingCategory = 10
+	BuffStackingCategoryWhaleTendonElixir   BuffStackingCategory = 21
+	BuffStackingCategoryDraughtResetControl BuffStackingCategory = 26
+)
+
+// BuffStackingCategories is a set of client-defined broad buff families.
+type BuffStackingCategories []BuffStackingCategory
+
+// Has reports whether the set contains category.
+func (c BuffStackingCategories) Has(category ...BuffStackingCategory) bool {
+	for _, candidate := range c {
+		if slices.Contains(category, candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+// Add inserts a nonzero category unless it is already present.
+func (c *BuffStackingCategories) Add(category BuffStackingCategory) {
+	if category == 0 || c.Has(category) {
+		return
+	}
+	*c = append(*c, category)
+}
+
+// SortKey returns the consumable-family priority, with larger values sorting first.
+func (c BuffStackingCategories) SortKey() int {
+	switch {
+	case c.Has(BuffStackingCategoryDraughtResetControl):
+		return 6
+	case c.Has(BuffStackingCategoryPerfume):
+		return 5
+	case c.Has(BuffStackingCategoryCronMealExtra):
+		return 4
+	case c.Has(BuffStackingCategoryFood):
+		return 3
+	case c.Has(BuffStackingCategoryElixir):
+		return 2
+	case c.Has(BuffStackingCategoryWhaleTendonElixir):
+		return 1
+	default:
+		return 0
+	}
+}
+
 // StatMod is one parsed effect line, e.g. "Fishing EXP +10%" ->
 // {Stat:"Fishing EXP", Op:"+", Value:10, Unit:"%"}.
 type StatMod struct {
 	*EffectDsl
 
-	Stat        string   `json:"stat,omitempty"`
+	Stat string `json:"stat,omitempty"`
+	// StatID is the canonical accumulator key for a single-stat effect.
+	StatID StatId `json:"statId,omitempty"`
+	// StatIDs contains canonical keys for effects that apply to several peers.
+	StatIDs     []StatId `json:"statIds,omitempty"`
 	Op          string   `json:"op,omitempty"`
 	Value       float64  `json:"value,omitempty"`
 	Unit        string   `json:"unit,omitempty"`
 	CurveFields []string `json:"curveFields,omitempty"`
-	Buff        uint32   `json:"buff,omitempty"`   // source buff Index (traceability)
-	Negate      bool     `json:"negate,omitempty"` // true if less is better, ie weight
-	Note        string   `json:"note,omitempty"`   // optional consumer-facing note (e.g. "hidden stat")
+	Buff        uint32   `json:"buff,omitempty"` // source buff Index (traceability)
+	// BuffModule identifies the buff.dbss EffectData layout.
+	BuffModule uint8 `json:"buffModule,omitempty"`
+	// BuffGroup identifies mutually replacing variants of the same effect.
+	BuffGroup int16 `json:"buffGroup,omitempty"`
+	// BuffCategory identifies the broader family used by reset/stacking rules.
+	BuffCategory BuffStackingCategory `json:"buffCategory,omitempty"`
+	// DurationMs is this modifier's duration, independent of sibling effects.
+	DurationMs int `json:"durationMs,omitempty"`
+	// Instant identifies an immediate effect such as Energy or Health EXP gain.
+	Instant bool   `json:"instant,omitempty"`
+	Negate  bool   `json:"negate,omitempty"` // true if less is better, ie weight
+	Note    string `json:"note,omitempty"`   // optional consumer-facing note (e.g. "hidden stat")
 	// DerivedFrom identifies the raw DSL marker that implies a canonical effect.
 	DerivedFrom string `json:"derivedFrom,omitempty"`
+}
+
+var statIDsByLabel = func() map[string]StatId {
+	ids := make(map[string]StatId, len(StatIds.Infos()))
+	for _, info := range StatIds.Infos() {
+		ids[info.Label] = info.StatId
+	}
+	return ids
+}()
+
+// StatIDFromLabel resolves a stable display label to its canonical stat ID.
+func StatIDFromLabel(label string) (StatId, bool) {
+	id, ok := statIDsByLabel[label]
+	return id, ok
+}
+
+func applyEffectStatIDs(mod StatMod, fn string) StatMod {
+	info, ok := EffectFuncStat(fn).TryGetInfo()
+	if !ok {
+		return mod
+	}
+	mod.StatID = info.Stat
+	mod.StatIDs = info.Stats
+	return mod
 }
 
 // setPieceCount pulls the piece-count tier out of a set-effect marker func —
@@ -190,12 +284,12 @@ func EffectFuncToStatMod(e EffectDsl) (StatMod, bool) {
 		} else if info, found := ResolveEffectFunc(e.Func); found {
 			label = info.label
 		}
-		return StatMod{
+		return applyEffectStatIDs(StatMod{
 			EffectDsl:   &e,
 			Stat:        label,
 			CurveFields: rule.CurveFields,
 			Note:        "Value is stored on the containing enhancement curve",
-		}, true
+		}, e.Func), true
 	}
 
 	if hasRule && rule.FixedValue != 0 && !hasArg {
@@ -203,14 +297,14 @@ func EffectFuncToStatMod(e EffectDsl) (StatMod, bool) {
 		if !found {
 			return StatMod{}, false
 		}
-		return StatMod{
+		return applyEffectStatIDs(StatMod{
 			EffectDsl: &e,
 			Stat:      info.label,
 			Op:        "+",
 			Value:     rule.FixedValue,
 			Unit:      info.unit,
 			Note:      "Fixed client value; the DSL carries no argument",
-		}, true
+		}, e.Func), true
 	}
 
 	if label, ok := resolveNamedEffect(e.Func); ok {
@@ -224,7 +318,7 @@ func EffectFuncToStatMod(e EffectDsl) (StatMod, bool) {
 		} else {
 			mod.Note = "Named effect; the DSL carries no numeric value"
 		}
-		return mod, true
+		return applyEffectStatIDs(mod, e.Func), true
 	}
 
 	if info, ok := ResolveEffectFunc(e.Func); ok {
@@ -246,7 +340,7 @@ func EffectFuncToStatMod(e EffectDsl) (StatMod, bool) {
 			m.Op = "X"
 		}
 
-		return m, true
+		return applyEffectStatIDs(m, e.Func), true
 	}
 
 	m := StatMod{
@@ -264,7 +358,7 @@ func EffectFuncToStatMod(e EffectDsl) (StatMod, bool) {
 		m.Note = "Unmapped effect func with no arg"
 	}
 
-	return m, true
+	return applyEffectStatIDs(m, e.Func), true
 }
 
 func ResolveEffectFunc(fn string) (EffectFuncInfo, bool) {

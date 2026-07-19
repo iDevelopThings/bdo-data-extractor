@@ -18,6 +18,13 @@ func (b *BaseFor[T]) GetURN() urn.URN {
 	return b.Urn
 }
 
+func (b *BaseFor[T]) ToEntityRef() *EntityRef[T] {
+	return &EntityRef[T]{
+		URN:   b.Urn,
+		Value: nil,
+	}
+}
+
 func NewBaseFor[T any](id uint32, kinds ...any) *BaseFor[T] {
 	b := &BaseFor[T]{}
 	return b.Initialize(id, kinds...)

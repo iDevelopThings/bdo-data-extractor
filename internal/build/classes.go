@@ -7,7 +7,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 )
 
-// buildCharacterProgression writes the playable class identity map and the
+// buildCharacterProgression registers the playable class identity map and the
 // character-level rules and family-wide Breath, Strength, and Health curves.
 func (b *Builder) buildCharacterProgression() error {
 	var progression model.CharacterProgression
@@ -83,7 +83,7 @@ func (b *Builder) buildCharacterProgression() error {
 	if len(progression.Classes)+len(progression.LevelRules)+len(progression.Breath)+len(progression.Strength)+len(progression.Health) == 0 {
 		return nil
 	}
-	p, err := b.write("character_progression.json", progression)
+	p, err := b.addJSON("character_progression.json", progression)
 	if err != nil {
 		return err
 	}

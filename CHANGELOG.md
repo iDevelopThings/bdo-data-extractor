@@ -11,6 +11,83 @@ Consumers should re-run extraction after upgrading — most releases change the 
 
 ## [Unreleased]
 
+## [0.1.5] — 2026-07-19
+
+Adds five new datasets — adventure journals, quests, class skills, crystal transfusion rules and
+lightstone combinations — plus NPC item-services and contribution-point item rentals joined onto
+the existing files, and much more complete consumable/buff effect data. The build now writes its
+output as an atomic, crash-recoverable transaction — which also makes a full extraction roughly
+2.5× faster (~5s, down from ~14s). One JSON field changed shape: `itemType` is now numeric.
+
+### ⚠ Breaking
+
+- **`Item.itemType` is now a number, not a string, and is always emitted.** Was
+  `"itemType":"Skill"` (omitempty); now `"itemType":2`. The Go field type changed `string` →
+  `model.ItemType` (`uint8`). This is the only wire-breaking change — the large `stat_id_enum.go`
+  diff is gofmt whitespace only; no existing `StatId` value changed.
+
+### Added
+
+- **Adventure journals** — the Adventure Log tree (`adventure_journals.json`): journal groups →
+  books → ordered quest pages, each page's quest, and every permanent **Family-stat reward** with
+  running totals. Quests referenced across the data now resolve to a new `quests.json` carrying
+  each quest's accept/complete condition DSL verbatim.
+- **Class skills** (`class_skills.json`) — per-class combat and awakening skill-tree grids, each
+  rank's identity and active/passive kind, and the decoded stat effects of passive ranks.
+- **Crystal transfusion rules** (`crystal_rules.json`) — every transfusion group with its
+  max-equipped count, plus the special preset-slot restrictions. Each item's `crystalGroup` now
+  also carries its numeric `key`.
+- **Lightstone combinations** (`lightstone_combinations.json`) — artifact/lightstone set bonuses
+  (name, description, required items, decoded effects) and the amplified-lightstone item-
+  equivalence alias map.
+- **NPC item-services** on `npcs.json` — shops, secret shops, exchanges and contracts a character
+  offers (service name + client access-condition DSL); service-only NPCs are now included too.
+- **Contribution-point item rentals** on `items.json` — `buyItemByPoint` offers (item, count,
+  point type and cost, condition DSL, dialogue text).
+- **Fuller consumable/buff effect data** — resolved effects now carry a canonical `statId` (and
+  `statIds`), the buff's module/group, its **stacking category** (food / elixir / perfume / Cron
+  meal / …), duration, and whether it's instant; an effect set records which categories it clears
+  (e.g. a draught reset). This is the data a stat calculator needs to apply real in-game stacking.
+- **New exported enums**: `ItemType`, `FamilyStatType`, `SkillKind`, `CrystalSpecialSlot`; new
+  `StatId`s (fear/heat/cold resistance, energy, beast AP, worker stamina, and more); and
+  `LifeSkillType.ExpStat`. New domain types for each dataset above; new `EntityRefList` helpers
+  (`Contains`/`AddUnique`/`Remove`/`IndexOf`) and a `lightstone-combination` URN domain.
+
+### Fixed
+
+- **Cron-meal and composite-consumable effects were under-reported.** v0.1.4 read only one of an
+  item's two skill slots, so consumables that spread their component buffs across the second slot
+  (Cron meals, some composite meals) lost part of their effect list. Both slots are now read and
+  merged, recovering the complete set.
+
+### Changed
+
+- **Build output is transactional.** Stages decode, validate and register their artifacts first;
+  the dataset is published only after every stage succeeds. A failed or interrupted extraction no
+  longer partially overwrites the last good output — the next run rolls it back (or completes it
+  if it had already committed), and files the build doesn't own are left untouched. The output
+  directory gains a `.build-outputs.json` ownership manifest.
+- **Buff data is decoded more thoroughly** — records are read through `buffoffset.dbss` with a
+  full field decode, buff modules resolve to canonical `StatId`s instead of display strings, and
+  several previously-unmapped modules are now decoded (worker-stamina and energy recovery,
+  Breath/Strength/Health fitness EXP, death-penalty resistance).
+- **Item records are decoded to @212** (a second skill-key slot), and `itemType` is read as the
+  new numeric enum. Localization decoding gained three tables (skills, adventure journals,
+  lightstone sets).
+- The default JSON encoder is now `goccy/go-json` (was the standard library); the encoder sits
+  behind an interface with standard and jettison alternatives available.
+- The TypeScript enum generator now emits an `<Enum>Names` type and an `as const` `ByName` map.
+- `FORMATS.md` and `README.md` document all of the above (the five new datasets, the buff
+  offset-index rework, NPC item-services, rentals, and the item-type tooltip labels).
+
+### Performance
+
+- **A full extraction now finishes in ~5s, down from ~14s.** Stages no longer each write their
+  JSON as they complete; all writing is deferred to the transactional publish at the end, where
+  the artifacts are encoded and written by a bounded pool of workers in parallel (with the two
+  bulk arrays, `items.json` and `item_enhancements.json`, written on their own). The `goccy/go-json`
+  encoder swap contributes as well.
+
 ## [0.1.4] — 2026-07-17
 
 Adds item sets, playable classes with level/fitness progression, and life-skill progression,
@@ -324,7 +401,8 @@ the PAZ archives, the `.bss`/`.dbss` binary tables, the per-item recipe XMLs and
 localization — into JSON (`items.json`, `recipes.json`, and more), plus decoded item icons.
 Distributed via `go install …@latest`.
 
-[Unreleased]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.1...v0.1.2

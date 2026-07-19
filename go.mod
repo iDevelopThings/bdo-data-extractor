@@ -11,6 +11,7 @@ require (
 require (
 	github.com/goccy/go-json v0.10.6
 	github.com/klauspost/compress v1.19.0
+	github.com/wI2L/jettison v0.7.4
 	golang.org/x/tools v0.48.0
 )
 

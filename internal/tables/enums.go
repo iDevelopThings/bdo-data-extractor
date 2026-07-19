@@ -61,28 +61,6 @@ func ClassRestriction(mask uint64) []string {
 	return out
 }
 
-var itemTypeNames = map[byte]string{
-	0:  "Normal",
-	1:  "Equip",
-	2:  "Skill",
-	3:  "Tent",
-	4:  "Installation",
-	5:  "Jewel",
-	6:  "CannonBall",
-	7:  "Mapae",
-	8:  "Material",
-	9:  "Interaction",
-	10: "ContentsEvent",
-	11: "ToVehicle",
-	12: "Unknown12",
-	13: "Unknown13",
-	14: "Unknown14",
-	16: "Unknown16",
-	17: "Unknown17",
-	18: "Unknown18",
-	19: "Unknown19",
-}
-
 // EItemClassify — the main item category.
 var classifyNames = map[byte]string{
 	0:  "Etc",

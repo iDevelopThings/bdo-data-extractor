@@ -8,6 +8,7 @@ tsOut: ../../../../bdo-viewer/frontend/src/lib/types/life-skill-types.gen.ts
 # stats.yml). Only the ten skills with a gear mastery carry one.
 fields:
   masteryStat: StatId
+  expStat: StatId
 values:
   - name: Gathering
     wire: 0
@@ -15,6 +16,7 @@ values:
     nativeName: "gathering"
     playable: true
     masteryStat: gatheringMastery
+    expStat: gatheringExp
 
   - name: Fishing
     wire: 1
@@ -22,6 +24,7 @@ values:
     nativeName: "fishing"
     playable: true
     masteryStat: fishingMastery
+    expStat: fishingExp
 
   - name: Hunting
     wire: 2
@@ -29,6 +32,7 @@ values:
     nativeName: "hunting"
     playable: true
     masteryStat: huntingMastery
+    expStat: huntingExp
 
   - name: Cooking
     wire: 3
@@ -36,6 +40,7 @@ values:
     nativeName: "cooking"
     playable: true
     masteryStat: cookingMastery
+    expStat: cookingExp
 
   - name: Alchemy
     wire: 4
@@ -43,6 +48,7 @@ values:
     nativeName: "alchemy"
     playable: true
     masteryStat: alchemyMastery
+    expStat: alchemyExp
 
   - name: Processing
     wire: 5
@@ -50,6 +56,7 @@ values:
     nativeName: "processing"
     playable: true
     masteryStat: processingMastery
+    expStat: processingExp
 
   - name: Training
     wire: 6
@@ -57,6 +64,7 @@ values:
     nativeName: "training"
     playable: true
     masteryStat: trainingMastery
+    expStat: trainingExp
 
   - name: Trading
     wire: 7
@@ -64,6 +72,7 @@ values:
     nativeName: "trading"
     playable: true
     masteryStat: tradingMastery
+    expStat: tradingExp
 
   - name: Farming
     wire: 8
@@ -71,6 +80,7 @@ values:
     nativeName: "farming"
     playable: true
     masteryStat: farmingMastery
+    expStat: farmingExp
 
   - name: Sailing
     wire: 9
@@ -78,6 +88,7 @@ values:
     nativeName: "sailing"
     playable: true
     masteryStat: sailingMastery
+    expStat: sailingExp
 
   - name: Quest
     wire: 10
@@ -89,6 +100,7 @@ values:
     title: "Bartering"
     nativeName: "bartering"
     playable: true
+    expStat: barteringExp
 
   - name: Reserved12
     wire: 12

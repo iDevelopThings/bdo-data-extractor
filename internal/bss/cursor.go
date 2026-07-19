@@ -45,7 +45,7 @@ func (c *Cursor) OK() bool { return !c.bad }
 func (c *Cursor) Pos() int { return c.pos }
 
 func (c *Cursor) avail(n int) bool {
-	if c.bad || c.pos+n > c.end {
+	if c.bad || n < 0 || c.pos < 0 || c.pos > c.end || n > c.end-c.pos {
 		c.bad = true
 		return false
 	}
@@ -183,7 +183,7 @@ func (c *Cursor) Fill(b byte) int {
 // byte-length.) UTF8 reads the [i64 byteCount][UTF-8] variant the icon path uses.
 func (c *Cursor) UTF16() string {
 	n := int(c.I64())
-	if n < 0 || !c.avail(n*2) {
+	if n < 0 || n > c.Remaining()/2 || !c.avail(n*2) {
 		c.bad = true
 		return ""
 	}

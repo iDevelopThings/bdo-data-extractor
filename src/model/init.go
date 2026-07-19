@@ -10,6 +10,7 @@ import "github.com/idevelopthings/bdo-data-extractor/src/urn"
 func init() {
 	urn.RegisterHandler[Item](urn.Item)
 	urn.RegisterHandler[ItemSet](urn.ItemSet)
+	urn.RegisterHandler[LightstoneCombination](urn.LightstoneCombination)
 	urn.RegisterHandler[Enhancement](urn.Enhancement)
 	urn.RegisterHandler[NPC](urn.NPC)
 	urn.RegisterHandler[Character](urn.Character)

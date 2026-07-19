@@ -41,27 +41,30 @@ import (
 // loc key0 values are stable semantic categories (not shifting indices), so
 // selecting tables by these constants is safe across patches.
 const (
-	itemTable           = 0
-	titleTable          = 1 // character title names
-	buffNameTable       = 5
-	knowledgeThemeTable = 9  // knowledge category/theme names
-	entityNameTable     = 6  // general entity-name table: classes, creatures, NPCs, resources (id-ranged)
-	knowledgeCardTable  = 34 // knowledge card (entry) names
-	mainCatTable        = 12 // Monster Zone Info main-category (region) names
-	topographyTable     = 17 // topography / place names
-	nodeNameTable       = 29 // worldmap node names, keyed by exploration node key
-	questTable          = 18 // quest names, keyed (group=id, index=key1)
-	marketCatTable      = 44
-	itemSetTable        = 52  // skillpiece set-effect text, keyed by skillNo and apply index
-	houseTable          = 123 // house function / workshop names, keyed by house type (eHouseIconType)
-	jewelGroupTable     = 121 // crystal transfusion groups: id=group, key1=max count, text=name
-	subCatTable         = 115 // Monster Zone Info sub-category (content filter) names
-	zoneNameTable       = 116 // Monster Zone Info zone names (sparse ids, in record order)
-	tagTable            = 117 // Monster Zone Info tag labels (keys 1..44)
-	fieldName           = 0x00000000
-	fieldDesc           = 0x01000000
-	fieldCol2           = 0x02000000 // items: use/open confirmation text; knowledge cards: acquisition hint
-	fieldCol3           = 0x03000000 // items: NPC exchange info
+	itemTable             = 0
+	titleTable            = 1 // character title names
+	buffNameTable         = 5
+	knowledgeThemeTable   = 9  // knowledge category/theme names
+	skillTable            = 10 // player and non-player skill names/descriptions
+	entityNameTable       = 6  // general entity-name table: classes, creatures, NPCs, resources (id-ranged)
+	knowledgeCardTable    = 34 // knowledge card (entry) names
+	mainCatTable          = 12 // Monster Zone Info main-category (region) names
+	topographyTable       = 17 // topography / place names
+	nodeNameTable         = 29 // worldmap node names, keyed by exploration node key
+	questTable            = 18 // quest names, keyed (group=id, index=key1)
+	marketCatTable        = 44
+	itemSetTable          = 52  // skillpiece set-effect text, keyed by skillNo and apply index
+	adventureJournalTable = 63  // adventure journals, keyed by journal group and book key
+	lightstoneSetTable    = 113 // lightstone combination text, keyed by combination key
+	houseTable            = 123 // house function / workshop names, keyed by house type (eHouseIconType)
+	jewelGroupTable       = 121 // crystal transfusion groups: id=group, key1=max count, text=name
+	subCatTable           = 115 // Monster Zone Info sub-category (content filter) names
+	zoneNameTable         = 116 // Monster Zone Info zone names (sparse ids, in record order)
+	tagTable              = 117 // Monster Zone Info tag labels (keys 1..44)
+	fieldName             = 0x00000000
+	fieldDesc             = 0x01000000
+	fieldCol2             = 0x02000000 // items: use/open confirmation text; knowledge cards: acquisition hint
+	fieldCol3             = 0x03000000 // items: NPC exchange info
 )
 
 // readBody returns the decompressed record stream of a .loc file.
@@ -142,17 +145,41 @@ type JewelGroup struct {
 	Max  int
 }
 
+// LightstoneSetText is one localized lightstone-combination name and effect text.
+type LightstoneSetText struct {
+	Name        string
+	Description string
+}
+
+// SkillText is one localized skill name and description from loc table 10.
+type SkillText struct {
+	Name        string
+	Description string
+}
+
+// AdventureJournalText is one localized adventure-journal book and its parent
+// journal presentation text.
+type AdventureJournalText struct {
+	JournalName        string
+	JournalDescription string
+	Name               string
+	Requirement        string
+}
+
 // GameStrings is everything the build needs from the .loc, decoded in one pass:
 // item names/descriptions (table 0), market categories (table 44), and buff
 // effect names (table 5).
 type GameStrings struct {
-	Names         map[uint32]string
-	Descs         map[uint32]string
-	UseTexts      map[uint32]string // item id -> use/open confirmation text, lists box contents (table 0, column 2)
-	ExchangeTexts map[uint32]string // item id -> NPC exchange offers (table 0, column 3)
-	MarketCats    map[uint32]MarketCat
-	BuffNames     map[uint32]string
-	ItemSetTexts  Table // skillpiece text (table 52), indexed by skillNo and packed field
+	Names             map[uint32]string
+	Descs             map[uint32]string
+	UseTexts          map[uint32]string // item id -> use/open confirmation text, lists box contents (table 0, column 2)
+	ExchangeTexts     map[uint32]string // item id -> NPC exchange offers (table 0, column 3)
+	MarketCats        map[uint32]MarketCat
+	BuffNames         map[uint32]string
+	ItemSetTexts      Table                                      // skillpiece text (table 52), indexed by skillNo and packed field
+	AdventureJournals map[uint32]map[uint32]AdventureJournalText // journal group -> book key -> text (table 63)
+	LightstoneSets    map[uint32]LightstoneSetText               // lightstone combination text (table 113)
+	SkillTexts        map[uint32]SkillText                       // skill number -> localized name/description (table 10)
 	// Monster Zone Info linkage (inline names):
 	Titles         map[uint32]string               // title id -> name (table 1)
 	TitleDescs     map[uint32]string               // title id -> requirement/description (table 1 desc field)
@@ -185,31 +212,34 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 		return nil, err
 	}
 	gs := &GameStrings{
-		Names:          map[uint32]string{},
-		Descs:          map[uint32]string{},
-		UseTexts:       map[uint32]string{},
-		ExchangeTexts:  map[uint32]string{},
-		MarketCats:     map[uint32]MarketCat{},
-		BuffNames:      map[uint32]string{},
-		ItemSetTexts:   make(Table),
-		Titles:         map[uint32]string{},
-		TitleDescs:     map[uint32]string{},
-		EntityNames:    map[uint32]string{},
-		EntityTitles:   map[uint32]string{},
-		MainCatNames:   map[uint32]string{},
-		TerritoryNames: map[uint32]string{},
-		Topography:     map[uint32]string{},
-		NodeNames:      map[uint32]string{},
-		Quests:         map[uint32]map[uint32]QuestText{},
-		SubCatNames:    map[uint32]string{},
-		Tags:           map[uint32]string{},
-		TagDescs:       map[uint32]string{},
-		ThemeNames:     map[uint32]string{},
-		CardNames:      map[uint32]string{},
-		CardDescs:      map[uint32]string{},
-		CardAcquire:    map[uint32]string{},
-		HouseNames:     map[uint32]string{},
-		JewelGroups:    map[uint32]JewelGroup{},
+		Names:             map[uint32]string{},
+		Descs:             map[uint32]string{},
+		UseTexts:          map[uint32]string{},
+		ExchangeTexts:     map[uint32]string{},
+		MarketCats:        map[uint32]MarketCat{},
+		BuffNames:         map[uint32]string{},
+		ItemSetTexts:      make(Table),
+		AdventureJournals: map[uint32]map[uint32]AdventureJournalText{},
+		LightstoneSets:    map[uint32]LightstoneSetText{},
+		SkillTexts:        map[uint32]SkillText{},
+		Titles:            map[uint32]string{},
+		TitleDescs:        map[uint32]string{},
+		EntityNames:       map[uint32]string{},
+		EntityTitles:      map[uint32]string{},
+		MainCatNames:      map[uint32]string{},
+		TerritoryNames:    map[uint32]string{},
+		Topography:        map[uint32]string{},
+		NodeNames:         map[uint32]string{},
+		Quests:            map[uint32]map[uint32]QuestText{},
+		SubCatNames:       map[uint32]string{},
+		Tags:              map[uint32]string{},
+		TagDescs:          map[uint32]string{},
+		ThemeNames:        map[uint32]string{},
+		CardNames:         map[uint32]string{},
+		CardDescs:         map[uint32]string{},
+		CardAcquire:       map[uint32]string{},
+		HouseNames:        map[uint32]string{},
+		JewelGroups:       map[uint32]JewelGroup{},
 	}
 	zone116 := map[uint32]string{} // collected, then flattened in id order
 	text := func(raw []byte) string {
@@ -271,6 +301,34 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 				}
 				gs.ItemSetTexts[id][key1] = t
 			}
+		case adventureJournalTable:
+			setAdventureJournalText(gs.AdventureJournals, id, key1, text(raw))
+		case lightstoneSetTable:
+			if key1 != fieldName {
+				return
+			}
+			if description := text(raw); description != "" {
+				plain := paTag.ReplaceAllString(description, "")
+				name, _, _ := strings.Cut(plain, "\n")
+				name = strings.TrimSpace(name)
+				name = strings.TrimSuffix(strings.TrimPrefix(name, "["), "]")
+				gs.LightstoneSets[id] = LightstoneSetText{Name: name, Description: description}
+			}
+		case skillTable:
+			t := text(raw)
+			if t == "" {
+				return
+			}
+			skill := gs.SkillTexts[id]
+			switch key1 {
+			case fieldName:
+				skill.Name = t
+			case fieldDesc:
+				skill.Description = t
+			default:
+				return
+			}
+			gs.SkillTexts[id] = skill
 		case titleTable:
 			if t := text(raw); t != "" {
 				switch key1 {
@@ -399,6 +457,28 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 		gs.ZoneNames = append(gs.ZoneNames, zone116[uint32(id)])
 	}
 	return gs, nil
+}
+
+func setAdventureJournalText(texts map[uint32]map[uint32]AdventureJournalText, group, field uint32, text string) {
+	if text == "" || field>>24 > 3 {
+		return
+	}
+	bookKey := field & 0xFFFFFF
+	if texts[group] == nil {
+		texts[group] = make(map[uint32]AdventureJournalText)
+	}
+	journal := texts[group][bookKey]
+	switch field >> 24 {
+	case 0:
+		journal.JournalName = text
+	case 1:
+		journal.JournalDescription = text
+	case 2:
+		journal.Requirement = text
+	case 3:
+		journal.Name = text
+	}
+	texts[group][bookKey] = journal
 }
 
 // Record is one localized string with its raw keys (for the `loc` dump command).

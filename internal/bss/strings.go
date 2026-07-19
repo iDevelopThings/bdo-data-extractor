@@ -1,9 +1,24 @@
 package bss
 
+import (
+	"encoding/binary"
+	"unicode/utf16"
+)
+
 // The tables store inline strings as a recurring shape: a u32 byte-length
 // followed by that many bytes of little-endian UTF-16. Names, descriptions, icon
 // paths and PABR string tables all use it. These helpers decode it in one place
 // so callers stop re-deriving the layout by hand.
+
+// EncodeUTF16 encodes s as raw little-endian UTF-16 bytes without a length prefix.
+func EncodeUTF16(s string) []byte {
+	units := utf16.Encode([]rune(s))
+	out := make([]byte, len(units)*2)
+	for i, unit := range units {
+		binary.LittleEndian.PutUint16(out[i*2:], unit)
+	}
+	return out
+}
 
 // ReadLenUTF16 reads a length-prefixed UTF-16LE string at pos —
 // [u32 byteLen][byteLen bytes of UTF-16] — and returns the decoded string and
@@ -49,6 +64,22 @@ func PeekUTF16Chars(b []byte, pos int) int {
 		return n
 	}
 	return 0
+}
+
+// IndexInlineUTF16ByEnd indexes plausible non-empty [i64 charCount][UTF-16LE]
+// strings by their exclusive end offset. It is intended for partially mapped
+// variable records; callers must still validate the surrounding field layout.
+func IndexInlineUTF16ByEnd(b []byte) map[int][]int {
+	starts := make(map[int][]int)
+	for offset := 0; offset+8 <= len(b); offset++ {
+		n := int64(U64(b, offset))
+		if n <= 0 || n > int64(len(b)-offset-8)/2 {
+			continue
+		}
+		end := offset + 8 + int(n)*2
+		starts[end] = append(starts[end], offset)
+	}
+	return starts
 }
 
 // A PABR string table is [u32 count][u8 sep] then count × ( [u32 byteLen][bytes]

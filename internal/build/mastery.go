@@ -25,7 +25,7 @@ func (b *Builder) buildMastery() error {
 	if len(mc.Cooking)+len(mc.Alchemy)+len(mc.Processing) == 0 {
 		return nil
 	}
-	p, err := b.write("mastery.json", mc)
+	p, err := b.addJSON("mastery.json", mc)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (b *Builder) buildManufacture() error {
 	if len(recs) == 0 {
 		return nil
 	}
-	p, err := b.write("manufacture.json", recs)
+	p, err := b.addJSON("manufacture.json", recs)
 	if err != nil {
 		return err
 	}

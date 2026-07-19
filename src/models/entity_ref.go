@@ -1,6 +1,8 @@
 package models
 
 import (
+	"slices"
+
 	"github.com/idevelopthings/bdo-data-extractor/src/urn"
 )
 
@@ -88,6 +90,42 @@ func (l *EntityRefList[T]) Len() int { return len(l.URNs) }
 func (l *EntityRefList[T]) Add(u urn.URN) {
 	l.URNs = append(l.URNs, u)
 	l.resolved = false
+}
+
+// IndexOf returns the position of u, or -1 if absent.
+func (l *EntityRefList[T]) IndexOf(u urn.URN) int {
+	return slices.Index(l.URNs, u)
+}
+
+// Contains reports whether u is already in the list.
+func (l *EntityRefList[T]) Contains(u urn.URN) bool {
+	return slices.Contains(l.URNs, u)
+}
+
+// AddUnique appends u only if it isn't already present, reporting whether it was
+// added.
+func (l *EntityRefList[T]) AddUnique(u urn.URN) bool {
+	if l.Contains(u) {
+		return false
+	}
+	l.Add(u)
+	return true
+}
+
+// Remove drops the first entry equal to u, keeping the resolution cache
+// index-parallel by deleting the same slot (the cached *T for the surviving
+// entries — and any already handed out — stay valid; they point at Store-owned
+// values, not into these slices). Reports whether an entry was removed.
+func (l *EntityRefList[T]) Remove(u urn.URN) bool {
+	i := slices.Index(l.URNs, u)
+	if i < 0 {
+		return false
+	}
+	l.URNs = slices.Delete(l.URNs, i, i+1)
+	if i < len(l.Values) {
+		l.Values = slices.Delete(l.Values, i, i+1)
+	}
+	return true
 }
 
 // growValues sizes the Values cache to match URNs, preserving what's cached.

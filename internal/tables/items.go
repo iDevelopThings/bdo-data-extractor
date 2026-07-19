@@ -18,13 +18,13 @@ const maxItemID = 10_000_000
 
 // ItemStat holds the static fields decoded from an itemenchant.dbss item row.
 type ItemStat struct {
-	ItemType      string           // EItemType         (byte @4)
+	ItemType      model.ItemType   // EItemType         (byte @4)
 	Category      string           // EItemClassify     (byte @5)
 	Grade         model.ItemGrade  // EItemGradeType    (byte @6)
 	EquipType     string           // EquipType / slot  (byte @7)
 	MarketCatID   byte             // central-market main category id (byte @200); named via loc table 44
 	MarketSubID   byte             // central-market sub category id  (byte @201)
-	SkillKey      uint32           // skill key (u32 @204) -> skill.dbss -> buff effect chain
+	SkillKeys     [2]uint32        // fixed skill-key slots (u32 @204/@208) -> skill.dbss -> buff effect chain
 	Weight        float64          // int32 @63, value/10000 (LT)
 	Buy           int64            // OriginalPrice, int64 @110
 	Sell          int64            // SellPriceToNpc, int64 @118
@@ -206,7 +206,7 @@ func ownItemTails(stats map[uint32]ItemStat) {
 }
 
 // decodeItemRow reads one itemenchant row as a straight sequential field stream.
-// The fixed header (@0-208) is read in order with a bss.Cursor — no
+// The fixed header (@0-212) is read in order with a bss.Cursor — no
 // offset-jumping. The name and the post-icon block are reached via the icon
 // anchor (the icon-string end): the variable enchant block before the name
 // isn't reliably sequential — ship-upgrade gear uses a different layout — so the
@@ -224,7 +224,7 @@ func decodeItemRow(rec []byte, id uint32) (ItemStat, error) {
 	// are consumed and validated so a layout shift fails at the record boundary.
 	c.U32()              // @0    id (== key)
 	itemType := c.Byte() // @4
-	st.ItemType = name(itemTypeNames, itemType)
+	st.ItemType = model.ItemTypes.FromWireUnsafe(itemType)
 	st.Category = name(classifyNames, c.Byte())                // @5
 	st.Grade = model.ItemGrades.FromWireUnsafe(int8(c.Byte())) // @6
 	st.EquipType = name(equipTypeNames, c.Byte())              // @7
@@ -309,9 +309,10 @@ func decodeItemRow(rec []byte, id uint32) (ItemStat, error) {
 	st.MarketSubID = c.Byte()                                  // @201
 	st.NodeFreeTrade = c.Bool()                                // @202
 	st.U.Unknown203 = dev(c.U8(), 1)                           // @203 default 1
-	st.SkillKey = c.U32()                                      // @204
-	if !c.OK() || c.Pos() != 208 {
-		return st, fmt.Errorf("itemenchant item %d: header ended at %d, want 208", id, c.Pos())
+	st.SkillKeys[0] = c.U32()                                  // @204
+	st.SkillKeys[1] = c.U32()                                  // @208
+	if !c.OK() || c.Pos() != 212 {
+		return st, fmt.Errorf("itemenchant item %d: header ended at %d, want 212", id, c.Pos())
 	}
 	if !reservedOK {
 		return st, fmt.Errorf("itemenchant item %d: reserved header bytes changed", id)
@@ -409,7 +410,7 @@ func decodeItemRow(rec []byte, id uint32) (ItemStat, error) {
 		if len(rec) < 216 {
 			return st, fmt.Errorf("itemenchant item %d: record too short for post-icon tail (%d bytes)", id, len(rec))
 		}
-		st.U.UnknownPostIconTail = rec[208 : len(rec)-8]
+		st.U.UnknownPostIconTail = rec[212 : len(rec)-8]
 	}
 
 	// --- footer: crystal transfusion group (self-id echo then u16 group) ---

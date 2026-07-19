@@ -5,12 +5,28 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 	"runtime"
 
 	"github.com/dgravesa/go-parallel/parallel"
 )
+
+// Encoder is the streaming subset shared by encoding/json-compatible codecs.
+type Encoder interface {
+	Encode(any) error
+	SetEscapeHTML(bool)
+	SetIndent(prefix, indent string)
+}
+
+// EncoderFactory constructs a streaming encoder for w.
+type EncoderFactory func(w io.Writer) Encoder
+
+// StandardEncoder constructs the standard library JSON encoder.
+func StandardEncoder(w io.Writer) Encoder {
+	return json.NewEncoder(w)
+}
 
 // ReadFile decodes the JSON file at path into v.
 func ReadFile(path string, v any) error {
@@ -25,13 +41,19 @@ func ReadFile(path string, v any) error {
 // WriteFile encodes v as JSON to path through a buffered writer. pretty indents
 // the output; HTML escaping is always off (the data contains <, >, & literally).
 func WriteFile(path string, v any, pretty bool) error {
+	return WriteFileWith(path, v, pretty, StandardEncoder)
+}
+
+// WriteFileWith encodes v using newEncoder through the same buffered file path
+// and formatting policy as WriteFile.
+func WriteFileWith(path string, v any, pretty bool, newEncoder EncoderFactory) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	bw := bufio.NewWriterSize(f, 1<<20)
-	enc := json.NewEncoder(bw)
+	enc := newEncoder(bw)
 	enc.SetEscapeHTML(false)
 	if pretty {
 		enc.SetIndent("", "  ")
@@ -68,8 +90,13 @@ const parallelArrayMin = 4096
 // reflection-heavy encode, the build's dominant cost when the array is hundreds of
 // MB. The pretty case (and small/empty arrays) fall back to the streaming encoder.
 func WriteArray[T any](path string, items []T, pretty bool) error {
+	return WriteArrayWith(path, items, pretty, StandardEncoder)
+}
+
+// WriteArrayWith is WriteArray with a caller-supplied compatible encoder.
+func WriteArrayWith[T any](path string, items []T, pretty bool, newEncoder EncoderFactory) error {
 	if pretty || len(items) < parallelArrayMin {
-		return WriteFile(path, items, pretty)
+		return WriteFileWith(path, items, pretty, newEncoder)
 	}
 
 	workers := runtime.GOMAXPROCS(0)
@@ -84,7 +111,7 @@ func WriteArray[T any](path string, items []T, pretty bool) error {
 		lo := w * sz
 		hi := min(lo+sz, len(items))
 		if lo < hi {
-			chunks[w], errs[w] = encodeElems(items[lo:hi])
+			chunks[w], errs[w] = encodeElems(items[lo:hi], newEncoder)
 		}
 	})
 	for _, err := range errs {
@@ -139,9 +166,9 @@ func WriteArray[T any](path string, items []T, pretty bool) error {
 // encodeElems encodes each element as compact JSON (HTML escaping off) joined by
 // commas, with no surrounding brackets — the interior of one array chunk. Matching
 // json.Encoder's element bytes keeps WriteArray byte-identical to WriteFile.
-func encodeElems[T any](items []T) ([]byte, error) {
+func encodeElems[T any](items []T, newEncoder EncoderFactory) ([]byte, error) {
 	var out, one bytes.Buffer
-	enc := json.NewEncoder(&one)
+	enc := newEncoder(&one)
 	enc.SetEscapeHTML(false)
 	for i, it := range items {
 		one.Reset()

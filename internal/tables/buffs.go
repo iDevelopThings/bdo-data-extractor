@@ -2,43 +2,75 @@ package tables
 
 // Buff/skill effect chain decoder.
 //
-// Consumables (food/elixirs, itemType "Skill") apply their effects via a skill:
+// Consumables (food/elixirs, ItemTypeSkill) apply their effects via a skill:
 //
-//	itemenchant row  u32 @192            = skill key
+//	itemenchant row  u32[2] @204/@208    = skill keys
 //	skilloffset.dbss (key,off,size)      -> skill record in skill.dbss
 //	skill record     u32 @95 = cooldown(ms), u16 list @99 = buff indices (till 0)
-//	buff.dbss (schema.Buff)              -> Index -> {Name, DurationMs, ...}
+//	buffoffset.dbss (key,off,size)       -> record in buff.dbss
 //	loc table 5 (key1 0)                 -> buff Index -> English effect name
 //
-// buff.dbss is a flat schema (parsed via bss.ReadAll); skill.dbss has a
-// variable-length buff list so it's read by offset.
+// Both variable-record tables use their offset indexes as authoritative record
+// boundaries.
 
 import (
+	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
-	"github.com/idevelopthings/bdo-data-extractor/internal/schema"
 )
 
 const (
-	offSkillKey   = 192 // u32 in the itemenchant row -> skill key
-	skillCooldown = 95  // u32 ms in the skill record
-	skillBuffList = 99  // u16 buff indices in the skill record (until 0/invalid)
+	skillCooldown = 95 // u32 ms in the skill record
+	skillBuffList = 99 // u16 buff indices in the skill record (until 0/invalid)
 )
 
-// Buff is the decoded buff.dbss data we use: its duration, internal name, and
-// the structured effect (ModuleType = effect kind, EffectData = its parameters,
-// Condition = the trigger for on-hit modules).
+// Buff is one fully consumed buff.dbss record. Module selects the tagged layout
+// of EffectData; Group replaces an existing buff in the same narrow effect
+// family, while StackingCategory supports broader consumable-family rules.
 type Buff struct {
-	DurationMs int
-	NameKR     string
-	Module     byte
-	Condition  int16
-	EffectData []byte
+	Index            uint16
+	NameKR           string
+	Category         int16
+	CategoryLevel    byte
+	Level            byte
+	Group            int16
+	Condition        int16
+	Module           byte
+	BuffType         byte
+	IsAbsolute       byte
+	IsOverlapped     byte
+	EffectData       [92]byte
+	DurationMs       int
+	UnknownDuration  [25]byte
+	ApplyToGroup     string
+	Icon             string
+	UnknownIconByte  byte
+	UnknownIconValue int32
+	DescKR           string
+	UnknownTail0To23 [24]byte
+	StackingCategory byte
+	UnknownTail25    byte
+	UnknownTail26    byte
+}
 
-	OtherFields map[string]any `json:"-"`
+// IsInstant reports whether the module applies an immediate resource or
+// fitness-experience change rather than a timed modifier.
+func (b Buff) IsInstant() bool {
+	return b.Module == 63 || b.Module == 79 || b.Module == 89
+}
+
+// ClearsStackingCategory reports the broad buff family removed by this control
+// record. Draughts carry the unique category-26 reset alongside category-2
+// elixir/draught effects; perfumes and whale-tendon elixirs use other categories.
+func (b Buff) ClearsStackingCategory() (byte, bool) {
+	if b.Module == 58 && b.StackingCategory == 26 {
+		return 2, true
+	}
+	return 0, false
 }
 
 // SkillEffect is one consumable skill: its use cooldown and the buffs it applies.
@@ -47,39 +79,88 @@ type SkillEffect struct {
 	Buffs      []uint16
 }
 
-// DecodeBuffs reads buff.dbss via the schema, keyed by buff Index.
-func DecodeBuffs(data []byte) (map[uint16]Buff, error) {
-	rows, err := bss.NewReader(data).ReadAll(schema.Buff)
+// DecodeBuffs reads buffoffset.dbss and buff.dbss, keyed by buff Index. The
+// offset index gives authoritative variable-record boundaries and must tile the
+// data after its row-count header exactly.
+func DecodeBuffs(offsetData, data []byte) (map[uint16]Buff, error) {
+	if len(data) < 4 {
+		return nil, fmt.Errorf("buff: data is truncated")
+	}
+	rowCount := int(bss.U32(data, 0))
+	entries, err := bss.ParseU16OffsetIndex("buff", offsetData, len(data))
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[uint16]Buff, len(rows))
-	for _, r := range rows {
-		idx, ok := r["Index"].(uint16)
+	if len(entries) != rowCount {
+		return nil, fmt.Errorf("buff: offset index has %d usable rows, want %d", len(entries), rowCount)
+	}
+	ordered := append([]bss.IndexEntry(nil), entries...)
+	sort.Slice(ordered, func(i, j int) bool {
+		return ordered[i].Offset < ordered[j].Offset
+	})
+	expected := uint32(4)
+	for _, entry := range ordered {
+		if entry.Offset != expected {
+			return nil, fmt.Errorf("buff: index gap before key %d at %d, want %d", entry.Key, entry.Offset, expected)
+		}
+		expected += entry.Size
+	}
+	if expected != uint32(len(data)) {
+		return nil, fmt.Errorf("buff: indexed records end at %d, want %d", expected, len(data))
+	}
+
+	out := make(map[uint16]Buff, len(entries))
+	for _, entry := range entries {
+		record, ok := entry.Slice(data)
 		if !ok {
-			continue
+			return nil, fmt.Errorf("buff %d: invalid indexed slice", entry.Key)
 		}
-		if _, seen := out[idx]; seen {
-			continue
+		buff, err := decodeBuffRecord(record)
+		if err != nil {
+			return nil, fmt.Errorf("buff %d: %w", entry.Key, err)
 		}
-		dur, _ := r["DurationMs"].(int32)
-		if dur < 0 || dur > 2_000_000_000 {
-			dur = 0
+		if uint32(buff.Index) != entry.Key {
+			return nil, fmt.Errorf("buff %d: record index is %d", entry.Key, buff.Index)
 		}
-		name, _ := r["Name"].(string)
-		mod, _ := r["ModuleType"].(byte)
-		cond, _ := r["ConditionType"].(int16)
-		eff, _ := r["EffectData"].([]byte)
-		out[idx] = Buff{
-			DurationMs:  int(dur),
-			NameKR:      name,
-			Module:      mod,
-			Condition:   cond,
-			EffectData:  eff,
-			OtherFields: r,
+		if _, exists := out[buff.Index]; exists {
+			return nil, fmt.Errorf("buff %d: duplicate index", buff.Index)
 		}
+		out[buff.Index] = buff
 	}
 	return out, nil
+}
+
+func decodeBuffRecord(record []byte) (Buff, error) {
+	var buff Buff
+	c := bss.NewCursor(record, 0, len(record))
+	buff.Index = uint16(c.U16())
+	buff.NameKR = c.UTF16()
+	buff.Category = c.I16()
+	buff.CategoryLevel = c.Byte()
+	buff.Level = c.Byte()
+	buff.Group = c.I16()
+	buff.Condition = c.I16()
+	buff.Module = c.Byte()
+	buff.BuffType = c.Byte()
+	buff.IsAbsolute = c.Byte()
+	buff.IsOverlapped = c.Byte()
+	copy(buff.EffectData[:], c.Bytes(len(buff.EffectData)))
+	duration := c.I32()
+	copy(buff.UnknownDuration[:], c.Bytes(len(buff.UnknownDuration)))
+	buff.ApplyToGroup = c.UTF16()
+	buff.Icon = c.UTF8()
+	buff.UnknownIconByte = c.Byte()
+	buff.UnknownIconValue = c.I32()
+	buff.DescKR = c.UTF16()
+	copy(buff.UnknownTail0To23[:], c.Bytes(len(buff.UnknownTail0To23)))
+	buff.StackingCategory = c.Byte()
+	buff.UnknownTail25 = c.Byte()
+	buff.UnknownTail26 = c.Byte()
+	if !c.OK() || c.Remaining() != 0 {
+		return Buff{}, fmt.Errorf("record consumed %d of %d bytes", c.Pos(), len(record))
+	}
+	buff.DurationMs = int(duration)
+	return buff, nil
 }
 
 // DecodeSkillEffects maps skill key -> {cooldown, buff list}, from skilloffset.dbss
@@ -118,14 +199,6 @@ func DecodeSkillEffects(offsetRaw, data []byte, buffs map[uint16]Buff) (map[uint
 		out[e.Key] = se
 	}
 	return out, nil
-}
-
-// SkillKey reads the skill key (u32 @192) from an itemenchant row, or 0.
-func SkillKey(rec []byte) uint32 {
-	if len(rec) < offSkillKey+4 {
-		return 0
-	}
-	return bss.U32(rec, offSkillKey)
 }
 
 // statRe splits an effect display name into "<stat> <op><value><unit>", e.g.

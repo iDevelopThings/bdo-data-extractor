@@ -1,0 +1,58 @@
+package: model
+type: FamilyStatType
+underlying: uint32
+marshalText: false
+out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/family-stat-types.gen.ts
+values:
+  - name: Offence
+    wire: 0
+    title: "All AP"
+
+  - name: Defence
+    wire: 1
+    title: "All DP"
+
+  - name: HP
+    wire: 2
+    title: "Max HP"
+
+  - name: MP
+    wire: 3
+    title: "Max MP"
+
+  - name: Stamina
+    wire: 4
+    title: "Max Stamina"
+
+  - name: Weight
+    wire: 5
+    title: "Weight Limit"
+
+  - name: Inventory
+    wire: 6
+    title: "Inventory Slots"
+
+  - name: Accuracy
+    wire: 7
+    title: "Accuracy"
+
+  - name: Evasion
+    wire: 8
+    title: "Evasion"
+
+  - name: EnhancementChance
+    wire: 9
+    title: "Enhancement Chance"
+
+  - name: ValksLimit
+    wire: 10
+    title: "Additional Enhancement Chance Limit"
+
+  - name: StackLimit
+    wire: 11
+    title: "Enhancement Chance Stack Limit"
+
+  - name: None
+    wire: 16
+    title: "None"

@@ -10,7 +10,7 @@ import (
 )
 
 // buildZones decodes the Monster Zone Info table (dropuihuntinggroundinfo),
-// resolving every referenced id to its name/icon inline, and writes zones.json.
+// resolving every referenced id to its name/icon inline, and registers zones.json.
 // Skips silently if the table is absent.
 func (b *Builder) buildZones() error {
 	zoneData, err := b.src.Read("dropuihuntinggroundinfo.bss")
@@ -96,7 +96,7 @@ func (b *Builder) buildZones() error {
 			z.Tags[j].FontColor = c.FontColor
 		}
 	}
-	zp, err := b.write("zones.json", zones)
+	zp, err := b.addJSON("zones.json", zones)
 	if err != nil {
 		return err
 	}

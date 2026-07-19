@@ -13,487 +13,553 @@ import (
 type StatId string
 
 const (
-	StatIdMonsterAp                    StatId = "monsterAp"
-	StatIdAdventurerAp                 StatId = "adventurerAp"
-	StatIdHumanAp                      StatId = "humanAp"
-	StatIdDemihumanAp                  StatId = "demihumanAp"
-	StatIdKamasylvianAp                StatId = "kamasylvianAp"
-	StatIdAllSpeciesAp                 StatId = "allSpeciesAp"
-	StatIdHiddenAp                     StatId = "hiddenAp"
-	StatIdDp                           StatId = "dp"
-	StatIdMeleeAp                      StatId = "meleeAp"
-	StatIdRangedAp                     StatId = "rangedAp"
-	StatIdMagicAp                      StatId = "magicAp"
-	StatIdCritDamage                   StatId = "critDamage"
-	StatIdSpecialAttackDamage          StatId = "specialAttackDamage"
-	StatIdBackAttackDamage             StatId = "backAttackDamage"
-	StatIdDownAttackDamage             StatId = "downAttackDamage"
-	StatIdHuntingDamage                StatId = "huntingDamage"
-	StatIdAccuracy                     StatId = "accuracy"
-	StatIdMeleeAccuracy                StatId = "meleeAccuracy"
-	StatIdRangedAccuracy               StatId = "rangedAccuracy"
-	StatIdMagicAccuracy                StatId = "magicAccuracy"
-	StatIdMeleeEvasion                 StatId = "meleeEvasion"
-	StatIdRangedEvasion                StatId = "rangedEvasion"
-	StatIdMagicEvasion                 StatId = "magicEvasion"
-	StatIdMeleeDamageReduction         StatId = "meleeDamageReduction"
-	StatIdRangedDamageReduction        StatId = "rangedDamageReduction"
-	StatIdMagicDamageReduction         StatId = "magicDamageReduction"
-	StatIdDamageReductionRate          StatId = "damageReductionRate"
-	StatIdAllResistance                StatId = "allResistance"
-	StatIdStunResistance               StatId = "stunResistance"
-	StatIdKnockdownResistance          StatId = "knockdownResistance"
-	StatIdKnockbackResistance          StatId = "knockbackResistance"
-	StatIdAttackSpeed                  StatId = "attackSpeed"
-	StatIdCastingSpeed                 StatId = "castingSpeed"
-	StatIdMoveSpeed                    StatId = "moveSpeed"
-	StatIdLuck                         StatId = "luck"
-	StatIdMaxHp                        StatId = "maxHp"
-	StatIdHpRecovery                   StatId = "hpRecovery"
-	StatIdResourceRecovery             StatId = "resourceRecovery"
-	StatIdBlackSpiritRage              StatId = "blackSpiritRage"
-	StatIdAllMastery                   StatId = "allMastery"
-	StatIdGatheringMastery             StatId = "gatheringMastery"
-	StatIdHoeMastery                   StatId = "hoeMastery"
-	StatIdLumberingMastery             StatId = "lumberingMastery"
-	StatIdFluidCollectorMastery        StatId = "fluidCollectorMastery"
-	StatIdTanningMastery               StatId = "tanningMastery"
-	StatIdButcherMastery               StatId = "butcherMastery"
-	StatIdPickaxeMastery               StatId = "pickaxeMastery"
-	StatIdFishingMastery               StatId = "fishingMastery"
-	StatIdHuntingMastery               StatId = "huntingMastery"
-	StatIdCookingMastery               StatId = "cookingMastery"
-	StatIdAlchemyMastery               StatId = "alchemyMastery"
-	StatIdProcessingMastery            StatId = "processingMastery"
-	StatIdTrainingMastery              StatId = "trainingMastery"
-	StatIdSailingMastery               StatId = "sailingMastery"
-	StatIdLifeExp                      StatId = "lifeExp"
-	StatIdCombatExp                    StatId = "combatExp"
-	StatIdSkillExp                     StatId = "skillExp"
-	StatIdGatheringExp                 StatId = "gatheringExp"
-	StatIdHuntingExp                   StatId = "huntingExp"
-	StatIdCookingExp                   StatId = "cookingExp"
-	StatIdAlchemyExp                   StatId = "alchemyExp"
-	StatIdFishingExp                   StatId = "fishingExp"
-	StatIdProcessingExp                StatId = "processingExp"
-	StatIdTrainingExp                  StatId = "trainingExp"
-	StatIdSailingExp                   StatId = "sailingExp"
-	StatIdBarteringExp                 StatId = "barteringExp"
-	StatIdTradingExp                   StatId = "tradingExp"
-	StatIdFarmingExp                   StatId = "farmingExp"
-	StatIdMountExp                     StatId = "mountExp"
-	StatIdMountSkillExp                StatId = "mountSkillExp"
-	StatIdStrengthExp                  StatId = "strengthExp"
-	StatIdBreathExp                    StatId = "breathExp"
-	StatIdGatheringTime                StatId = "gatheringTime"
-	StatIdCookingTime                  StatId = "cookingTime"
-	StatIdAlchemyTime                  StatId = "alchemyTime"
-	StatIdGatheringDropRate            StatId = "gatheringDropRate"
-	StatIdAutoFishingTime              StatId = "autoFishingTime"
-	StatIdRareFishChance               StatId = "rareFishChance"
-	StatIdHorseCaptureRate             StatId = "horseCaptureRate"
-	StatIdProcessingSuccessRate        StatId = "processingSuccessRate"
-	StatIdAmity                        StatId = "amity"
-	StatIdDeathPenaltyResistance       StatId = "deathPenaltyResistance"
-	StatIdDurabilityLossResistance     StatId = "durabilityLossResistance"
-	StatIdFallDamage                   StatId = "fallDamage"
-	StatIdItemDropRate                 StatId = "itemDropRate"
-	StatIdJumpHeight                   StatId = "jumpHeight"
-	StatIdKnowledgeChance              StatId = "knowledgeChance"
-	StatIdMermaidsWish                 StatId = "mermaidsWish"
-	StatIdUnderwaterBreathing          StatId = "underwaterBreathing"
-	StatIdWeightLimit                  StatId = "weightLimit"
-	StatIdAp                           StatId = "ap"
-	StatIdAwakeningAp                  StatId = "awakeningAp"
-	StatIdTotalAp                      StatId = "totalAp"
-	StatIdTotalAwakeningAp             StatId = "totalAwakeningAp"
-	StatIdBracketAp                    StatId = "bracketAp"
-	StatIdBracketAwakeningAp           StatId = "bracketAwakeningAp"
-	StatIdBracketMonsterAp             StatId = "bracketMonsterAp"
-	StatIdBracketMonsterAwakeningAp    StatId = "bracketMonsterAwakeningAp"
-	StatIdApVsMonster                  StatId = "apVsMonster"
-	StatIdApVsAdventurer               StatId = "apVsAdventurer"
-	StatIdApVsHuman                    StatId = "apVsHuman"
-	StatIdApVsDemihuman                StatId = "apVsDemihuman"
-	StatIdApVsKamasylvian              StatId = "apVsKamasylvian"
-	StatIdApVsEdania                   StatId = "apVsEdania"
-	StatIdApVsNormal                   StatId = "apVsNormal"
-	StatIdAwakeningApVsMonster         StatId = "awakeningApVsMonster"
-	StatIdAwakeningApVsAdventurer      StatId = "awakeningApVsAdventurer"
-	StatIdAwakeningApVsHuman           StatId = "awakeningApVsHuman"
-	StatIdAwakeningApVsDemihuman       StatId = "awakeningApVsDemihuman"
-	StatIdAwakeningApVsKamasylvian     StatId = "awakeningApVsKamasylvian"
-	StatIdAwakeningApVsEdania          StatId = "awakeningApVsEdania"
-	StatIdAwakeningApVsNormal          StatId = "awakeningApVsNormal"
-	StatIdNormalAp                     StatId = "normalAp"
-	StatIdEdaniaAp                     StatId = "edaniaAp"
-	StatIdDamageReduction              StatId = "damageReduction"
-	StatIdTotalDamageReduction         StatId = "totalDamageReduction"
-	StatIdHiddenDamageReduction        StatId = "hiddenDamageReduction"
-	StatIdMonsterDamageReduction       StatId = "monsterDamageReduction"
-	StatIdMeleeMonsterDamageReduction  StatId = "meleeMonsterDamageReduction"
-	StatIdRangedMonsterDamageReduction StatId = "rangedMonsterDamageReduction"
-	StatIdMagicMonsterDamageReduction  StatId = "magicMonsterDamageReduction"
-	StatIdHiddenMeleeDamageReduction   StatId = "hiddenMeleeDamageReduction"
-	StatIdHiddenRangedDamageReduction  StatId = "hiddenRangedDamageReduction"
-	StatIdHiddenMagicDamageReduction   StatId = "hiddenMagicDamageReduction"
-	StatIdEvasion                      StatId = "evasion"
-	StatIdHiddenEvasion                StatId = "hiddenEvasion"
-	StatIdEvasionRate                  StatId = "evasionRate"
-	StatIdMeleeEvasionRate             StatId = "meleeEvasionRate"
-	StatIdRangedEvasionRate            StatId = "rangedEvasionRate"
-	StatIdMagicEvasionRate             StatId = "magicEvasionRate"
-	StatIdHiddenMeleeEvasion           StatId = "hiddenMeleeEvasion"
-	StatIdHiddenRangedEvasion          StatId = "hiddenRangedEvasion"
-	StatIdHiddenMagicEvasion           StatId = "hiddenMagicEvasion"
-	StatIdGrappleResistance            StatId = "grappleResistance"
-	StatIdAirAttackDamage              StatId = "airAttackDamage"
-	StatIdCounterAttackDamage          StatId = "counterAttackDamage"
-	StatIdSpeedAttackDamage            StatId = "speedAttackDamage"
-	StatIdFarmingMastery               StatId = "farmingMastery"
-	StatIdTradingMastery               StatId = "tradingMastery"
-	StatIdFilteringMastery             StatId = "filteringMastery"
-	StatIdDryingMastery                StatId = "dryingMastery"
-	StatIdGrindingMastery              StatId = "grindingMastery"
-	StatIdHeatingMastery               StatId = "heatingMastery"
-	StatIdChoppingMastery              StatId = "choppingMastery"
-	StatIdShakingMastery               StatId = "shakingMastery"
-	StatIdMaxResource                  StatId = "maxResource"
-	StatIdMaxStamina                   StatId = "maxStamina"
-	StatIdApMin                        StatId = "apMin"
-	StatIdApMax                        StatId = "apMax"
-	StatIdAwakeningApMin               StatId = "awakeningApMin"
-	StatIdAwakeningApMax               StatId = "awakeningApMax"
-	StatIdCritLevel                    StatId = "critLevel"
-	StatIdCritChance                   StatId = "critChance"
-	StatIdFishingSpeed                 StatId = "fishingSpeed"
-	StatIdAttackSpeedLevel             StatId = "attackSpeedLevel"
-	StatIdCastingSpeedLevel            StatId = "castingSpeedLevel"
-	StatIdMovementSpeedLevel           StatId = "movementSpeedLevel"
-	StatIdGatheringSpeed               StatId = "gatheringSpeed"
+	StatIdMonsterAp                     StatId = "monsterAp"
+	StatIdAdventurerAp                  StatId = "adventurerAp"
+	StatIdHumanAp                       StatId = "humanAp"
+	StatIdDemihumanAp                   StatId = "demihumanAp"
+	StatIdKamasylvianAp                 StatId = "kamasylvianAp"
+	StatIdAllSpeciesAp                  StatId = "allSpeciesAp"
+	StatIdHiddenAp                      StatId = "hiddenAp"
+	StatIdDp                            StatId = "dp"
+	StatIdMeleeAp                       StatId = "meleeAp"
+	StatIdRangedAp                      StatId = "rangedAp"
+	StatIdMagicAp                       StatId = "magicAp"
+	StatIdCritDamage                    StatId = "critDamage"
+	StatIdSpecialAttackDamage           StatId = "specialAttackDamage"
+	StatIdBackAttackDamage              StatId = "backAttackDamage"
+	StatIdDownAttackDamage              StatId = "downAttackDamage"
+	StatIdHuntingDamage                 StatId = "huntingDamage"
+	StatIdAccuracy                      StatId = "accuracy"
+	StatIdMeleeAccuracy                 StatId = "meleeAccuracy"
+	StatIdRangedAccuracy                StatId = "rangedAccuracy"
+	StatIdMagicAccuracy                 StatId = "magicAccuracy"
+	StatIdMeleeEvasion                  StatId = "meleeEvasion"
+	StatIdRangedEvasion                 StatId = "rangedEvasion"
+	StatIdMagicEvasion                  StatId = "magicEvasion"
+	StatIdMeleeDamageReduction          StatId = "meleeDamageReduction"
+	StatIdRangedDamageReduction         StatId = "rangedDamageReduction"
+	StatIdMagicDamageReduction          StatId = "magicDamageReduction"
+	StatIdDamageReductionRate           StatId = "damageReductionRate"
+	StatIdAllResistance                 StatId = "allResistance"
+	StatIdStunResistance                StatId = "stunResistance"
+	StatIdKnockdownResistance           StatId = "knockdownResistance"
+	StatIdKnockbackResistance           StatId = "knockbackResistance"
+	StatIdFearResistance                StatId = "fearResistance"
+	StatIdIgnoreAllResistance           StatId = "ignoreAllResistance"
+	StatIdIgnoreGrappleResistance       StatId = "ignoreGrappleResistance"
+	StatIdIgnoreKnockbackResistance     StatId = "ignoreKnockbackResistance"
+	StatIdIgnoreKnockdownResistance     StatId = "ignoreKnockdownResistance"
+	StatIdIgnoreStunResistance          StatId = "ignoreStunResistance"
+	StatIdAttackSpeed                   StatId = "attackSpeed"
+	StatIdCastingSpeed                  StatId = "castingSpeed"
+	StatIdMoveSpeed                     StatId = "moveSpeed"
+	StatIdLuck                          StatId = "luck"
+	StatIdMaxHp                         StatId = "maxHp"
+	StatIdHpRecovery                    StatId = "hpRecovery"
+	StatIdHpRecoveryOnHit               StatId = "hpRecoveryOnHit"
+	StatIdHpRecoveryOnCriticalHit       StatId = "hpRecoveryOnCriticalHit"
+	StatIdResourceRecovery              StatId = "resourceRecovery"
+	StatIdResourceRecoveryOnHit         StatId = "resourceRecoveryOnHit"
+	StatIdResourceRecoveryOnCriticalHit StatId = "resourceRecoveryOnCriticalHit"
+	StatIdMaxEnergy                     StatId = "maxEnergy"
+	StatIdEnergyRecovery                StatId = "energyRecovery"
+	StatIdBlackSpiritRage               StatId = "blackSpiritRage"
+	StatIdAllMastery                    StatId = "allMastery"
+	StatIdGatheringMastery              StatId = "gatheringMastery"
+	StatIdHoeMastery                    StatId = "hoeMastery"
+	StatIdLumberingMastery              StatId = "lumberingMastery"
+	StatIdFluidCollectorMastery         StatId = "fluidCollectorMastery"
+	StatIdTanningMastery                StatId = "tanningMastery"
+	StatIdButcherMastery                StatId = "butcherMastery"
+	StatIdPickaxeMastery                StatId = "pickaxeMastery"
+	StatIdFishingMastery                StatId = "fishingMastery"
+	StatIdHuntingMastery                StatId = "huntingMastery"
+	StatIdCookingMastery                StatId = "cookingMastery"
+	StatIdAlchemyMastery                StatId = "alchemyMastery"
+	StatIdProcessingMastery             StatId = "processingMastery"
+	StatIdTrainingMastery               StatId = "trainingMastery"
+	StatIdSailingMastery                StatId = "sailingMastery"
+	StatIdLifeExp                       StatId = "lifeExp"
+	StatIdCombatExp                     StatId = "combatExp"
+	StatIdSkillExp                      StatId = "skillExp"
+	StatIdGatheringExp                  StatId = "gatheringExp"
+	StatIdHuntingExp                    StatId = "huntingExp"
+	StatIdCookingExp                    StatId = "cookingExp"
+	StatIdAlchemyExp                    StatId = "alchemyExp"
+	StatIdFishingExp                    StatId = "fishingExp"
+	StatIdProcessingExp                 StatId = "processingExp"
+	StatIdTrainingExp                   StatId = "trainingExp"
+	StatIdSailingExp                    StatId = "sailingExp"
+	StatIdBarteringExp                  StatId = "barteringExp"
+	StatIdTradingExp                    StatId = "tradingExp"
+	StatIdFarmingExp                    StatId = "farmingExp"
+	StatIdMountExp                      StatId = "mountExp"
+	StatIdMountSkillExp                 StatId = "mountSkillExp"
+	StatIdStrengthExp                   StatId = "strengthExp"
+	StatIdBreathExp                     StatId = "breathExp"
+	StatIdHealthExp                     StatId = "healthExp"
+	StatIdGatheringTime                 StatId = "gatheringTime"
+	StatIdCookingTime                   StatId = "cookingTime"
+	StatIdAlchemyTime                   StatId = "alchemyTime"
+	StatIdGatheringDropRate             StatId = "gatheringDropRate"
+	StatIdAutoFishingTime               StatId = "autoFishingTime"
+	StatIdRareFishChance                StatId = "rareFishChance"
+	StatIdHorseCaptureRate              StatId = "horseCaptureRate"
+	StatIdProcessingSuccessRate         StatId = "processingSuccessRate"
+	StatIdAmity                         StatId = "amity"
+	StatIdDeathPenaltyResistance        StatId = "deathPenaltyResistance"
+	StatIdDurabilityLossResistance      StatId = "durabilityLossResistance"
+	StatIdFallDamage                    StatId = "fallDamage"
+	StatIdItemDropRate                  StatId = "itemDropRate"
+	StatIdItemDropAmount                StatId = "itemDropAmount"
+	StatIdHigherGradeKnowledgeChance    StatId = "higherGradeKnowledgeChance"
+	StatIdKarmaRecovery                 StatId = "karmaRecovery"
+	StatIdSwimmingSpeed                 StatId = "swimmingSpeed"
+	StatIdHeatstrokeResistance          StatId = "heatstrokeResistance"
+	StatIdHypothermiaResistance         StatId = "hypothermiaResistance"
+	StatIdJumpHeight                    StatId = "jumpHeight"
+	StatIdKnowledgeChance               StatId = "knowledgeChance"
+	StatIdMermaidsWish                  StatId = "mermaidsWish"
+	StatIdUnderwaterBreathing           StatId = "underwaterBreathing"
+	StatIdWeightLimit                   StatId = "weightLimit"
+	StatIdAp                            StatId = "ap"
+	StatIdAwakeningAp                   StatId = "awakeningAp"
+	StatIdTotalAp                       StatId = "totalAp"
+	StatIdTotalAwakeningAp              StatId = "totalAwakeningAp"
+	StatIdBracketAp                     StatId = "bracketAp"
+	StatIdBracketAwakeningAp            StatId = "bracketAwakeningAp"
+	StatIdBracketMonsterAp              StatId = "bracketMonsterAp"
+	StatIdBracketMonsterAwakeningAp     StatId = "bracketMonsterAwakeningAp"
+	StatIdApVsMonster                   StatId = "apVsMonster"
+	StatIdApVsAdventurer                StatId = "apVsAdventurer"
+	StatIdApVsHuman                     StatId = "apVsHuman"
+	StatIdApVsDemihuman                 StatId = "apVsDemihuman"
+	StatIdApVsKamasylvian               StatId = "apVsKamasylvian"
+	StatIdApVsEdania                    StatId = "apVsEdania"
+	StatIdApVsNormal                    StatId = "apVsNormal"
+	StatIdAwakeningApVsMonster          StatId = "awakeningApVsMonster"
+	StatIdAwakeningApVsAdventurer       StatId = "awakeningApVsAdventurer"
+	StatIdAwakeningApVsHuman            StatId = "awakeningApVsHuman"
+	StatIdAwakeningApVsDemihuman        StatId = "awakeningApVsDemihuman"
+	StatIdAwakeningApVsKamasylvian      StatId = "awakeningApVsKamasylvian"
+	StatIdAwakeningApVsEdania           StatId = "awakeningApVsEdania"
+	StatIdAwakeningApVsNormal           StatId = "awakeningApVsNormal"
+	StatIdNormalAp                      StatId = "normalAp"
+	StatIdEdaniaAp                      StatId = "edaniaAp"
+	StatIdBeastAp                       StatId = "beastAp"
+	StatIdDamageReduction               StatId = "damageReduction"
+	StatIdTotalDamageReduction          StatId = "totalDamageReduction"
+	StatIdHiddenDamageReduction         StatId = "hiddenDamageReduction"
+	StatIdMonsterDamageReduction        StatId = "monsterDamageReduction"
+	StatIdMonsterDamageReductionRate    StatId = "monsterDamageReductionRate"
+	StatIdMeleeMonsterDamageReduction   StatId = "meleeMonsterDamageReduction"
+	StatIdRangedMonsterDamageReduction  StatId = "rangedMonsterDamageReduction"
+	StatIdMagicMonsterDamageReduction   StatId = "magicMonsterDamageReduction"
+	StatIdHiddenMeleeDamageReduction    StatId = "hiddenMeleeDamageReduction"
+	StatIdHiddenRangedDamageReduction   StatId = "hiddenRangedDamageReduction"
+	StatIdHiddenMagicDamageReduction    StatId = "hiddenMagicDamageReduction"
+	StatIdEvasion                       StatId = "evasion"
+	StatIdHiddenEvasion                 StatId = "hiddenEvasion"
+	StatIdEvasionRate                   StatId = "evasionRate"
+	StatIdMeleeEvasionRate              StatId = "meleeEvasionRate"
+	StatIdRangedEvasionRate             StatId = "rangedEvasionRate"
+	StatIdMagicEvasionRate              StatId = "magicEvasionRate"
+	StatIdHiddenMeleeEvasion            StatId = "hiddenMeleeEvasion"
+	StatIdHiddenRangedEvasion           StatId = "hiddenRangedEvasion"
+	StatIdHiddenMagicEvasion            StatId = "hiddenMagicEvasion"
+	StatIdGrappleResistance             StatId = "grappleResistance"
+	StatIdAirAttackDamage               StatId = "airAttackDamage"
+	StatIdCounterAttackDamage           StatId = "counterAttackDamage"
+	StatIdSpeedAttackDamage             StatId = "speedAttackDamage"
+	StatIdFarmingMastery                StatId = "farmingMastery"
+	StatIdTradingMastery                StatId = "tradingMastery"
+	StatIdFilteringMastery              StatId = "filteringMastery"
+	StatIdDryingMastery                 StatId = "dryingMastery"
+	StatIdGrindingMastery               StatId = "grindingMastery"
+	StatIdHeatingMastery                StatId = "heatingMastery"
+	StatIdChoppingMastery               StatId = "choppingMastery"
+	StatIdShakingMastery                StatId = "shakingMastery"
+	StatIdMaxResource                   StatId = "maxResource"
+	StatIdMaxStamina                    StatId = "maxStamina"
+	StatIdApMin                         StatId = "apMin"
+	StatIdApMax                         StatId = "apMax"
+	StatIdAwakeningApMin                StatId = "awakeningApMin"
+	StatIdAwakeningApMax                StatId = "awakeningApMax"
+	StatIdCritLevel                     StatId = "critLevel"
+	StatIdCritChance                    StatId = "critChance"
+	StatIdFishingSpeed                  StatId = "fishingSpeed"
+	StatIdAttackSpeedLevel              StatId = "attackSpeedLevel"
+	StatIdCastingSpeedLevel             StatId = "castingSpeedLevel"
+	StatIdMovementSpeedLevel            StatId = "movementSpeedLevel"
+	StatIdGatheringSpeed                StatId = "gatheringSpeed"
+	StatIdWorkerStaminaRecovery         StatId = "workerStaminaRecovery"
 )
 
 type StatIdContainer struct {
-	MonsterAp                    StatId
-	AdventurerAp                 StatId
-	HumanAp                      StatId
-	DemihumanAp                  StatId
-	KamasylvianAp                StatId
-	AllSpeciesAp                 StatId
-	HiddenAp                     StatId
-	Dp                           StatId
-	MeleeAp                      StatId
-	RangedAp                     StatId
-	MagicAp                      StatId
-	CritDamage                   StatId
-	SpecialAttackDamage          StatId
-	BackAttackDamage             StatId
-	DownAttackDamage             StatId
-	HuntingDamage                StatId
-	Accuracy                     StatId
-	MeleeAccuracy                StatId
-	RangedAccuracy               StatId
-	MagicAccuracy                StatId
-	MeleeEvasion                 StatId
-	RangedEvasion                StatId
-	MagicEvasion                 StatId
-	MeleeDamageReduction         StatId
-	RangedDamageReduction        StatId
-	MagicDamageReduction         StatId
-	DamageReductionRate          StatId
-	AllResistance                StatId
-	StunResistance               StatId
-	KnockdownResistance          StatId
-	KnockbackResistance          StatId
-	AttackSpeed                  StatId
-	CastingSpeed                 StatId
-	MoveSpeed                    StatId
-	Luck                         StatId
-	MaxHp                        StatId
-	HpRecovery                   StatId
-	ResourceRecovery             StatId
-	BlackSpiritRage              StatId
-	AllMastery                   StatId
-	GatheringMastery             StatId
-	HoeMastery                   StatId
-	LumberingMastery             StatId
-	FluidCollectorMastery        StatId
-	TanningMastery               StatId
-	ButcherMastery               StatId
-	PickaxeMastery               StatId
-	FishingMastery               StatId
-	HuntingMastery               StatId
-	CookingMastery               StatId
-	AlchemyMastery               StatId
-	ProcessingMastery            StatId
-	TrainingMastery              StatId
-	SailingMastery               StatId
-	LifeExp                      StatId
-	CombatExp                    StatId
-	SkillExp                     StatId
-	GatheringExp                 StatId
-	HuntingExp                   StatId
-	CookingExp                   StatId
-	AlchemyExp                   StatId
-	FishingExp                   StatId
-	ProcessingExp                StatId
-	TrainingExp                  StatId
-	SailingExp                   StatId
-	BarteringExp                 StatId
-	TradingExp                   StatId
-	FarmingExp                   StatId
-	MountExp                     StatId
-	MountSkillExp                StatId
-	StrengthExp                  StatId
-	BreathExp                    StatId
-	GatheringTime                StatId
-	CookingTime                  StatId
-	AlchemyTime                  StatId
-	GatheringDropRate            StatId
-	AutoFishingTime              StatId
-	RareFishChance               StatId
-	HorseCaptureRate             StatId
-	ProcessingSuccessRate        StatId
-	Amity                        StatId
-	DeathPenaltyResistance       StatId
-	DurabilityLossResistance     StatId
-	FallDamage                   StatId
-	ItemDropRate                 StatId
-	JumpHeight                   StatId
-	KnowledgeChance              StatId
-	MermaidsWish                 StatId
-	UnderwaterBreathing          StatId
-	WeightLimit                  StatId
-	Ap                           StatId
-	AwakeningAp                  StatId
-	TotalAp                      StatId
-	TotalAwakeningAp             StatId
-	BracketAp                    StatId
-	BracketAwakeningAp           StatId
-	BracketMonsterAp             StatId
-	BracketMonsterAwakeningAp    StatId
-	ApVsMonster                  StatId
-	ApVsAdventurer               StatId
-	ApVsHuman                    StatId
-	ApVsDemihuman                StatId
-	ApVsKamasylvian              StatId
-	ApVsEdania                   StatId
-	ApVsNormal                   StatId
-	AwakeningApVsMonster         StatId
-	AwakeningApVsAdventurer      StatId
-	AwakeningApVsHuman           StatId
-	AwakeningApVsDemihuman       StatId
-	AwakeningApVsKamasylvian     StatId
-	AwakeningApVsEdania          StatId
-	AwakeningApVsNormal          StatId
-	NormalAp                     StatId
-	EdaniaAp                     StatId
-	DamageReduction              StatId
-	TotalDamageReduction         StatId
-	HiddenDamageReduction        StatId
-	MonsterDamageReduction       StatId
-	MeleeMonsterDamageReduction  StatId
-	RangedMonsterDamageReduction StatId
-	MagicMonsterDamageReduction  StatId
-	HiddenMeleeDamageReduction   StatId
-	HiddenRangedDamageReduction  StatId
-	HiddenMagicDamageReduction   StatId
-	Evasion                      StatId
-	HiddenEvasion                StatId
-	EvasionRate                  StatId
-	MeleeEvasionRate             StatId
-	RangedEvasionRate            StatId
-	MagicEvasionRate             StatId
-	HiddenMeleeEvasion           StatId
-	HiddenRangedEvasion          StatId
-	HiddenMagicEvasion           StatId
-	GrappleResistance            StatId
-	AirAttackDamage              StatId
-	CounterAttackDamage          StatId
-	SpeedAttackDamage            StatId
-	FarmingMastery               StatId
-	TradingMastery               StatId
-	FilteringMastery             StatId
-	DryingMastery                StatId
-	GrindingMastery              StatId
-	HeatingMastery               StatId
-	ChoppingMastery              StatId
-	ShakingMastery               StatId
-	MaxResource                  StatId
-	MaxStamina                   StatId
-	ApMin                        StatId
-	ApMax                        StatId
-	AwakeningApMin               StatId
-	AwakeningApMax               StatId
-	CritLevel                    StatId
-	CritChance                   StatId
-	FishingSpeed                 StatId
-	AttackSpeedLevel             StatId
-	CastingSpeedLevel            StatId
-	MovementSpeedLevel           StatId
-	GatheringSpeed               StatId
+	MonsterAp                     StatId
+	AdventurerAp                  StatId
+	HumanAp                       StatId
+	DemihumanAp                   StatId
+	KamasylvianAp                 StatId
+	AllSpeciesAp                  StatId
+	HiddenAp                      StatId
+	Dp                            StatId
+	MeleeAp                       StatId
+	RangedAp                      StatId
+	MagicAp                       StatId
+	CritDamage                    StatId
+	SpecialAttackDamage           StatId
+	BackAttackDamage              StatId
+	DownAttackDamage              StatId
+	HuntingDamage                 StatId
+	Accuracy                      StatId
+	MeleeAccuracy                 StatId
+	RangedAccuracy                StatId
+	MagicAccuracy                 StatId
+	MeleeEvasion                  StatId
+	RangedEvasion                 StatId
+	MagicEvasion                  StatId
+	MeleeDamageReduction          StatId
+	RangedDamageReduction         StatId
+	MagicDamageReduction          StatId
+	DamageReductionRate           StatId
+	AllResistance                 StatId
+	StunResistance                StatId
+	KnockdownResistance           StatId
+	KnockbackResistance           StatId
+	FearResistance                StatId
+	IgnoreAllResistance           StatId
+	IgnoreGrappleResistance       StatId
+	IgnoreKnockbackResistance     StatId
+	IgnoreKnockdownResistance     StatId
+	IgnoreStunResistance          StatId
+	AttackSpeed                   StatId
+	CastingSpeed                  StatId
+	MoveSpeed                     StatId
+	Luck                          StatId
+	MaxHp                         StatId
+	HpRecovery                    StatId
+	HpRecoveryOnHit               StatId
+	HpRecoveryOnCriticalHit       StatId
+	ResourceRecovery              StatId
+	ResourceRecoveryOnHit         StatId
+	ResourceRecoveryOnCriticalHit StatId
+	MaxEnergy                     StatId
+	EnergyRecovery                StatId
+	BlackSpiritRage               StatId
+	AllMastery                    StatId
+	GatheringMastery              StatId
+	HoeMastery                    StatId
+	LumberingMastery              StatId
+	FluidCollectorMastery         StatId
+	TanningMastery                StatId
+	ButcherMastery                StatId
+	PickaxeMastery                StatId
+	FishingMastery                StatId
+	HuntingMastery                StatId
+	CookingMastery                StatId
+	AlchemyMastery                StatId
+	ProcessingMastery             StatId
+	TrainingMastery               StatId
+	SailingMastery                StatId
+	LifeExp                       StatId
+	CombatExp                     StatId
+	SkillExp                      StatId
+	GatheringExp                  StatId
+	HuntingExp                    StatId
+	CookingExp                    StatId
+	AlchemyExp                    StatId
+	FishingExp                    StatId
+	ProcessingExp                 StatId
+	TrainingExp                   StatId
+	SailingExp                    StatId
+	BarteringExp                  StatId
+	TradingExp                    StatId
+	FarmingExp                    StatId
+	MountExp                      StatId
+	MountSkillExp                 StatId
+	StrengthExp                   StatId
+	BreathExp                     StatId
+	HealthExp                     StatId
+	GatheringTime                 StatId
+	CookingTime                   StatId
+	AlchemyTime                   StatId
+	GatheringDropRate             StatId
+	AutoFishingTime               StatId
+	RareFishChance                StatId
+	HorseCaptureRate              StatId
+	ProcessingSuccessRate         StatId
+	Amity                         StatId
+	DeathPenaltyResistance        StatId
+	DurabilityLossResistance      StatId
+	FallDamage                    StatId
+	ItemDropRate                  StatId
+	ItemDropAmount                StatId
+	HigherGradeKnowledgeChance    StatId
+	KarmaRecovery                 StatId
+	SwimmingSpeed                 StatId
+	HeatstrokeResistance          StatId
+	HypothermiaResistance         StatId
+	JumpHeight                    StatId
+	KnowledgeChance               StatId
+	MermaidsWish                  StatId
+	UnderwaterBreathing           StatId
+	WeightLimit                   StatId
+	Ap                            StatId
+	AwakeningAp                   StatId
+	TotalAp                       StatId
+	TotalAwakeningAp              StatId
+	BracketAp                     StatId
+	BracketAwakeningAp            StatId
+	BracketMonsterAp              StatId
+	BracketMonsterAwakeningAp     StatId
+	ApVsMonster                   StatId
+	ApVsAdventurer                StatId
+	ApVsHuman                     StatId
+	ApVsDemihuman                 StatId
+	ApVsKamasylvian               StatId
+	ApVsEdania                    StatId
+	ApVsNormal                    StatId
+	AwakeningApVsMonster          StatId
+	AwakeningApVsAdventurer       StatId
+	AwakeningApVsHuman            StatId
+	AwakeningApVsDemihuman        StatId
+	AwakeningApVsKamasylvian      StatId
+	AwakeningApVsEdania           StatId
+	AwakeningApVsNormal           StatId
+	NormalAp                      StatId
+	EdaniaAp                      StatId
+	BeastAp                       StatId
+	DamageReduction               StatId
+	TotalDamageReduction          StatId
+	HiddenDamageReduction         StatId
+	MonsterDamageReduction        StatId
+	MonsterDamageReductionRate    StatId
+	MeleeMonsterDamageReduction   StatId
+	RangedMonsterDamageReduction  StatId
+	MagicMonsterDamageReduction   StatId
+	HiddenMeleeDamageReduction    StatId
+	HiddenRangedDamageReduction   StatId
+	HiddenMagicDamageReduction    StatId
+	Evasion                       StatId
+	HiddenEvasion                 StatId
+	EvasionRate                   StatId
+	MeleeEvasionRate              StatId
+	RangedEvasionRate             StatId
+	MagicEvasionRate              StatId
+	HiddenMeleeEvasion            StatId
+	HiddenRangedEvasion           StatId
+	HiddenMagicEvasion            StatId
+	GrappleResistance             StatId
+	AirAttackDamage               StatId
+	CounterAttackDamage           StatId
+	SpeedAttackDamage             StatId
+	FarmingMastery                StatId
+	TradingMastery                StatId
+	FilteringMastery              StatId
+	DryingMastery                 StatId
+	GrindingMastery               StatId
+	HeatingMastery                StatId
+	ChoppingMastery               StatId
+	ShakingMastery                StatId
+	MaxResource                   StatId
+	MaxStamina                    StatId
+	ApMin                         StatId
+	ApMax                         StatId
+	AwakeningApMin                StatId
+	AwakeningApMax                StatId
+	CritLevel                     StatId
+	CritChance                    StatId
+	FishingSpeed                  StatId
+	AttackSpeedLevel              StatId
+	CastingSpeedLevel             StatId
+	MovementSpeedLevel            StatId
+	GatheringSpeed                StatId
+	WorkerStaminaRecovery         StatId
 }
 
 // StatIds is the entry point for the StatId enum.
 var StatIds = StatIdContainer{
-	MonsterAp:                    StatIdMonsterAp,
-	AdventurerAp:                 StatIdAdventurerAp,
-	HumanAp:                      StatIdHumanAp,
-	DemihumanAp:                  StatIdDemihumanAp,
-	KamasylvianAp:                StatIdKamasylvianAp,
-	AllSpeciesAp:                 StatIdAllSpeciesAp,
-	HiddenAp:                     StatIdHiddenAp,
-	Dp:                           StatIdDp,
-	MeleeAp:                      StatIdMeleeAp,
-	RangedAp:                     StatIdRangedAp,
-	MagicAp:                      StatIdMagicAp,
-	CritDamage:                   StatIdCritDamage,
-	SpecialAttackDamage:          StatIdSpecialAttackDamage,
-	BackAttackDamage:             StatIdBackAttackDamage,
-	DownAttackDamage:             StatIdDownAttackDamage,
-	HuntingDamage:                StatIdHuntingDamage,
-	Accuracy:                     StatIdAccuracy,
-	MeleeAccuracy:                StatIdMeleeAccuracy,
-	RangedAccuracy:               StatIdRangedAccuracy,
-	MagicAccuracy:                StatIdMagicAccuracy,
-	MeleeEvasion:                 StatIdMeleeEvasion,
-	RangedEvasion:                StatIdRangedEvasion,
-	MagicEvasion:                 StatIdMagicEvasion,
-	MeleeDamageReduction:         StatIdMeleeDamageReduction,
-	RangedDamageReduction:        StatIdRangedDamageReduction,
-	MagicDamageReduction:         StatIdMagicDamageReduction,
-	DamageReductionRate:          StatIdDamageReductionRate,
-	AllResistance:                StatIdAllResistance,
-	StunResistance:               StatIdStunResistance,
-	KnockdownResistance:          StatIdKnockdownResistance,
-	KnockbackResistance:          StatIdKnockbackResistance,
-	AttackSpeed:                  StatIdAttackSpeed,
-	CastingSpeed:                 StatIdCastingSpeed,
-	MoveSpeed:                    StatIdMoveSpeed,
-	Luck:                         StatIdLuck,
-	MaxHp:                        StatIdMaxHp,
-	HpRecovery:                   StatIdHpRecovery,
-	ResourceRecovery:             StatIdResourceRecovery,
-	BlackSpiritRage:              StatIdBlackSpiritRage,
-	AllMastery:                   StatIdAllMastery,
-	GatheringMastery:             StatIdGatheringMastery,
-	HoeMastery:                   StatIdHoeMastery,
-	LumberingMastery:             StatIdLumberingMastery,
-	FluidCollectorMastery:        StatIdFluidCollectorMastery,
-	TanningMastery:               StatIdTanningMastery,
-	ButcherMastery:               StatIdButcherMastery,
-	PickaxeMastery:               StatIdPickaxeMastery,
-	FishingMastery:               StatIdFishingMastery,
-	HuntingMastery:               StatIdHuntingMastery,
-	CookingMastery:               StatIdCookingMastery,
-	AlchemyMastery:               StatIdAlchemyMastery,
-	ProcessingMastery:            StatIdProcessingMastery,
-	TrainingMastery:              StatIdTrainingMastery,
-	SailingMastery:               StatIdSailingMastery,
-	LifeExp:                      StatIdLifeExp,
-	CombatExp:                    StatIdCombatExp,
-	SkillExp:                     StatIdSkillExp,
-	GatheringExp:                 StatIdGatheringExp,
-	HuntingExp:                   StatIdHuntingExp,
-	CookingExp:                   StatIdCookingExp,
-	AlchemyExp:                   StatIdAlchemyExp,
-	FishingExp:                   StatIdFishingExp,
-	ProcessingExp:                StatIdProcessingExp,
-	TrainingExp:                  StatIdTrainingExp,
-	SailingExp:                   StatIdSailingExp,
-	BarteringExp:                 StatIdBarteringExp,
-	TradingExp:                   StatIdTradingExp,
-	FarmingExp:                   StatIdFarmingExp,
-	MountExp:                     StatIdMountExp,
-	MountSkillExp:                StatIdMountSkillExp,
-	StrengthExp:                  StatIdStrengthExp,
-	BreathExp:                    StatIdBreathExp,
-	GatheringTime:                StatIdGatheringTime,
-	CookingTime:                  StatIdCookingTime,
-	AlchemyTime:                  StatIdAlchemyTime,
-	GatheringDropRate:            StatIdGatheringDropRate,
-	AutoFishingTime:              StatIdAutoFishingTime,
-	RareFishChance:               StatIdRareFishChance,
-	HorseCaptureRate:             StatIdHorseCaptureRate,
-	ProcessingSuccessRate:        StatIdProcessingSuccessRate,
-	Amity:                        StatIdAmity,
-	DeathPenaltyResistance:       StatIdDeathPenaltyResistance,
-	DurabilityLossResistance:     StatIdDurabilityLossResistance,
-	FallDamage:                   StatIdFallDamage,
-	ItemDropRate:                 StatIdItemDropRate,
-	JumpHeight:                   StatIdJumpHeight,
-	KnowledgeChance:              StatIdKnowledgeChance,
-	MermaidsWish:                 StatIdMermaidsWish,
-	UnderwaterBreathing:          StatIdUnderwaterBreathing,
-	WeightLimit:                  StatIdWeightLimit,
-	Ap:                           StatIdAp,
-	AwakeningAp:                  StatIdAwakeningAp,
-	TotalAp:                      StatIdTotalAp,
-	TotalAwakeningAp:             StatIdTotalAwakeningAp,
-	BracketAp:                    StatIdBracketAp,
-	BracketAwakeningAp:           StatIdBracketAwakeningAp,
-	BracketMonsterAp:             StatIdBracketMonsterAp,
-	BracketMonsterAwakeningAp:    StatIdBracketMonsterAwakeningAp,
-	ApVsMonster:                  StatIdApVsMonster,
-	ApVsAdventurer:               StatIdApVsAdventurer,
-	ApVsHuman:                    StatIdApVsHuman,
-	ApVsDemihuman:                StatIdApVsDemihuman,
-	ApVsKamasylvian:              StatIdApVsKamasylvian,
-	ApVsEdania:                   StatIdApVsEdania,
-	ApVsNormal:                   StatIdApVsNormal,
-	AwakeningApVsMonster:         StatIdAwakeningApVsMonster,
-	AwakeningApVsAdventurer:      StatIdAwakeningApVsAdventurer,
-	AwakeningApVsHuman:           StatIdAwakeningApVsHuman,
-	AwakeningApVsDemihuman:       StatIdAwakeningApVsDemihuman,
-	AwakeningApVsKamasylvian:     StatIdAwakeningApVsKamasylvian,
-	AwakeningApVsEdania:          StatIdAwakeningApVsEdania,
-	AwakeningApVsNormal:          StatIdAwakeningApVsNormal,
-	NormalAp:                     StatIdNormalAp,
-	EdaniaAp:                     StatIdEdaniaAp,
-	DamageReduction:              StatIdDamageReduction,
-	TotalDamageReduction:         StatIdTotalDamageReduction,
-	HiddenDamageReduction:        StatIdHiddenDamageReduction,
-	MonsterDamageReduction:       StatIdMonsterDamageReduction,
-	MeleeMonsterDamageReduction:  StatIdMeleeMonsterDamageReduction,
-	RangedMonsterDamageReduction: StatIdRangedMonsterDamageReduction,
-	MagicMonsterDamageReduction:  StatIdMagicMonsterDamageReduction,
-	HiddenMeleeDamageReduction:   StatIdHiddenMeleeDamageReduction,
-	HiddenRangedDamageReduction:  StatIdHiddenRangedDamageReduction,
-	HiddenMagicDamageReduction:   StatIdHiddenMagicDamageReduction,
-	Evasion:                      StatIdEvasion,
-	HiddenEvasion:                StatIdHiddenEvasion,
-	EvasionRate:                  StatIdEvasionRate,
-	MeleeEvasionRate:             StatIdMeleeEvasionRate,
-	RangedEvasionRate:            StatIdRangedEvasionRate,
-	MagicEvasionRate:             StatIdMagicEvasionRate,
-	HiddenMeleeEvasion:           StatIdHiddenMeleeEvasion,
-	HiddenRangedEvasion:          StatIdHiddenRangedEvasion,
-	HiddenMagicEvasion:           StatIdHiddenMagicEvasion,
-	GrappleResistance:            StatIdGrappleResistance,
-	AirAttackDamage:              StatIdAirAttackDamage,
-	CounterAttackDamage:          StatIdCounterAttackDamage,
-	SpeedAttackDamage:            StatIdSpeedAttackDamage,
-	FarmingMastery:               StatIdFarmingMastery,
-	TradingMastery:               StatIdTradingMastery,
-	FilteringMastery:             StatIdFilteringMastery,
-	DryingMastery:                StatIdDryingMastery,
-	GrindingMastery:              StatIdGrindingMastery,
-	HeatingMastery:               StatIdHeatingMastery,
-	ChoppingMastery:              StatIdChoppingMastery,
-	ShakingMastery:               StatIdShakingMastery,
-	MaxResource:                  StatIdMaxResource,
-	MaxStamina:                   StatIdMaxStamina,
-	ApMin:                        StatIdApMin,
-	ApMax:                        StatIdApMax,
-	AwakeningApMin:               StatIdAwakeningApMin,
-	AwakeningApMax:               StatIdAwakeningApMax,
-	CritLevel:                    StatIdCritLevel,
-	CritChance:                   StatIdCritChance,
-	FishingSpeed:                 StatIdFishingSpeed,
-	AttackSpeedLevel:             StatIdAttackSpeedLevel,
-	CastingSpeedLevel:            StatIdCastingSpeedLevel,
-	MovementSpeedLevel:           StatIdMovementSpeedLevel,
-	GatheringSpeed:               StatIdGatheringSpeed,
+	MonsterAp:                     StatIdMonsterAp,
+	AdventurerAp:                  StatIdAdventurerAp,
+	HumanAp:                       StatIdHumanAp,
+	DemihumanAp:                   StatIdDemihumanAp,
+	KamasylvianAp:                 StatIdKamasylvianAp,
+	AllSpeciesAp:                  StatIdAllSpeciesAp,
+	HiddenAp:                      StatIdHiddenAp,
+	Dp:                            StatIdDp,
+	MeleeAp:                       StatIdMeleeAp,
+	RangedAp:                      StatIdRangedAp,
+	MagicAp:                       StatIdMagicAp,
+	CritDamage:                    StatIdCritDamage,
+	SpecialAttackDamage:           StatIdSpecialAttackDamage,
+	BackAttackDamage:              StatIdBackAttackDamage,
+	DownAttackDamage:              StatIdDownAttackDamage,
+	HuntingDamage:                 StatIdHuntingDamage,
+	Accuracy:                      StatIdAccuracy,
+	MeleeAccuracy:                 StatIdMeleeAccuracy,
+	RangedAccuracy:                StatIdRangedAccuracy,
+	MagicAccuracy:                 StatIdMagicAccuracy,
+	MeleeEvasion:                  StatIdMeleeEvasion,
+	RangedEvasion:                 StatIdRangedEvasion,
+	MagicEvasion:                  StatIdMagicEvasion,
+	MeleeDamageReduction:          StatIdMeleeDamageReduction,
+	RangedDamageReduction:         StatIdRangedDamageReduction,
+	MagicDamageReduction:          StatIdMagicDamageReduction,
+	DamageReductionRate:           StatIdDamageReductionRate,
+	AllResistance:                 StatIdAllResistance,
+	StunResistance:                StatIdStunResistance,
+	KnockdownResistance:           StatIdKnockdownResistance,
+	KnockbackResistance:           StatIdKnockbackResistance,
+	FearResistance:                StatIdFearResistance,
+	IgnoreAllResistance:           StatIdIgnoreAllResistance,
+	IgnoreGrappleResistance:       StatIdIgnoreGrappleResistance,
+	IgnoreKnockbackResistance:     StatIdIgnoreKnockbackResistance,
+	IgnoreKnockdownResistance:     StatIdIgnoreKnockdownResistance,
+	IgnoreStunResistance:          StatIdIgnoreStunResistance,
+	AttackSpeed:                   StatIdAttackSpeed,
+	CastingSpeed:                  StatIdCastingSpeed,
+	MoveSpeed:                     StatIdMoveSpeed,
+	Luck:                          StatIdLuck,
+	MaxHp:                         StatIdMaxHp,
+	HpRecovery:                    StatIdHpRecovery,
+	HpRecoveryOnHit:               StatIdHpRecoveryOnHit,
+	HpRecoveryOnCriticalHit:       StatIdHpRecoveryOnCriticalHit,
+	ResourceRecovery:              StatIdResourceRecovery,
+	ResourceRecoveryOnHit:         StatIdResourceRecoveryOnHit,
+	ResourceRecoveryOnCriticalHit: StatIdResourceRecoveryOnCriticalHit,
+	MaxEnergy:                     StatIdMaxEnergy,
+	EnergyRecovery:                StatIdEnergyRecovery,
+	BlackSpiritRage:               StatIdBlackSpiritRage,
+	AllMastery:                    StatIdAllMastery,
+	GatheringMastery:              StatIdGatheringMastery,
+	HoeMastery:                    StatIdHoeMastery,
+	LumberingMastery:              StatIdLumberingMastery,
+	FluidCollectorMastery:         StatIdFluidCollectorMastery,
+	TanningMastery:                StatIdTanningMastery,
+	ButcherMastery:                StatIdButcherMastery,
+	PickaxeMastery:                StatIdPickaxeMastery,
+	FishingMastery:                StatIdFishingMastery,
+	HuntingMastery:                StatIdHuntingMastery,
+	CookingMastery:                StatIdCookingMastery,
+	AlchemyMastery:                StatIdAlchemyMastery,
+	ProcessingMastery:             StatIdProcessingMastery,
+	TrainingMastery:               StatIdTrainingMastery,
+	SailingMastery:                StatIdSailingMastery,
+	LifeExp:                       StatIdLifeExp,
+	CombatExp:                     StatIdCombatExp,
+	SkillExp:                      StatIdSkillExp,
+	GatheringExp:                  StatIdGatheringExp,
+	HuntingExp:                    StatIdHuntingExp,
+	CookingExp:                    StatIdCookingExp,
+	AlchemyExp:                    StatIdAlchemyExp,
+	FishingExp:                    StatIdFishingExp,
+	ProcessingExp:                 StatIdProcessingExp,
+	TrainingExp:                   StatIdTrainingExp,
+	SailingExp:                    StatIdSailingExp,
+	BarteringExp:                  StatIdBarteringExp,
+	TradingExp:                    StatIdTradingExp,
+	FarmingExp:                    StatIdFarmingExp,
+	MountExp:                      StatIdMountExp,
+	MountSkillExp:                 StatIdMountSkillExp,
+	StrengthExp:                   StatIdStrengthExp,
+	BreathExp:                     StatIdBreathExp,
+	HealthExp:                     StatIdHealthExp,
+	GatheringTime:                 StatIdGatheringTime,
+	CookingTime:                   StatIdCookingTime,
+	AlchemyTime:                   StatIdAlchemyTime,
+	GatheringDropRate:             StatIdGatheringDropRate,
+	AutoFishingTime:               StatIdAutoFishingTime,
+	RareFishChance:                StatIdRareFishChance,
+	HorseCaptureRate:              StatIdHorseCaptureRate,
+	ProcessingSuccessRate:         StatIdProcessingSuccessRate,
+	Amity:                         StatIdAmity,
+	DeathPenaltyResistance:        StatIdDeathPenaltyResistance,
+	DurabilityLossResistance:      StatIdDurabilityLossResistance,
+	FallDamage:                    StatIdFallDamage,
+	ItemDropRate:                  StatIdItemDropRate,
+	ItemDropAmount:                StatIdItemDropAmount,
+	HigherGradeKnowledgeChance:    StatIdHigherGradeKnowledgeChance,
+	KarmaRecovery:                 StatIdKarmaRecovery,
+	SwimmingSpeed:                 StatIdSwimmingSpeed,
+	HeatstrokeResistance:          StatIdHeatstrokeResistance,
+	HypothermiaResistance:         StatIdHypothermiaResistance,
+	JumpHeight:                    StatIdJumpHeight,
+	KnowledgeChance:               StatIdKnowledgeChance,
+	MermaidsWish:                  StatIdMermaidsWish,
+	UnderwaterBreathing:           StatIdUnderwaterBreathing,
+	WeightLimit:                   StatIdWeightLimit,
+	Ap:                            StatIdAp,
+	AwakeningAp:                   StatIdAwakeningAp,
+	TotalAp:                       StatIdTotalAp,
+	TotalAwakeningAp:              StatIdTotalAwakeningAp,
+	BracketAp:                     StatIdBracketAp,
+	BracketAwakeningAp:            StatIdBracketAwakeningAp,
+	BracketMonsterAp:              StatIdBracketMonsterAp,
+	BracketMonsterAwakeningAp:     StatIdBracketMonsterAwakeningAp,
+	ApVsMonster:                   StatIdApVsMonster,
+	ApVsAdventurer:                StatIdApVsAdventurer,
+	ApVsHuman:                     StatIdApVsHuman,
+	ApVsDemihuman:                 StatIdApVsDemihuman,
+	ApVsKamasylvian:               StatIdApVsKamasylvian,
+	ApVsEdania:                    StatIdApVsEdania,
+	ApVsNormal:                    StatIdApVsNormal,
+	AwakeningApVsMonster:          StatIdAwakeningApVsMonster,
+	AwakeningApVsAdventurer:       StatIdAwakeningApVsAdventurer,
+	AwakeningApVsHuman:            StatIdAwakeningApVsHuman,
+	AwakeningApVsDemihuman:        StatIdAwakeningApVsDemihuman,
+	AwakeningApVsKamasylvian:      StatIdAwakeningApVsKamasylvian,
+	AwakeningApVsEdania:           StatIdAwakeningApVsEdania,
+	AwakeningApVsNormal:           StatIdAwakeningApVsNormal,
+	NormalAp:                      StatIdNormalAp,
+	EdaniaAp:                      StatIdEdaniaAp,
+	BeastAp:                       StatIdBeastAp,
+	DamageReduction:               StatIdDamageReduction,
+	TotalDamageReduction:          StatIdTotalDamageReduction,
+	HiddenDamageReduction:         StatIdHiddenDamageReduction,
+	MonsterDamageReduction:        StatIdMonsterDamageReduction,
+	MonsterDamageReductionRate:    StatIdMonsterDamageReductionRate,
+	MeleeMonsterDamageReduction:   StatIdMeleeMonsterDamageReduction,
+	RangedMonsterDamageReduction:  StatIdRangedMonsterDamageReduction,
+	MagicMonsterDamageReduction:   StatIdMagicMonsterDamageReduction,
+	HiddenMeleeDamageReduction:    StatIdHiddenMeleeDamageReduction,
+	HiddenRangedDamageReduction:   StatIdHiddenRangedDamageReduction,
+	HiddenMagicDamageReduction:    StatIdHiddenMagicDamageReduction,
+	Evasion:                       StatIdEvasion,
+	HiddenEvasion:                 StatIdHiddenEvasion,
+	EvasionRate:                   StatIdEvasionRate,
+	MeleeEvasionRate:              StatIdMeleeEvasionRate,
+	RangedEvasionRate:             StatIdRangedEvasionRate,
+	MagicEvasionRate:              StatIdMagicEvasionRate,
+	HiddenMeleeEvasion:            StatIdHiddenMeleeEvasion,
+	HiddenRangedEvasion:           StatIdHiddenRangedEvasion,
+	HiddenMagicEvasion:            StatIdHiddenMagicEvasion,
+	GrappleResistance:             StatIdGrappleResistance,
+	AirAttackDamage:               StatIdAirAttackDamage,
+	CounterAttackDamage:           StatIdCounterAttackDamage,
+	SpeedAttackDamage:             StatIdSpeedAttackDamage,
+	FarmingMastery:                StatIdFarmingMastery,
+	TradingMastery:                StatIdTradingMastery,
+	FilteringMastery:              StatIdFilteringMastery,
+	DryingMastery:                 StatIdDryingMastery,
+	GrindingMastery:               StatIdGrindingMastery,
+	HeatingMastery:                StatIdHeatingMastery,
+	ChoppingMastery:               StatIdChoppingMastery,
+	ShakingMastery:                StatIdShakingMastery,
+	MaxResource:                   StatIdMaxResource,
+	MaxStamina:                    StatIdMaxStamina,
+	ApMin:                         StatIdApMin,
+	ApMax:                         StatIdApMax,
+	AwakeningApMin:                StatIdAwakeningApMin,
+	AwakeningApMax:                StatIdAwakeningApMax,
+	CritLevel:                     StatIdCritLevel,
+	CritChance:                    StatIdCritChance,
+	FishingSpeed:                  StatIdFishingSpeed,
+	AttackSpeedLevel:              StatIdAttackSpeedLevel,
+	CastingSpeedLevel:             StatIdCastingSpeedLevel,
+	MovementSpeedLevel:            StatIdMovementSpeedLevel,
+	GatheringSpeed:                StatIdGatheringSpeed,
+	WorkerStaminaRecovery:         StatIdWorkerStaminaRecovery,
 }
 
 // StatIdInfo is the static metadata attached to a StatId.
@@ -800,6 +866,61 @@ var statIdInfos = map[StatId]StatIdInfo{
 		Unit:     "%",
 		Cap:      0,
 	},
+	StatIdFearResistance: {
+		StatId:   StatIdFearResistance,
+		Name:     "fearResistance",
+		Label:    "Fear Resistance",
+		Category: "resistance",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdIgnoreAllResistance: {
+		StatId:   StatIdIgnoreAllResistance,
+		Name:     "ignoreAllResistance",
+		Label:    "Ignore All Resistance",
+		Category: "resistance",
+		Alias:    "",
+		Fanout:   []StatId{StatIdIgnoreGrappleResistance, StatIdIgnoreKnockbackResistance, StatIdIgnoreKnockdownResistance, StatIdIgnoreStunResistance},
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdIgnoreGrappleResistance: {
+		StatId:   StatIdIgnoreGrappleResistance,
+		Name:     "ignoreGrappleResistance",
+		Label:    "Ignore Grapple Resistance",
+		Category: "resistance",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdIgnoreKnockbackResistance: {
+		StatId:   StatIdIgnoreKnockbackResistance,
+		Name:     "ignoreKnockbackResistance",
+		Label:    "Ignore Knockback/Floating Resistance",
+		Category: "resistance",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdIgnoreKnockdownResistance: {
+		StatId:   StatIdIgnoreKnockdownResistance,
+		Name:     "ignoreKnockdownResistance",
+		Label:    "Ignore Knockdown/Bound Resistance",
+		Category: "resistance",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdIgnoreStunResistance: {
+		StatId:   StatIdIgnoreStunResistance,
+		Name:     "ignoreStunResistance",
+		Label:    "Ignore Stun/Stiffness/Freezing Resistance",
+		Category: "resistance",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
 	StatIdAttackSpeed: {
 		StatId:   StatIdAttackSpeed,
 		Name:     "attackSpeed",
@@ -854,12 +975,66 @@ var statIdInfos = map[StatId]StatIdInfo{
 		Unit:     "",
 		Cap:      0,
 	},
+	StatIdHpRecoveryOnHit: {
+		StatId:   StatIdHpRecoveryOnHit,
+		Name:     "hpRecoveryOnHit",
+		Label:    "HP Recovery on Hit",
+		Category: "resource",
+		Alias:    "",
+		Unit:     "",
+		Cap:      0,
+	},
+	StatIdHpRecoveryOnCriticalHit: {
+		StatId:   StatIdHpRecoveryOnCriticalHit,
+		Name:     "hpRecoveryOnCriticalHit",
+		Label:    "HP Recovery on Critical Hit",
+		Category: "resource",
+		Alias:    "",
+		Unit:     "",
+		Cap:      0,
+	},
 	StatIdResourceRecovery: {
 		StatId:   StatIdResourceRecovery,
 		Name:     "resourceRecovery",
 		Label:    "MP/WP/SP Recovery",
 		Category: "resource",
 		Alias:    "mpwpspr",
+		Unit:     "",
+		Cap:      0,
+	},
+	StatIdResourceRecoveryOnHit: {
+		StatId:   StatIdResourceRecoveryOnHit,
+		Name:     "resourceRecoveryOnHit",
+		Label:    "MP/WP/SP Recovery on Hit",
+		Category: "resource",
+		Alias:    "",
+		Unit:     "",
+		Cap:      0,
+	},
+	StatIdResourceRecoveryOnCriticalHit: {
+		StatId:   StatIdResourceRecoveryOnCriticalHit,
+		Name:     "resourceRecoveryOnCriticalHit",
+		Label:    "MP/WP/SP Recovery on Critical Hit",
+		Category: "resource",
+		Alias:    "",
+		Unit:     "",
+		Cap:      0,
+	},
+	StatIdMaxEnergy: {
+		StatId:   StatIdMaxEnergy,
+		Name:     "maxEnergy",
+		Label:    "Max Energy",
+		Category: "resource",
+		Alias:    "",
+		Unit:     "",
+		Cap:      0,
+	},
+	StatIdEnergyRecovery: {
+		StatId:   StatIdEnergyRecovery,
+		Name:     "energyRecovery",
+		Label:    "Energy Recovery",
+		Category: "resource",
+		Alias:    "",
 		Unit:     "",
 		Cap:      0,
 	},
@@ -1172,6 +1347,15 @@ var statIdInfos = map[StatId]StatIdInfo{
 		Unit:     "%",
 		Cap:      0,
 	},
+	StatIdHealthExp: {
+		StatId:   StatIdHealthExp,
+		Name:     "healthExp",
+		Label:    "Health EXP",
+		Category: "life",
+		Alias:    "",
+		Unit:     "",
+		Cap:      0,
+	},
 	StatIdGatheringTime: {
 		StatId:   StatIdGatheringTime,
 		Name:     "gatheringTime",
@@ -1286,6 +1470,60 @@ var statIdInfos = map[StatId]StatIdInfo{
 		Label:    "Item Drop Rate",
 		Category: "misc",
 		Alias:    "idc",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdItemDropAmount: {
+		StatId:   StatIdItemDropAmount,
+		Name:     "itemDropAmount",
+		Label:    "Item Drop Amount",
+		Category: "misc",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdHigherGradeKnowledgeChance: {
+		StatId:   StatIdHigherGradeKnowledgeChance,
+		Name:     "higherGradeKnowledgeChance",
+		Label:    "Higher Grade Knowledge Gain Chance",
+		Category: "misc",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdKarmaRecovery: {
+		StatId:   StatIdKarmaRecovery,
+		Name:     "karmaRecovery",
+		Label:    "Karma Recovery",
+		Category: "misc",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdSwimmingSpeed: {
+		StatId:   StatIdSwimmingSpeed,
+		Name:     "swimmingSpeed",
+		Label:    "Swimming Speed",
+		Category: "misc",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdHeatstrokeResistance: {
+		StatId:   StatIdHeatstrokeResistance,
+		Name:     "heatstrokeResistance",
+		Label:    "Heatstroke Resistance",
+		Category: "misc",
+		Alias:    "",
+		Unit:     "%",
+		Cap:      0,
+	},
+	StatIdHypothermiaResistance: {
+		StatId:   StatIdHypothermiaResistance,
+		Name:     "hypothermiaResistance",
+		Label:    "Hypothermia Resistance",
+		Category: "misc",
+		Alias:    "",
 		Unit:     "%",
 		Cap:      0,
 	},
@@ -1560,6 +1798,15 @@ var statIdInfos = map[StatId]StatIdInfo{
 		Unit:     "",
 		Cap:      0,
 	},
+	StatIdBeastAp: {
+		StatId:   StatIdBeastAp,
+		Name:     "beastAp",
+		Label:    "Extra AP Against Beasts",
+		Category: "ap",
+		Alias:    "",
+		Unit:     "",
+		Cap:      0,
+	},
 	StatIdDamageReduction: {
 		StatId:   StatIdDamageReduction,
 		Name:     "damageReduction",
@@ -1598,6 +1845,15 @@ var statIdInfos = map[StatId]StatIdInfo{
 		Alias:    "mdr",
 		Fanout:   []StatId{StatIdMeleeMonsterDamageReduction, StatIdRangedMonsterDamageReduction, StatIdMagicMonsterDamageReduction},
 		Unit:     "",
+		Cap:      0,
+	},
+	StatIdMonsterDamageReductionRate: {
+		StatId:   StatIdMonsterDamageReductionRate,
+		Name:     "monsterDamageReductionRate",
+		Label:    "Monster Damage Reduction Rate",
+		Category: "defense",
+		Alias:    "",
+		Unit:     "%",
 		Cap:      0,
 	},
 	StatIdMeleeMonsterDamageReduction: {
@@ -1969,6 +2225,15 @@ var statIdInfos = map[StatId]StatIdInfo{
 		Unit:     "",
 		Cap:      5,
 	},
+	StatIdWorkerStaminaRecovery: {
+		StatId:   StatIdWorkerStaminaRecovery,
+		Name:     "workerStaminaRecovery",
+		Label:    "Worker Stamina Recovery",
+		Category: "life",
+		Alias:    "",
+		Unit:     "",
+		Cap:      0,
+	},
 }
 
 var statIdValues = []StatId{
@@ -2003,13 +2268,25 @@ var statIdValues = []StatId{
 	StatIdStunResistance,
 	StatIdKnockdownResistance,
 	StatIdKnockbackResistance,
+	StatIdFearResistance,
+	StatIdIgnoreAllResistance,
+	StatIdIgnoreGrappleResistance,
+	StatIdIgnoreKnockbackResistance,
+	StatIdIgnoreKnockdownResistance,
+	StatIdIgnoreStunResistance,
 	StatIdAttackSpeed,
 	StatIdCastingSpeed,
 	StatIdMoveSpeed,
 	StatIdLuck,
 	StatIdMaxHp,
 	StatIdHpRecovery,
+	StatIdHpRecoveryOnHit,
+	StatIdHpRecoveryOnCriticalHit,
 	StatIdResourceRecovery,
+	StatIdResourceRecoveryOnHit,
+	StatIdResourceRecoveryOnCriticalHit,
+	StatIdMaxEnergy,
+	StatIdEnergyRecovery,
 	StatIdBlackSpiritRage,
 	StatIdAllMastery,
 	StatIdGatheringMastery,
@@ -2044,6 +2321,7 @@ var statIdValues = []StatId{
 	StatIdMountSkillExp,
 	StatIdStrengthExp,
 	StatIdBreathExp,
+	StatIdHealthExp,
 	StatIdGatheringTime,
 	StatIdCookingTime,
 	StatIdAlchemyTime,
@@ -2057,6 +2335,12 @@ var statIdValues = []StatId{
 	StatIdDurabilityLossResistance,
 	StatIdFallDamage,
 	StatIdItemDropRate,
+	StatIdItemDropAmount,
+	StatIdHigherGradeKnowledgeChance,
+	StatIdKarmaRecovery,
+	StatIdSwimmingSpeed,
+	StatIdHeatstrokeResistance,
+	StatIdHypothermiaResistance,
 	StatIdJumpHeight,
 	StatIdKnowledgeChance,
 	StatIdMermaidsWish,
@@ -2086,10 +2370,12 @@ var statIdValues = []StatId{
 	StatIdAwakeningApVsNormal,
 	StatIdNormalAp,
 	StatIdEdaniaAp,
+	StatIdBeastAp,
 	StatIdDamageReduction,
 	StatIdTotalDamageReduction,
 	StatIdHiddenDamageReduction,
 	StatIdMonsterDamageReduction,
+	StatIdMonsterDamageReductionRate,
 	StatIdMeleeMonsterDamageReduction,
 	StatIdRangedMonsterDamageReduction,
 	StatIdMagicMonsterDamageReduction,
@@ -2130,167 +2416,190 @@ var statIdValues = []StatId{
 	StatIdCastingSpeedLevel,
 	StatIdMovementSpeedLevel,
 	StatIdGatheringSpeed,
+	StatIdWorkerStaminaRecovery,
 }
 
 var statIdByName = map[string]StatId{
-	"monsterap":                    StatIdMonsterAp,
-	"adventurerap":                 StatIdAdventurerAp,
-	"humanap":                      StatIdHumanAp,
-	"demihumanap":                  StatIdDemihumanAp,
-	"kamasylvianap":                StatIdKamasylvianAp,
-	"allspeciesap":                 StatIdAllSpeciesAp,
-	"hiddenap":                     StatIdHiddenAp,
-	"dp":                           StatIdDp,
-	"meleeap":                      StatIdMeleeAp,
-	"rangedap":                     StatIdRangedAp,
-	"magicap":                      StatIdMagicAp,
-	"critdamage":                   StatIdCritDamage,
-	"specialattackdamage":          StatIdSpecialAttackDamage,
-	"backattackdamage":             StatIdBackAttackDamage,
-	"downattackdamage":             StatIdDownAttackDamage,
-	"huntingdamage":                StatIdHuntingDamage,
-	"accuracy":                     StatIdAccuracy,
-	"meleeaccuracy":                StatIdMeleeAccuracy,
-	"rangedaccuracy":               StatIdRangedAccuracy,
-	"magicaccuracy":                StatIdMagicAccuracy,
-	"meleeevasion":                 StatIdMeleeEvasion,
-	"rangedevasion":                StatIdRangedEvasion,
-	"magicevasion":                 StatIdMagicEvasion,
-	"meleedamagereduction":         StatIdMeleeDamageReduction,
-	"rangeddamagereduction":        StatIdRangedDamageReduction,
-	"magicdamagereduction":         StatIdMagicDamageReduction,
-	"damagereductionrate":          StatIdDamageReductionRate,
-	"allresistance":                StatIdAllResistance,
-	"stunresistance":               StatIdStunResistance,
-	"knockdownresistance":          StatIdKnockdownResistance,
-	"knockbackresistance":          StatIdKnockbackResistance,
-	"attackspeed":                  StatIdAttackSpeed,
-	"castingspeed":                 StatIdCastingSpeed,
-	"movespeed":                    StatIdMoveSpeed,
-	"luck":                         StatIdLuck,
-	"maxhp":                        StatIdMaxHp,
-	"hprecovery":                   StatIdHpRecovery,
-	"resourcerecovery":             StatIdResourceRecovery,
-	"blackspiritrage":              StatIdBlackSpiritRage,
-	"allmastery":                   StatIdAllMastery,
-	"gatheringmastery":             StatIdGatheringMastery,
-	"hoemastery":                   StatIdHoeMastery,
-	"lumberingmastery":             StatIdLumberingMastery,
-	"fluidcollectormastery":        StatIdFluidCollectorMastery,
-	"tanningmastery":               StatIdTanningMastery,
-	"butchermastery":               StatIdButcherMastery,
-	"pickaxemastery":               StatIdPickaxeMastery,
-	"fishingmastery":               StatIdFishingMastery,
-	"huntingmastery":               StatIdHuntingMastery,
-	"cookingmastery":               StatIdCookingMastery,
-	"alchemymastery":               StatIdAlchemyMastery,
-	"processingmastery":            StatIdProcessingMastery,
-	"trainingmastery":              StatIdTrainingMastery,
-	"sailingmastery":               StatIdSailingMastery,
-	"lifeexp":                      StatIdLifeExp,
-	"combatexp":                    StatIdCombatExp,
-	"skillexp":                     StatIdSkillExp,
-	"gatheringexp":                 StatIdGatheringExp,
-	"huntingexp":                   StatIdHuntingExp,
-	"cookingexp":                   StatIdCookingExp,
-	"alchemyexp":                   StatIdAlchemyExp,
-	"fishingexp":                   StatIdFishingExp,
-	"processingexp":                StatIdProcessingExp,
-	"trainingexp":                  StatIdTrainingExp,
-	"sailingexp":                   StatIdSailingExp,
-	"barteringexp":                 StatIdBarteringExp,
-	"tradingexp":                   StatIdTradingExp,
-	"farmingexp":                   StatIdFarmingExp,
-	"mountexp":                     StatIdMountExp,
-	"mountskillexp":                StatIdMountSkillExp,
-	"strengthexp":                  StatIdStrengthExp,
-	"breathexp":                    StatIdBreathExp,
-	"gatheringtime":                StatIdGatheringTime,
-	"cookingtime":                  StatIdCookingTime,
-	"alchemytime":                  StatIdAlchemyTime,
-	"gatheringdroprate":            StatIdGatheringDropRate,
-	"autofishingtime":              StatIdAutoFishingTime,
-	"rarefishchance":               StatIdRareFishChance,
-	"horsecapturerate":             StatIdHorseCaptureRate,
-	"processingsuccessrate":        StatIdProcessingSuccessRate,
-	"amity":                        StatIdAmity,
-	"deathpenaltyresistance":       StatIdDeathPenaltyResistance,
-	"durabilitylossresistance":     StatIdDurabilityLossResistance,
-	"falldamage":                   StatIdFallDamage,
-	"itemdroprate":                 StatIdItemDropRate,
-	"jumpheight":                   StatIdJumpHeight,
-	"knowledgechance":              StatIdKnowledgeChance,
-	"mermaidswish":                 StatIdMermaidsWish,
-	"underwaterbreathing":          StatIdUnderwaterBreathing,
-	"weightlimit":                  StatIdWeightLimit,
-	"ap":                           StatIdAp,
-	"awakeningap":                  StatIdAwakeningAp,
-	"totalap":                      StatIdTotalAp,
-	"totalawakeningap":             StatIdTotalAwakeningAp,
-	"bracketap":                    StatIdBracketAp,
-	"bracketawakeningap":           StatIdBracketAwakeningAp,
-	"bracketmonsterap":             StatIdBracketMonsterAp,
-	"bracketmonsterawakeningap":    StatIdBracketMonsterAwakeningAp,
-	"apvsmonster":                  StatIdApVsMonster,
-	"apvsadventurer":               StatIdApVsAdventurer,
-	"apvshuman":                    StatIdApVsHuman,
-	"apvsdemihuman":                StatIdApVsDemihuman,
-	"apvskamasylvian":              StatIdApVsKamasylvian,
-	"apvsedania":                   StatIdApVsEdania,
-	"apvsnormal":                   StatIdApVsNormal,
-	"awakeningapvsmonster":         StatIdAwakeningApVsMonster,
-	"awakeningapvsadventurer":      StatIdAwakeningApVsAdventurer,
-	"awakeningapvshuman":           StatIdAwakeningApVsHuman,
-	"awakeningapvsdemihuman":       StatIdAwakeningApVsDemihuman,
-	"awakeningapvskamasylvian":     StatIdAwakeningApVsKamasylvian,
-	"awakeningapvsedania":          StatIdAwakeningApVsEdania,
-	"awakeningapvsnormal":          StatIdAwakeningApVsNormal,
-	"normalap":                     StatIdNormalAp,
-	"edaniaap":                     StatIdEdaniaAp,
-	"damagereduction":              StatIdDamageReduction,
-	"totaldamagereduction":         StatIdTotalDamageReduction,
-	"hiddendamagereduction":        StatIdHiddenDamageReduction,
-	"monsterdamagereduction":       StatIdMonsterDamageReduction,
-	"meleemonsterdamagereduction":  StatIdMeleeMonsterDamageReduction,
-	"rangedmonsterdamagereduction": StatIdRangedMonsterDamageReduction,
-	"magicmonsterdamagereduction":  StatIdMagicMonsterDamageReduction,
-	"hiddenmeleedamagereduction":   StatIdHiddenMeleeDamageReduction,
-	"hiddenrangeddamagereduction":  StatIdHiddenRangedDamageReduction,
-	"hiddenmagicdamagereduction":   StatIdHiddenMagicDamageReduction,
-	"evasion":                      StatIdEvasion,
-	"hiddenevasion":                StatIdHiddenEvasion,
-	"evasionrate":                  StatIdEvasionRate,
-	"meleeevasionrate":             StatIdMeleeEvasionRate,
-	"rangedevasionrate":            StatIdRangedEvasionRate,
-	"magicevasionrate":             StatIdMagicEvasionRate,
-	"hiddenmeleeevasion":           StatIdHiddenMeleeEvasion,
-	"hiddenrangedevasion":          StatIdHiddenRangedEvasion,
-	"hiddenmagicevasion":           StatIdHiddenMagicEvasion,
-	"grappleresistance":            StatIdGrappleResistance,
-	"airattackdamage":              StatIdAirAttackDamage,
-	"counterattackdamage":          StatIdCounterAttackDamage,
-	"speedattackdamage":            StatIdSpeedAttackDamage,
-	"farmingmastery":               StatIdFarmingMastery,
-	"tradingmastery":               StatIdTradingMastery,
-	"filteringmastery":             StatIdFilteringMastery,
-	"dryingmastery":                StatIdDryingMastery,
-	"grindingmastery":              StatIdGrindingMastery,
-	"heatingmastery":               StatIdHeatingMastery,
-	"choppingmastery":              StatIdChoppingMastery,
-	"shakingmastery":               StatIdShakingMastery,
-	"maxresource":                  StatIdMaxResource,
-	"maxstamina":                   StatIdMaxStamina,
-	"apmin":                        StatIdApMin,
-	"apmax":                        StatIdApMax,
-	"awakeningapmin":               StatIdAwakeningApMin,
-	"awakeningapmax":               StatIdAwakeningApMax,
-	"critlevel":                    StatIdCritLevel,
-	"critchance":                   StatIdCritChance,
-	"fishingspeed":                 StatIdFishingSpeed,
-	"attackspeedlevel":             StatIdAttackSpeedLevel,
-	"castingspeedlevel":            StatIdCastingSpeedLevel,
-	"movementspeedlevel":           StatIdMovementSpeedLevel,
-	"gatheringspeed":               StatIdGatheringSpeed,
+	"monsterap":                     StatIdMonsterAp,
+	"adventurerap":                  StatIdAdventurerAp,
+	"humanap":                       StatIdHumanAp,
+	"demihumanap":                   StatIdDemihumanAp,
+	"kamasylvianap":                 StatIdKamasylvianAp,
+	"allspeciesap":                  StatIdAllSpeciesAp,
+	"hiddenap":                      StatIdHiddenAp,
+	"dp":                            StatIdDp,
+	"meleeap":                       StatIdMeleeAp,
+	"rangedap":                      StatIdRangedAp,
+	"magicap":                       StatIdMagicAp,
+	"critdamage":                    StatIdCritDamage,
+	"specialattackdamage":           StatIdSpecialAttackDamage,
+	"backattackdamage":              StatIdBackAttackDamage,
+	"downattackdamage":              StatIdDownAttackDamage,
+	"huntingdamage":                 StatIdHuntingDamage,
+	"accuracy":                      StatIdAccuracy,
+	"meleeaccuracy":                 StatIdMeleeAccuracy,
+	"rangedaccuracy":                StatIdRangedAccuracy,
+	"magicaccuracy":                 StatIdMagicAccuracy,
+	"meleeevasion":                  StatIdMeleeEvasion,
+	"rangedevasion":                 StatIdRangedEvasion,
+	"magicevasion":                  StatIdMagicEvasion,
+	"meleedamagereduction":          StatIdMeleeDamageReduction,
+	"rangeddamagereduction":         StatIdRangedDamageReduction,
+	"magicdamagereduction":          StatIdMagicDamageReduction,
+	"damagereductionrate":           StatIdDamageReductionRate,
+	"allresistance":                 StatIdAllResistance,
+	"stunresistance":                StatIdStunResistance,
+	"knockdownresistance":           StatIdKnockdownResistance,
+	"knockbackresistance":           StatIdKnockbackResistance,
+	"fearresistance":                StatIdFearResistance,
+	"ignoreallresistance":           StatIdIgnoreAllResistance,
+	"ignoregrappleresistance":       StatIdIgnoreGrappleResistance,
+	"ignoreknockbackresistance":     StatIdIgnoreKnockbackResistance,
+	"ignoreknockdownresistance":     StatIdIgnoreKnockdownResistance,
+	"ignorestunresistance":          StatIdIgnoreStunResistance,
+	"attackspeed":                   StatIdAttackSpeed,
+	"castingspeed":                  StatIdCastingSpeed,
+	"movespeed":                     StatIdMoveSpeed,
+	"luck":                          StatIdLuck,
+	"maxhp":                         StatIdMaxHp,
+	"hprecovery":                    StatIdHpRecovery,
+	"hprecoveryonhit":               StatIdHpRecoveryOnHit,
+	"hprecoveryoncriticalhit":       StatIdHpRecoveryOnCriticalHit,
+	"resourcerecovery":              StatIdResourceRecovery,
+	"resourcerecoveryonhit":         StatIdResourceRecoveryOnHit,
+	"resourcerecoveryoncriticalhit": StatIdResourceRecoveryOnCriticalHit,
+	"maxenergy":                     StatIdMaxEnergy,
+	"energyrecovery":                StatIdEnergyRecovery,
+	"blackspiritrage":               StatIdBlackSpiritRage,
+	"allmastery":                    StatIdAllMastery,
+	"gatheringmastery":              StatIdGatheringMastery,
+	"hoemastery":                    StatIdHoeMastery,
+	"lumberingmastery":              StatIdLumberingMastery,
+	"fluidcollectormastery":         StatIdFluidCollectorMastery,
+	"tanningmastery":                StatIdTanningMastery,
+	"butchermastery":                StatIdButcherMastery,
+	"pickaxemastery":                StatIdPickaxeMastery,
+	"fishingmastery":                StatIdFishingMastery,
+	"huntingmastery":                StatIdHuntingMastery,
+	"cookingmastery":                StatIdCookingMastery,
+	"alchemymastery":                StatIdAlchemyMastery,
+	"processingmastery":             StatIdProcessingMastery,
+	"trainingmastery":               StatIdTrainingMastery,
+	"sailingmastery":                StatIdSailingMastery,
+	"lifeexp":                       StatIdLifeExp,
+	"combatexp":                     StatIdCombatExp,
+	"skillexp":                      StatIdSkillExp,
+	"gatheringexp":                  StatIdGatheringExp,
+	"huntingexp":                    StatIdHuntingExp,
+	"cookingexp":                    StatIdCookingExp,
+	"alchemyexp":                    StatIdAlchemyExp,
+	"fishingexp":                    StatIdFishingExp,
+	"processingexp":                 StatIdProcessingExp,
+	"trainingexp":                   StatIdTrainingExp,
+	"sailingexp":                    StatIdSailingExp,
+	"barteringexp":                  StatIdBarteringExp,
+	"tradingexp":                    StatIdTradingExp,
+	"farmingexp":                    StatIdFarmingExp,
+	"mountexp":                      StatIdMountExp,
+	"mountskillexp":                 StatIdMountSkillExp,
+	"strengthexp":                   StatIdStrengthExp,
+	"breathexp":                     StatIdBreathExp,
+	"healthexp":                     StatIdHealthExp,
+	"gatheringtime":                 StatIdGatheringTime,
+	"cookingtime":                   StatIdCookingTime,
+	"alchemytime":                   StatIdAlchemyTime,
+	"gatheringdroprate":             StatIdGatheringDropRate,
+	"autofishingtime":               StatIdAutoFishingTime,
+	"rarefishchance":                StatIdRareFishChance,
+	"horsecapturerate":              StatIdHorseCaptureRate,
+	"processingsuccessrate":         StatIdProcessingSuccessRate,
+	"amity":                         StatIdAmity,
+	"deathpenaltyresistance":        StatIdDeathPenaltyResistance,
+	"durabilitylossresistance":      StatIdDurabilityLossResistance,
+	"falldamage":                    StatIdFallDamage,
+	"itemdroprate":                  StatIdItemDropRate,
+	"itemdropamount":                StatIdItemDropAmount,
+	"highergradeknowledgechance":    StatIdHigherGradeKnowledgeChance,
+	"karmarecovery":                 StatIdKarmaRecovery,
+	"swimmingspeed":                 StatIdSwimmingSpeed,
+	"heatstrokeresistance":          StatIdHeatstrokeResistance,
+	"hypothermiaresistance":         StatIdHypothermiaResistance,
+	"jumpheight":                    StatIdJumpHeight,
+	"knowledgechance":               StatIdKnowledgeChance,
+	"mermaidswish":                  StatIdMermaidsWish,
+	"underwaterbreathing":           StatIdUnderwaterBreathing,
+	"weightlimit":                   StatIdWeightLimit,
+	"ap":                            StatIdAp,
+	"awakeningap":                   StatIdAwakeningAp,
+	"totalap":                       StatIdTotalAp,
+	"totalawakeningap":              StatIdTotalAwakeningAp,
+	"bracketap":                     StatIdBracketAp,
+	"bracketawakeningap":            StatIdBracketAwakeningAp,
+	"bracketmonsterap":              StatIdBracketMonsterAp,
+	"bracketmonsterawakeningap":     StatIdBracketMonsterAwakeningAp,
+	"apvsmonster":                   StatIdApVsMonster,
+	"apvsadventurer":                StatIdApVsAdventurer,
+	"apvshuman":                     StatIdApVsHuman,
+	"apvsdemihuman":                 StatIdApVsDemihuman,
+	"apvskamasylvian":               StatIdApVsKamasylvian,
+	"apvsedania":                    StatIdApVsEdania,
+	"apvsnormal":                    StatIdApVsNormal,
+	"awakeningapvsmonster":          StatIdAwakeningApVsMonster,
+	"awakeningapvsadventurer":       StatIdAwakeningApVsAdventurer,
+	"awakeningapvshuman":            StatIdAwakeningApVsHuman,
+	"awakeningapvsdemihuman":        StatIdAwakeningApVsDemihuman,
+	"awakeningapvskamasylvian":      StatIdAwakeningApVsKamasylvian,
+	"awakeningapvsedania":           StatIdAwakeningApVsEdania,
+	"awakeningapvsnormal":           StatIdAwakeningApVsNormal,
+	"normalap":                      StatIdNormalAp,
+	"edaniaap":                      StatIdEdaniaAp,
+	"beastap":                       StatIdBeastAp,
+	"damagereduction":               StatIdDamageReduction,
+	"totaldamagereduction":          StatIdTotalDamageReduction,
+	"hiddendamagereduction":         StatIdHiddenDamageReduction,
+	"monsterdamagereduction":        StatIdMonsterDamageReduction,
+	"monsterdamagereductionrate":    StatIdMonsterDamageReductionRate,
+	"meleemonsterdamagereduction":   StatIdMeleeMonsterDamageReduction,
+	"rangedmonsterdamagereduction":  StatIdRangedMonsterDamageReduction,
+	"magicmonsterdamagereduction":   StatIdMagicMonsterDamageReduction,
+	"hiddenmeleedamagereduction":    StatIdHiddenMeleeDamageReduction,
+	"hiddenrangeddamagereduction":   StatIdHiddenRangedDamageReduction,
+	"hiddenmagicdamagereduction":    StatIdHiddenMagicDamageReduction,
+	"evasion":                       StatIdEvasion,
+	"hiddenevasion":                 StatIdHiddenEvasion,
+	"evasionrate":                   StatIdEvasionRate,
+	"meleeevasionrate":              StatIdMeleeEvasionRate,
+	"rangedevasionrate":             StatIdRangedEvasionRate,
+	"magicevasionrate":              StatIdMagicEvasionRate,
+	"hiddenmeleeevasion":            StatIdHiddenMeleeEvasion,
+	"hiddenrangedevasion":           StatIdHiddenRangedEvasion,
+	"hiddenmagicevasion":            StatIdHiddenMagicEvasion,
+	"grappleresistance":             StatIdGrappleResistance,
+	"airattackdamage":               StatIdAirAttackDamage,
+	"counterattackdamage":           StatIdCounterAttackDamage,
+	"speedattackdamage":             StatIdSpeedAttackDamage,
+	"farmingmastery":                StatIdFarmingMastery,
+	"tradingmastery":                StatIdTradingMastery,
+	"filteringmastery":              StatIdFilteringMastery,
+	"dryingmastery":                 StatIdDryingMastery,
+	"grindingmastery":               StatIdGrindingMastery,
+	"heatingmastery":                StatIdHeatingMastery,
+	"choppingmastery":               StatIdChoppingMastery,
+	"shakingmastery":                StatIdShakingMastery,
+	"maxresource":                   StatIdMaxResource,
+	"maxstamina":                    StatIdMaxStamina,
+	"apmin":                         StatIdApMin,
+	"apmax":                         StatIdApMax,
+	"awakeningapmin":                StatIdAwakeningApMin,
+	"awakeningapmax":                StatIdAwakeningApMax,
+	"critlevel":                     StatIdCritLevel,
+	"critchance":                    StatIdCritChance,
+	"fishingspeed":                  StatIdFishingSpeed,
+	"attackspeedlevel":              StatIdAttackSpeedLevel,
+	"castingspeedlevel":             StatIdCastingSpeedLevel,
+	"movementspeedlevel":            StatIdMovementSpeedLevel,
+	"gatheringspeed":                StatIdGatheringSpeed,
+	"workerstaminarecovery":         StatIdWorkerStaminaRecovery,
 }
 
 // Values returns every declared value in declaration order.

@@ -6,16 +6,15 @@ package build
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/config"
-	"github.com/idevelopthings/bdo-data-extractor/internal/jsonio"
 	"github.com/idevelopthings/bdo-data-extractor/internal/loc"
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
 	"github.com/idevelopthings/bdo-data-extractor/internal/progress"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
+	"github.com/idevelopthings/bdo-data-extractor/src/output"
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
@@ -25,15 +24,15 @@ import (
 type Builder struct {
 	src    *paz.Source
 	gs     *loc.GameStrings
-	dir    string // output directory (sidecar JSON lands here)
 	lang   string
 	region string // service region, e.g. na
 	t0     time.Time
 
 	// cross-stage state, set by an earlier stage and read by later ones
-	items        map[uint32]*model.Item
-	enhancements map[uint32]*model.Enhancement
-	itemSets     []model.ItemSet
+	items           map[uint32]*model.Item
+	enhancements    map[uint32]*model.Enhancement
+	itemSets        []model.ItemSet
+	questConditions map[uint32]tables.QuestConditionRow
 
 	recipes []model.Recipe
 	regions []model.WorldRegion
@@ -50,9 +49,8 @@ type Builder struct {
 	nodesDecoded     []model.WorldNode
 	waypointsDecoded map[uint32]tables.WorldWaypoint
 
-	// writeDone delivers the result of the items/enhancements write, which runs in
-	// the background (from buildItems) while the sidecar stages build. awaitWrite joins.
-	writeDone chan writeResult
+	// outputs owns staging and publication for the complete generated dataset.
+	outputs *output.Transaction
 }
 
 // Active is the builder for the in-progress Run, exposed so other build-package
@@ -85,12 +83,17 @@ func Run() error {
 	if err := src.Archive.AssertSafeOut(*config.GlobalConfig.Out); err != nil {
 		return err
 	}
+	outputs, err := output.New(outDir, output.NewGoccyJSONDriver(*config.GlobalConfig.Pretty))
+	if err != nil {
+		return fmt.Errorf("initialize output transaction: %w", err)
+	}
 
 	b := &Builder{
-		src:    src,
-		lang:   *config.GlobalConfig.Lang,
-		region: *config.GlobalConfig.Region,
-		t0:     time.Now(),
+		src:     src,
+		outputs: outputs,
+		lang:    *config.GlobalConfig.Lang,
+		region:  *config.GlobalConfig.Region,
+		t0:      time.Now(),
 	}
 	Active = b
 
@@ -102,6 +105,7 @@ func Run() error {
 	}{
 		{name: "strings", fn: b.loadStrings},
 		{name: "character progression", fn: b.buildCharacterProgression},
+		{name: "adventure journals", fn: b.buildAdventureJournals},
 		{name: "life skill progression", fn: b.buildLifeSkillProgression},
 		{name: "items", fn: b.buildItems},
 		{name: "recipes", fn: b.buildRecipes},
@@ -117,35 +121,16 @@ func Run() error {
 	} {
 		progress.Default().Phase(stage.name)
 		if err := stage.fn(); err != nil {
-			_ = b.awaitWrite() // join the background write before returning
 			return err
 		}
 	}
 
-	return b.awaitWrite()
+	progress.Default().Phase("write outputs")
+	return b.publishOutputs()
 }
 
 func (b *Builder) logf(msg string) {
 	progress.Default().Log(fmt.Sprintf("  [%5.1fs] %s", time.Since(b.t0).Seconds(), msg))
-}
-
-func (b *Builder) outFilePath(name string) (dir, filePath string) {
-	dir = *config.GlobalConfig.Out
-	filePath = filepath.Join(dir, name)
-	return
-}
-
-// write emits one sidecar JSON file into the output directory and returns its path.
-func (b *Builder) write(name string, v any) (string, error) {
-	_, p := b.outFilePath(name)
-	fn := filepath.Base(name)
-
-	// err := utils.EnsureDirCreated(d)
-	// if err != nil {
-	// 	return "", err
-	// }
-
-	return fn, jsonio.WriteFile(p, v, *config.GlobalConfig.Pretty)
 }
 
 // loadStrings decodes the localization tables (names, descriptions, market cats,

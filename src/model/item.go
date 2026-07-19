@@ -32,7 +32,7 @@ type Item struct {
 	Icon              string                  `json:"icon,omitempty"`              // itemenchant.dbss  (embedded path)
 	Grade             ItemGrade               `json:"grade"`                       // itemenchant.dbss  GradeType
 	Category          string                  `json:"category,omitempty"`          // itemenchant.dbss  ItemClassify (game category)
-	ItemType          string                  `json:"itemType,omitempty"`          // itemenchant.dbss  ItemType
+	ItemType          ItemType                `json:"itemType"`                    // itemenchant.dbss EItemType; Title is the tooltip classification
 	EquipInfo         *EquipInfo              `json:"equipInfo,omitempty"`         // itemenchant.dbss  equip slot/kind/type (equipment)
 	MarketCategory    string                  `json:"marketCategory,omitempty"`    // central-market main category (@200, or derived — see Marketable)
 	MarketSubCategory string                  `json:"marketSubCategory,omitempty"` // central-market sub category (@201, or derived)
@@ -105,6 +105,8 @@ type Item struct {
 	Vendors *models.EntityRefList[NPC] `json:"vendors,omitempty"`
 	// UnresolvedVendors are <shop> names that could not be resolved to NPC references.
 	UnresolvedVendors []string `json:"unresolvedVendors,omitempty"`
+	// RentalOffers are contribution-point rentals decoded from NPC dialogue actions.
+	RentalOffers []ItemRentalOffer `json:"rentalOffers,omitempty"`
 	// GatheredFrom contains <collect> source names such as "Wild Flax".
 	GatheredFrom []string `json:"gatheredFrom,omitempty"`
 	// GatherNodes are world-node references resolved from <node region="..."> names.
@@ -120,6 +122,19 @@ type Item struct {
 	MaxEnhance  *int                           `json:"maxEnhance,omitempty"`  // itemmaxlevel.dbss
 	Enhancement *Enhancement                   `json:"enhancement,omitempty"` // enchantstaticstatus.dbss curve
 	ItemSets    *models.EntityRefList[ItemSet] `json:"itemSets,omitempty"`
+}
+
+// ItemRentalOffer is one NPC dialogue action that rents the containing item.
+type ItemRentalOffer struct {
+	Vendor       *models.EntityRef[NPC] `json:"vendor"`
+	DialogIndex  int                    `json:"dialogIndex,omitempty"`
+	ConditionDSL string                 `json:"conditionDsl,omitempty"`
+	Count        int                    `json:"count"`
+	PointType    int                    `json:"pointType"`
+	PointCost    int                    `json:"pointCost"`
+	ItemSubKey   uint32                 `json:"itemSubKey"`
+	// Unknown0 separates the dialogue label from its action variant.
+	Unknown0 uint16 `json:"unknown0"`
 }
 
 func (i *Item) GetEnhancementRange() (minLevel, maxLevel int) {
@@ -353,6 +368,48 @@ func (i *Item) HasEffect(q string) bool {
 	return false
 }
 
+var recoveryStats = []StatId{StatIdHpRecovery, StatIdResourceRecovery, StatIdEnergyRecovery}
+
+// IsConsumableLike there's no perfect way to detect consumables, but this is a best-effort heuristic, will catch almost all
+func (i *Item) IsConsumableLike() bool {
+	if i.ItemType != ItemTypeSkill {
+		return false
+	}
+
+	if i.Category == "Potion" || i.Category == "Cook" {
+		return true
+	}
+
+	if i.Effects != nil {
+		if i.Effects.BuffCategories.Has(
+			BuffStackingCategoryFood,
+			BuffStackingCategoryElixir,
+			BuffStackingCategoryPerfume,
+			BuffStackingCategoryCronMealExtra,
+			BuffStackingCategoryWhaleTendonElixir,
+			BuffStackingCategoryDraughtResetControl,
+		) {
+			return true
+		}
+	}
+
+	if i.Effects != nil {
+
+		// Best attempt at a simple catch
+		for _, stat := range i.Effects.Stats.Stats {
+			if stat.Instant {
+				for _, r := range recoveryStats {
+					if stat.StatID == r {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 // BindType is the game's item binding behavior ("vestedType" internally — the
 // tooltip's bind label and the "will become bound" use-warning read it).
 type BindType byte
@@ -401,18 +458,27 @@ func (e *EquipInfo) GetSlotId() byte {
 // CrystalGroup is a socket crystal's transfusion group: at most Max crystals of
 // the same group can be transfused at once (Max 1000 = no limit).
 type CrystalGroup struct {
+	Key  uint32 `json:"key"`
 	Name string `json:"name"`
 	Max  int    `json:"max"`
 }
 
-// Effects is what a consumable applies on use: a shared cooldown/duration, the
+// Effects is what a consumable applies on use: a cooldown/maximum duration, the
 // shown stat modifiers, and any hidden buffs the client doesn't display (kept
 // separate; their names may still be untranslated Korean pending a future map).
 type Effects struct {
 	CooldownMs int         `json:"cooldownMs,omitempty"` // item-use cooldown (skill.dbss)
-	DurationMs int         `json:"durationMs,omitempty"` // buff duration (shared)
+	DurationMs int         `json:"durationMs,omitempty"` // longest timed modifier
 	Stats      EffectGroup `json:"stats,omitempty"`
 	Hidden     EffectGroup `json:"hidden,omitempty"`
+	// BuffCategories contains every broad family present in the complete buff chain.
+	BuffCategories BuffStackingCategories `json:"buffCategories,omitempty"`
+	// ClearsBuffCategories lists broad families removed when the item is used.
+	ClearsBuffCategories BuffStackingCategories `json:"clearsBuffCategories,omitempty"`
+}
+
+func (e *Effects) IsEmpty() bool {
+	return len(e.Stats.Stats) == 0 && len(e.Hidden.Stats) == 0 && len(e.BuffCategories) == 0 && len(e.ClearsBuffCategories) == 0
 }
 
 // EnchantLevel is the gear stats + effects at one enhancement level.

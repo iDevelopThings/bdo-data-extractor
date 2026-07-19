@@ -1,0 +1,17 @@
+package: model
+type: SkillKind
+underlying: uint32
+marshalText: false
+out: ..
+values:
+  - name: Unknown
+    wire: 0
+    title: "Unknown"
+
+  - name: Active
+    wire: 1
+    title: "Active"
+
+  - name: Passive
+    wire: 2
+    title: "Passive"

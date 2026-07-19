@@ -7,7 +7,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 )
 
-func TestAugmentMapNPCs(t *testing.T) {
+func TestAugmentNPCs(t *testing.T) {
 	npcs := []model.NPC{{ID: 20, Name: "raw"}}
 	roles := map[uint32]model.NPCSpawnTypes{
 		10: {model.NPCSpawnTypeExplorer},
@@ -25,19 +25,27 @@ func TestAugmentMapNPCs(t *testing.T) {
 		20: "<Warehouse Keeper>",
 		40: "<Normal NPC>",
 	}
+	itemServices := map[uint32]bool{50: true, 60: true}
+	names[50] = "Service NPC"
 
-	got, added := augmentMapNPCs(npcs, roles, names, titles)
-	if added != 1 {
-		t.Fatalf("added = %d, want 1", added)
+	got, added := augmentNPCs(npcs, roles, itemServices, names, titles)
+	if added != 3 {
+		t.Fatalf("added = %d, want 3", added)
 	}
-	if len(got) != 2 {
-		t.Fatalf("len = %d, want 2", len(got))
+	if len(got) != 4 {
+		t.Fatalf("len = %d, want 4", len(got))
 	}
 	if got[0].Name != "Existing Keeper" || !reflect.DeepEqual(got[0].SpawnTypes, roles[20]) {
 		t.Fatalf("existing NPC = %+v", got[0])
 	}
 	if got[1].ID != 10 || got[1].Name != "First Manager" || !reflect.DeepEqual(got[1].SpawnTypes, roles[10]) {
 		t.Fatalf("added NPC = %+v", got[1])
+	}
+	if got[2].ID != 50 || got[2].Name != "Service NPC" {
+		t.Fatalf("service NPC = %+v", got[2])
+	}
+	if got[3].ID != 60 || got[3].Name != "" {
+		t.Fatalf("unnamed service NPC = %+v", got[3])
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 )
 
@@ -66,6 +67,46 @@ func (b *Builder) attachAcquisition(info map[uint32]*itemAcquisition) {
 		"acquisition: %d vendor names with no npcsimply record, %d gather-node names unresolved",
 		len(unresolvedVendors), len(unresolvedNodes),
 	))
+}
+
+// attachItemRentals joins contribution-point rental dialogue actions onto items.
+func (b *Builder) attachItemRentals() error {
+	offsetData, err := b.src.Read("detail_dialogoffset.dbss")
+	if err != nil {
+		return err
+	}
+	data, err := b.src.Read("detail_dialog.dbss")
+	if err != nil {
+		return err
+	}
+	rows, err := tables.DecodeItemRentals(offsetData, data)
+	if err != nil {
+		return err
+	}
+
+	attached := 0
+	missing := 0
+	for _, row := range rows {
+		item := b.items[row.ItemKey]
+		if item == nil {
+			missing++
+			continue
+		}
+		item.RentalOffers = append(item.RentalOffers, model.ItemRentalOffer{
+			Vendor:       model.NPCRef(row.CharacterKey),
+			DialogIndex:  int(row.DialogIndex),
+			ConditionDSL: row.ConditionDSL,
+			Count:        int(row.Count),
+			PointType:    int(row.PointType),
+			PointCost:    int(row.PointCost),
+			ItemSubKey:   row.ItemSubKey,
+			Unknown0:     row.Unknown0,
+		})
+		attached++
+	}
+	b.logf(fmt.Sprintf("item rentals: %d offers attached, %d item records missing", attached, missing))
+
+	return nil
 }
 
 // npcIndexByName maps a lowercased localized entity name to the ids of the NPCs

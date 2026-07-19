@@ -9,7 +9,7 @@ import (
 
 // buildFishing decodes float-fishing point locations (client-side; fish-per-spot
 // is server-side), attributes each to a region via the fitted world<->image
-// transform, and writes fishingspots.json + worldmap.json. Skips if absent.
+// transform, and registers fishingspots.json + worldmap.json. Skips if absent.
 func (b *Builder) buildFishing() error {
 	fpData, err := b.src.Read("floatfishingpoint.dbss")
 	if err != nil {
@@ -47,14 +47,14 @@ func (b *Builder) buildFishing() error {
 				Height:    rm.Height,
 				Transform: t,
 			}
-			wp, err := b.write("worldmap.json", wm)
+			wp, err := b.addJSON("worldmap.json", wm)
 			if err != nil {
 				return err
 			}
 			b.logf(fmt.Sprintf("worldmap: base + transform -> %s", wp))
 		}
 	}
-	fp, err := b.write("fishingspots.json", points)
+	fp, err := b.addJSON("fishingspots.json", points)
 	if err != nil {
 		return err
 	}

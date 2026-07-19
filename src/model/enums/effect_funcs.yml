@@ -656,6 +656,7 @@ values:
   - name: KNOWLEDGE_ACQUISITION_ADD_GRADE_UP
     label: "Higher Grade Knowledge Gain Chance"
     unit: "%"
+    stat: higherGradeKnowledgeChance
 
   - name: KNOWLEDGE_ACQUISITION_ADD_INCRE
     label: "Knowledge EXP Up"
@@ -1058,6 +1059,7 @@ values:
   - name: MONSTER_DAM_REDUCE
     label: "Monster Damage Reduction Rate"
     unit: "%"
+    stat: monsterDamageReductionRate
     valueless: true
 
   - name: MON_DAM_REDUCE_ADD
@@ -1303,6 +1305,7 @@ values:
   - name: SWIM_SPEED_INCRE_NO_1
     label: "Swimming Speed"
     unit: "%"
+    stat: swimmingSpeed
 
   - name: SWIM_SPEED_INCRE_NO_2
     label: "Swim Speed Up"

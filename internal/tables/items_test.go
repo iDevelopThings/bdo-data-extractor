@@ -11,7 +11,7 @@ import (
 
 func TestDecodeItemRowVariablePostIconStrings(t *testing.T) {
 	const id = 1234
-	record := make([]byte, 208)
+	record := make([]byte, 212)
 	binary.LittleEndian.PutUint32(record, id)
 	record[4] = eItemTypeEquip
 	record[7] = 1
@@ -25,6 +25,8 @@ func TestDecodeItemRowVariablePostIconStrings(t *testing.T) {
 	record[162] = 255
 	record[169] = 1
 	record[203] = 1
+	binary.LittleEndian.PutUint32(record[204:], 123<<16|1)
+	binary.LittleEndian.PutUint32(record[208:], 456<<16|1)
 
 	record = appendUTF8(record, "New_Icon/test.dds")
 	post := []byte{1, 0, 9, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 2, 1, 0}
@@ -56,6 +58,12 @@ func TestDecodeItemRowVariablePostIconStrings(t *testing.T) {
 	}
 	if stat.MarketRegisterLimit != 500 {
 		t.Fatalf("market limit = %d, want 500", stat.MarketRegisterLimit)
+	}
+	if stat.ItemType != model.ItemTypeEquip {
+		t.Fatalf("item type = %v, want Equip", stat.ItemType)
+	}
+	if stat.SkillKeys != [2]uint32{123<<16 | 1, 456<<16 | 1} {
+		t.Fatalf("skill keys = %v", stat.SkillKeys)
 	}
 	if got := stat.U.UnknownPostIconStrings; got != [3]string{"first", "second", "third"} {
 		t.Fatalf("post-icon strings = %q", got)

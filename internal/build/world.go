@@ -14,7 +14,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/src/urn"
 )
 
-// buildWorld writes world.json — the consolidated geographic database: the 14
+// buildWorld registers world.json — the consolidated geographic database: the 14
 // territories (territoryinfo.bss + loc table 12 English names), all map regions
 // (regioninfo.bss: name, parent area, territory membership, world position;
 // English names from loc table 17 by region key) with their world-space bounds
@@ -232,7 +232,7 @@ func (b *Builder) buildWorld() error {
 	b.regions = regions
 	b.logf(fmt.Sprintf("region spawns: %s", strings.Join(loadedRegionFiles, " -> ")))
 
-	p, err := b.write("world.json", model.World{Territories: terrs, Regions: regions, Nodes: nodes})
+	p, err := b.addJSON("world.json", model.World{Territories: terrs, Regions: regions, Nodes: nodes})
 	if err != nil {
 		return err
 	}
@@ -457,7 +457,7 @@ func (b *Builder) npcTable() ([]model.NPC, error) {
 }
 
 // buildNpcs decodes NPCs, attaches each NPC's spawn locations from the world
-// regions (built by buildWorld), and writes npcs.json.
+// regions (built by buildWorld), and registers npcs.json.
 func (b *Builder) buildNpcs() error {
 	npcs, err := b.npcTable()
 	if err != nil {
@@ -475,11 +475,27 @@ func (b *Builder) buildNpcs() error {
 	if err != nil {
 		return err
 	}
+	functionIndex, err := b.src.Read("characterfunctionoffset.dbss")
+	if err != nil {
+		return err
+	}
+	functionData, err := b.src.Read("characterfunction.dbss")
+	if err != nil {
+		return err
+	}
+	itemServices, err := tables.DecodeCharacterItemServices(functionIndex, functionData)
+	if err != nil {
+		return err
+	}
+	itemServiceIDs := make(map[uint32]bool, len(itemServices))
+	for id := range itemServices {
+		itemServiceIDs[id] = true
+	}
 	// npcsimply stores Korean names inline and omits a few map-role characters.
 	// Join the English names and role flags, then add localized role-bearing
 	// characters so every node-manager and town-service reference can resolve.
 	var added int
-	npcs, added = augmentMapNPCs(npcs, spawnTypes, b.gs.EntityNames, b.gs.EntityTitles)
+	npcs, added = augmentNPCs(npcs, spawnTypes, itemServiceIDs, b.gs.EntityNames, b.gs.EntityTitles)
 	roleNPCs := 0
 	for i := range npcs {
 		if len(npcs[i].SpawnTypes) > 0 {
@@ -505,12 +521,30 @@ func (b *Builder) buildNpcs() error {
 		}
 	}
 	located := 0
+	attachedServices := 0
+	conditionedServices := 0
 	for i := range npcs {
+		if service, ok := itemServices[npcs[i].ID]; ok {
+			npcs[i].ItemService = &model.NPCItemService{
+				Name:         service.SourceName,
+				ConditionDSL: service.ConditionDSL,
+				UnknownType:  service.Unknown0,
+				UnknownKey:   service.UnknownKey,
+			}
+			attachedServices++
+			if service.ConditionDSL != "" {
+				conditionedServices++
+			}
+		}
 		if sp := byChar[npcs[i].ID]; sp != nil {
 			npcs[i].Spawns = sp
 			located++
 		}
 	}
+	b.logf(fmt.Sprintf(
+		"npc item services: %d/%d attached, %d with access conditions",
+		attachedServices, len(itemServices), conditionedServices,
+	))
 	missingManagers := missingNodeManagerSpawns(b.nodesDecoded, npcs)
 	if len(missingManagers) > 0 {
 		return fmt.Errorf(
@@ -525,20 +559,21 @@ func (b *Builder) buildNpcs() error {
 			manager.characterKey, manager.distance, manager.nodeKey,
 		))
 	}
-	np, err := b.write("npcs.json", npcs)
+	np, err := b.addJSON("npcs.json", npcs)
 	if err != nil {
 		return err
 	}
-	b.logf(fmt.Sprintf("npcs: %d (%d added from map roles, %d located, %d with map roles) -> %s", len(npcs), added, located, roleNPCs, np))
+	b.logf(fmt.Sprintf("npcs: %d (%d added from loc roles/services, %d located, %d with map roles) -> %s", len(npcs), added, located, roleNPCs, np))
 
 	b.npcs = npcs
 
 	return nil
 }
 
-func augmentMapNPCs(
+func augmentNPCs(
 	npcs []model.NPC,
 	spawnTypes map[uint32]model.NPCSpawnTypes,
+	itemServiceIDs map[uint32]bool,
 	names map[uint32]string,
 	titles map[uint32]string,
 ) ([]model.NPC, int) {
@@ -554,12 +589,21 @@ func augmentMapNPCs(
 		npcs[i].SpawnTypes = spawnTypes[npcs[i].ID]
 	}
 
-	ids := make([]int, 0)
+	candidates := make(map[uint32]bool, len(spawnTypes)+len(itemServiceIDs))
 	for id, roles := range spawnTypes {
-		if existing[id] || !roles.HasMapRole() || names[id] == "" {
-			continue
+		if roles.HasMapRole() {
+			candidates[id] = true
 		}
-		ids = append(ids, int(id))
+	}
+	for id := range itemServiceIDs {
+		candidates[id] = true
+	}
+
+	ids := make([]int, 0, len(candidates))
+	for id := range candidates {
+		if !existing[id] && (names[id] != "" || itemServiceIDs[id]) {
+			ids = append(ids, int(id))
+		}
 	}
 	sort.Ints(ids)
 	for _, rawID := range ids {

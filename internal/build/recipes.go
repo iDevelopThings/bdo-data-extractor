@@ -14,7 +14,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
-// buildRecipes writes the recipes collected by scanItemInfo (during buildItems).
+// buildRecipes registers the recipes collected by scanItemInfo (during buildItems).
 func (b *Builder) buildRecipes() error {
 	// re-orient imperial-delivery recipes so the SpecialGoods delivery box is the
 	// output (the XMLs list the relationship on both the good's and the box's page,
@@ -38,7 +38,7 @@ func (b *Builder) buildRecipes() error {
 		b.recipes[i].BaseFor = models.NewBaseForKey[model.Recipe](out, recipeIdx[out])
 		recipeIdx[out]++
 	}
-	p, err := b.write("recipes.json", b.recipes)
+	p, err := b.addJSON("recipes.json", b.recipes)
 	if err != nil {
 		return err
 	}
@@ -224,6 +224,13 @@ func (b *Builder) fillQuest(q *model.QuestRef) {
 	q.Desc = qt.Desc
 	q.Giver = qt.Giver
 	q.Objective = qt.Objective
+	packed := index<<16 | group
+	if condition, ok := b.questConditions[packed]; ok && (condition.AcceptDSL != "" || condition.CompleteDSL != "") {
+		q.Conditions = &model.QuestConditions{
+			AcceptDSL:   condition.AcceptDSL,
+			CompleteDSL: condition.CompleteDSL,
+		}
+	}
 }
 
 // isItemXML reports whether p is a per-item info XML named for its item id —

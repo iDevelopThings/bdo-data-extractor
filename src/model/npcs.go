@@ -16,6 +16,18 @@ type NPC struct {
 	// identifies node managers; the other values identify town services.
 	SpawnTypes NPCSpawnTypes `json:"spawnTypes,omitempty"`
 	Spawns     []NPCSpawn    `json:"spawns,omitempty"`
+	// ItemService describes the NPC's shop, exchange or similar item-service module.
+	ItemService *NPCItemService `json:"itemService,omitempty"`
+}
+
+// NPCItemService is an NPC item service and its client-evaluated access condition.
+type NPCItemService struct {
+	Name         string `json:"name"`
+	ConditionDSL string `json:"conditionDsl,omitempty"`
+	// UnknownType appears to classify the surrounding character-function record.
+	UnknownType uint16 `json:"unknownType"`
+	// UnknownKey is the trailing key of the item-service module.
+	UnknownKey uint16 `json:"unknownKey"`
 }
 
 // HasSpawnType reports whether the NPC has spawnType.

@@ -2,7 +2,6 @@ package build
 
 import (
 	"fmt"
-	"os"
 	"path"
 	"slices"
 	"sort"
@@ -10,16 +9,15 @@ import (
 	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/config"
-	"github.com/idevelopthings/bdo-data-extractor/internal/jsonio"
 	"github.com/idevelopthings/bdo-data-extractor/internal/loc"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 	"github.com/idevelopthings/bdo-data-extractor/src/models"
-	"github.com/idevelopthings/bdo-data-extractor/src/utils"
+	"github.com/idevelopthings/bdo-data-extractor/src/output"
 )
 
 // buildItems decodes the item-stat, max-level, buff/skill, and enchant tables,
-// merges them into one Item per id, flags gathered materials, and writes items.json.
+// merges them into one Item per id, flags gathered materials, and registers its outputs.
 func (b *Builder) buildItems() error {
 	encOff, err := b.src.Read("itemenchantoffset.dbss")
 	if err != nil {
@@ -57,7 +55,11 @@ func (b *Builder) buildItems() error {
 	if err != nil {
 		return err
 	}
-	buffs, err := tables.DecodeBuffs(buffDat)
+	buffOff, err := b.src.Read("buffoffset.dbss")
+	if err != nil {
+		return err
+	}
+	buffs, err := tables.DecodeBuffs(buffOff, buffDat)
 	if err != nil {
 		return err
 	}
@@ -96,6 +98,9 @@ func (b *Builder) buildItems() error {
 	b.items = b.mergeItems(stats, maxlv, buffs, skills, curves, links)
 	b.logf(fmt.Sprintf("icons: backfilled %d name-only items from id-named archive icons", b.backfillShellIcons()))
 	b.scanItemInfo() // populates b.recipes (needed to tell raw mats from processed)
+	if err := b.attachItemRentals(); err != nil {
+		return err
+	}
 
 	gathered := b.flagGathered()
 	b.logf(fmt.Sprintf("itemmaking: flagged %d gathered items", gathered))
@@ -110,18 +115,17 @@ func (b *Builder) buildItems() error {
 	if err := b.buildItemSets(); err != nil {
 		return err
 	}
+	if err := b.buildLightstoneCombinations(buffs, skills); err != nil {
+		return err
+	}
+	if err := b.buildClassSkills(buffs, skills); err != nil {
+		return err
+	}
+	if err := b.buildCrystalRules(); err != nil {
+		return err
+	}
 
-	// Write items.json + item_enhancements.json (the 400MB+ bulk of the output) in
-	// the background while the sidecar stages build; Run joins via awaitWrite. Safe
-	// because b.items/b.enhancements are frozen after this point — later stages only
-	// read them.
-	b.writeDone = make(chan writeResult, 1)
-	go func() {
-		n, size, err := b.writeItems()
-		b.writeDone <- writeResult{n, size, err}
-	}()
-
-	return nil
+	return b.addItemOutputs()
 }
 
 func validateItemMarketCategories(stats map[uint32]tables.ItemStat, categories map[uint32]loc.MarketCat) error {
@@ -137,30 +141,6 @@ func validateItemMarketCategories(stats map[uint32]tables.ItemStat, categories m
 			return fmt.Errorf("itemenchant item %d: market subcategory %d/%d is absent from loc table 44", id, stat.MarketCatID, stat.MarketSubID)
 		}
 	}
-
-	return nil
-}
-
-// writeResult carries the outcome of the background items/enhancements write.
-type writeResult struct {
-	n    int
-	size int64
-	err  error
-}
-
-// awaitWrite blocks until the background writeItems started by buildItems finishes,
-// logs the result, and returns its error. It is a no-op (and safe to call again) if
-// no write is pending.
-func (b *Builder) awaitWrite() error {
-	if b.writeDone == nil {
-		return nil
-	}
-	res := <-b.writeDone
-	b.writeDone = nil
-	if res.err != nil {
-		return res.err
-	}
-	b.logf(fmt.Sprintf("wrote %d items -> %s (%.1f MB)", res.n, "items.json", float64(res.size)/1e6))
 
 	return nil
 }
@@ -229,10 +209,10 @@ func (b *Builder) mergeItems(
 		it.ItemUnknowns = s.U
 		if s.JewelGroup >= 0 {
 			if g, ok := b.gs.JewelGroups[uint32(s.JewelGroup)]; ok {
-				it.CrystalGroup = &model.CrystalGroup{Name: g.Name, Max: g.Max}
+				it.CrystalGroup = &model.CrystalGroup{Key: uint32(s.JewelGroup), Name: g.Name, Max: g.Max}
 			}
 		}
-		if s.ItemType == "Equip" { // group the equip slot taxonomy (@14 slot / @15 kind / @7 type)
+		if s.ItemType == model.ItemTypeEquip { // group the equip slot taxonomy (@14 slot / @15 kind / @7 type)
 			typ := s.EquipType
 			if typ == "None" {
 				typ = ""
@@ -247,8 +227,9 @@ func (b *Builder) mergeItems(
 			it.MarketCategory = mc.Name
 			it.MarketSubCategory = mc.Subs[uint32(s.MarketSubID)]
 		}
-		if se, ok := skills[s.SkillKey]; ok && s.SkillKey != 0 {
-			it.Effects = b.buildEffects(buffs, se)
+		merged := mergeItemSkillEffects(s.SkillKeys, skills)
+		if len(merged.Buffs) > 0 {
+			it.Effects = b.buildEffects(buffs, merged)
 		}
 	}
 	for id, lv := range maxlv {
@@ -275,6 +256,30 @@ func (b *Builder) mergeItems(
 		}
 	}
 	return items
+}
+
+// mergeItemSkillEffects combines the two fixed item skill slots in record
+// order. Shared component buffs are applied once and the longest cooldown wins.
+func mergeItemSkillEffects(keys [2]uint32, skills map[uint32]tables.SkillEffect) tables.SkillEffect {
+	var merged tables.SkillEffect
+	seenBuffs := make(map[uint16]bool)
+	for _, key := range keys {
+		se, ok := skills[key]
+		if !ok || key == 0 {
+			continue
+		}
+		if se.CooldownMs > merged.CooldownMs {
+			merged.CooldownMs = se.CooldownMs
+		}
+		for _, buffID := range se.Buffs {
+			if seenBuffs[buffID] {
+				continue
+			}
+			seenBuffs[buffID] = true
+			merged.Buffs = append(merged.Buffs, buffID)
+		}
+	}
+	return merged
 }
 
 // backfillShellIcons fills Icon for items the stat table gave no icon — mostly
@@ -324,7 +329,7 @@ func (b *Builder) finalizeItems(maxlv map[uint32]int) (untradable, caphras, vari
 		if it.Name == "" {
 			continue
 		}
-		if it.ItemType == "" && it.Icon == "" { // a loc name with no item data: a ghost record
+		if it.Category == "" && it.Icon == "" { // a loc name with no item data: a ghost record
 			it.Ghost = true
 			ghosts++
 			continue
@@ -333,7 +338,14 @@ func (b *Builder) finalizeItems(maxlv map[uint32]int) (untradable, caphras, vari
 		if it.EquipInfo != nil {
 			slot = it.EquipInfo.Slot.String()
 		}
-		k := vkey{it.Name, it.ItemType, it.Category, it.Grade, it.Icon, slot}
+		k := vkey{
+			name:  it.Name,
+			cat:   it.Category,
+			typ:   it.ItemType,
+			grade: it.Grade,
+			icon:  it.Icon,
+			slot:  slot,
+		}
 		groups[k] = append(groups[k], it)
 	}
 	variants = assignVariants(groups)
@@ -419,33 +431,63 @@ func labelEnchantLevels(enh *model.Enhancement, category string) {
 // the longest buff duration among the resolved effects. Returns nil if empty.
 func (b *Builder) buildEffects(buffs map[uint16]tables.Buff, se tables.SkillEffect) *model.Effects {
 	var stats, hidden []model.StatMod
+	var categories, clears model.BuffStackingCategories
 	dur := 0
-	bump := func(bid uint16) {
-		if d := buffs[bid].DurationMs; d > dur {
+	makeStat := func(buff tables.Buff, id model.StatId, stat, op string, val float64, unit string) model.StatMod {
+		duration := buff.DurationMs
+		if duration < 0 {
+			duration = 0
+		}
+		return model.StatMod{
+			Stat:         stat,
+			StatID:       id,
+			Op:           op,
+			Value:        val,
+			Unit:         unit,
+			Buff:         uint32(buff.Index),
+			BuffModule:   buff.Module,
+			BuffGroup:    buff.Group,
+			BuffCategory: model.BuffStackingCategory(buff.StackingCategory),
+			DurationMs:   duration,
+			Instant:      buff.IsInstant(),
+		}
+	}
+	bump := func(buff tables.Buff) {
+		if d := buff.DurationMs; d > dur {
 			dur = d
 		}
 	}
 	for _, bid := range se.Buffs {
-		if stat, op, val, unit, ok := tables.ResolveBuffStat(buffs[bid]); ok {
-			stats = append(stats, model.StatMod{Stat: stat, Op: op, Value: val, Unit: unit, Buff: uint32(bid)})
-			bump(bid)
+		buff := buffs[bid]
+		categories.Add(model.BuffStackingCategory(buff.StackingCategory))
+		if clearCategory, ok := buff.ClearsStackingCategory(); ok {
+			clears.Add(model.BuffStackingCategory(clearCategory))
+			continue
+		}
+		if resolved, ok := tables.ResolveBuffStat(buff); ok {
+			stats = append(stats, makeStat(buff, resolved.ID, resolved.Label, resolved.Op, resolved.Value, resolved.Unit))
+			bump(buff)
 			continue
 		}
 		if name := b.gs.BuffNames[uint32(bid)]; name != "" {
 			if stat, op, val, unit, ok := tables.ParseStat(name); ok {
-				stats = append(stats, model.StatMod{Stat: stat, Op: op, Value: val, Unit: unit, Buff: uint32(bid)})
-				bump(bid)
+				id, _ := model.StatIDFromLabel(stat)
+				stats = append(stats, makeStat(buff, id, stat, op, val, unit))
+				bump(buff)
 			}
 			continue // named but non-stat (e.g. the Satiated debuff): drop
 		}
-		if stat, op, val, unit, ok := tables.ParseHiddenStat(buffs[bid].NameKR); ok {
-			hidden = append(hidden, model.StatMod{Stat: stat, Op: op, Value: val, Unit: unit, Buff: uint32(bid)})
-			bump(bid)
+		if stat, op, val, unit, ok := tables.ParseHiddenStat(buff.NameKR); ok {
+			id, _ := model.StatIDFromLabel(stat)
+			hidden = append(hidden, makeStat(buff, id, stat, op, val, unit))
+			bump(buff)
 		}
 	}
-	if len(stats) == 0 && len(hidden) == 0 {
+	if len(stats) == 0 && len(hidden) == 0 && len(categories) == 0 && len(clears) == 0 {
 		return nil
 	}
+	slices.Sort(categories)
+	slices.Sort(clears)
 
 	statGroup, hiddenGroup := model.EffectGroup{}, model.EffectGroup{}
 	if len(stats) > 0 {
@@ -458,22 +500,17 @@ func (b *Builder) buildEffects(buffs map[uint16]tables.Buff, se tables.SkillEffe
 	}
 
 	return &model.Effects{
-		CooldownMs: se.CooldownMs,
-		DurationMs: dur,
-		Stats:      statGroup,
-		Hidden:     hiddenGroup,
+		CooldownMs:           se.CooldownMs,
+		DurationMs:           dur,
+		Stats:                statGroup,
+		Hidden:               hiddenGroup,
+		BuffCategories:       categories,
+		ClearsBuffCategories: clears,
 	}
 }
 
-// writeItems sorts items by id and writes them to outPath. Returns the item
-// count and the written file size.
-func (b *Builder) writeItems() (count int, size int64, err error) {
-	timed := utils.Timed(fmt.Sprintf("writeItems: %d items + %d enhancements", len(b.items), len(b.enhancements)))
-	defer timed()
-
-	_, itemsPath := b.outFilePath("items.json")
-	_, enhancementsPath := b.outFilePath("item_enhancements.json")
-
+// addItemOutputs sorts the two bulk datasets and registers their JSON artifacts.
+func (b *Builder) addItemOutputs() error {
 	ids := make([]uint32, 0, len(b.items))
 	eIds := make([]uint32, 0, len(b.enhancements))
 
@@ -513,25 +550,21 @@ func (b *Builder) writeItems() (count int, size int64, err error) {
 		enhancements[i] = b.enhancements[id]
 	}
 
-	if err := jsonio.WriteArray(itemsPath, list, *config.GlobalConfig.Pretty); err != nil {
-		return 0, 0, err
+	if err := b.addExclusiveOutput("items.json", output.NewJSONArray(list)); err != nil {
+		return err
 	}
-	if err := jsonio.WriteArray(enhancementsPath, enhancements, *config.GlobalConfig.Pretty); err != nil {
-		return 0, 0, err
+	if err := b.addExclusiveOutput("item_enhancements.json", output.NewJSONArray(enhancements)); err != nil {
+		return err
 	}
-	fi, _ := os.Stat(itemsPath)
-	efi, _ := os.Stat(enhancementsPath)
 
 	if len(toDump) > 0 {
-		_, dumpPath := b.outFilePath("dumped_items.json")
-		if err := jsonio.WriteFile(dumpPath, toDump, *config.GlobalConfig.Pretty); err != nil {
-			return 0, 0, err
+		if _, err := b.addJSON("dumped_items.json", toDump); err != nil {
+			return err
 		}
-		dfi, _ := os.Stat(dumpPath)
-		b.logf(fmt.Sprintf("dumped %d items to %s (%d bytes)", len(toDump), dumpPath, dfi.Size()))
+		b.logf(fmt.Sprintf("prepared %d requested items -> dumped_items.json", len(toDump)))
 	}
-
-	return len(list), fi.Size() + efi.Size(), nil
+	b.logf(fmt.Sprintf("prepared %d items and %d enhancement curves", len(list), len(enhancements)))
+	return nil
 }
 
 // vkey is the strict identity that reissued copies of one item share (the bound
@@ -542,9 +575,10 @@ func (b *Builder) writeItems() (count int, size int64, err error) {
 // real gear's name and icon, but an item worn in a different slot is never a
 // reissue of the combat piece, so the two must stay separate records.
 type vkey struct {
-	name, typ, cat string
-	grade          model.ItemGrade
-	icon, slot     string
+	name, cat  string
+	typ        model.ItemType
+	grade      model.ItemGrade
+	icon, slot string
 }
 
 // assignVariants picks the canonical record in each multi-copy group and points the

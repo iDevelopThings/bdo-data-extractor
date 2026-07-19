@@ -76,6 +76,7 @@ type LifeSkillTypeInfo struct {
 	NativeName  string
 	Playable    bool
 	MasteryStat StatId
+	ExpStat     StatId
 	Reserved    bool
 }
 
@@ -87,6 +88,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "gathering",
 		Playable:      true,
 		MasteryStat:   StatIdGatheringMastery,
+		ExpStat:       StatIdGatheringExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeFishing: {
@@ -96,6 +98,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "fishing",
 		Playable:      true,
 		MasteryStat:   StatIdFishingMastery,
+		ExpStat:       StatIdFishingExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeHunting: {
@@ -105,6 +108,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "hunting",
 		Playable:      true,
 		MasteryStat:   StatIdHuntingMastery,
+		ExpStat:       StatIdHuntingExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeCooking: {
@@ -114,6 +118,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "cooking",
 		Playable:      true,
 		MasteryStat:   StatIdCookingMastery,
+		ExpStat:       StatIdCookingExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeAlchemy: {
@@ -123,6 +128,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "alchemy",
 		Playable:      true,
 		MasteryStat:   StatIdAlchemyMastery,
+		ExpStat:       StatIdAlchemyExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeProcessing: {
@@ -132,6 +138,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "processing",
 		Playable:      true,
 		MasteryStat:   StatIdProcessingMastery,
+		ExpStat:       StatIdProcessingExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeTraining: {
@@ -141,6 +148,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "training",
 		Playable:      true,
 		MasteryStat:   StatIdTrainingMastery,
+		ExpStat:       StatIdTrainingExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeTrading: {
@@ -150,6 +158,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "trading",
 		Playable:      true,
 		MasteryStat:   StatIdTradingMastery,
+		ExpStat:       StatIdTradingExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeFarming: {
@@ -159,6 +168,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "farming",
 		Playable:      true,
 		MasteryStat:   StatIdFarmingMastery,
+		ExpStat:       StatIdFarmingExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeSailing: {
@@ -168,6 +178,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		NativeName:    "sailing",
 		Playable:      true,
 		MasteryStat:   StatIdSailingMastery,
+		ExpStat:       StatIdSailingExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeQuest: {
@@ -184,6 +195,7 @@ var lifeSkillTypeInfos = map[LifeSkillType]LifeSkillTypeInfo{
 		Title:         "Bartering",
 		NativeName:    "bartering",
 		Playable:      true,
+		ExpStat:       StatIdBarteringExp,
 		Reserved:      false,
 	},
 	LifeSkillTypeReserved12: {
@@ -346,6 +358,10 @@ func (v LifeSkillType) Playable() bool {
 
 func (v LifeSkillType) MasteryStat() StatId {
 	return lifeSkillTypeInfos[v].MasteryStat
+}
+
+func (v LifeSkillType) ExpStat() StatId {
+	return lifeSkillTypeInfos[v].ExpStat
 }
 
 func (v LifeSkillType) Reserved() bool {

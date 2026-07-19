@@ -164,7 +164,7 @@ func (b *Builder) buildItemSets() error {
 		}
 	}
 
-	name, err := b.write("item_sets.json", b.itemSets)
+	name, err := b.addJSON("item_sets.json", b.itemSets)
 	if err != nil {
 		return err
 	}

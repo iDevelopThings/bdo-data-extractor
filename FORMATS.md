@@ -18,9 +18,13 @@ Contents:
 4. [itemmaxlevel.dbss](#4-itemmaxleveldbss)
 5. [enchantstaticstatus.dbss — enhancement curves](#5-enchantstaticstatusdbss--enhancement-curves)
    - [skillpiece.dbss — item-set definitions](#skillpiecedbss--item-set-definitions)
+   - [lightstoneset.bss — artifact/lightstone combinations](#lightstonesetbss--artifactlightstone-combinations)
 6. [cronenchant.bss — Caphras chart](#6-cronenchantbss--caphras-chart)
 7. [Consumable effect chain](#7-consumable-effect-chain-itemskillbuff)
+   - [Player skill groups and passive stats](#player-skill-groups-and-passive-stats)
 8. [.loc localization](#8-loc-localization)
+   - [Crystal transfusion rules](#crystal-transfusion-rules)
+   - [Adventure journals and family stats](#adventure-journals-and-family-stats)
 9. [Recipes](#9-recipes-per-item-xmls)
 10. [territoryinfo.bss — territories](#10-territoryinfobss--territories)
 11. [regioninfo.bss — regions](#11-regioninfobss--regions)
@@ -96,8 +100,9 @@ strings). See `internal/bss/reader.go`.
   and `buff.dbss` are this shape.
 
 A schema (`internal/schema`) is an ordered `[]Field`; `ReadAll` walks records by it.
-That works for tables with **one uniform record layout** (e.g. `buff.dbss`); tables
-with type-conditional layouts (e.g. `itemenchant.dbss`) are read positionally.
+That works for tables with **one uniform record layout**. Tables with variable or
+type-conditional layouts are read sequentially inside the record boundaries supplied
+by their offset index.
 
 ### Offset index — `*offset.dbss`
 
@@ -126,7 +131,7 @@ enchant-entry rows (keys ~3e8); a true item row also has `u32 @0 == key`.
 
 ### Fixed scalar header
 
-Read positionally from @0 to @208 (`internal/tables/items.go`). Offsets are byte-exact
+Read positionally from @0 to @212 (`internal/tables/items.go`). Offsets are byte-exact
 and unaligned:
 
 | @ | Type | Field | Notes |
@@ -173,11 +178,38 @@ and unaligned:
 | 200 | byte | marketCategory id | → localization table 44 |
 | 201 | byte | marketSubCategory id | |
 | 202 | bool | nodeFreeTrade | |
-| 204 | u32 | skillKey | consumables → skill chain (§7) |
+| 204 | u32 | skillKey[0] | primary consumable skill → effect chain (§7) |
+| 208 | u32 | skillKey[1] | additional skill; used by composite meals and a small number of other items |
 
 Bytes not yet identified are captured as typed, deviation-only `ItemUnknowns`
 (`unknown8`, `unknown85`, …). Constant runs are consumed and validated, so the
-header ends exactly at @208 without relying on an anchor.
+header ends exactly at @212 without relying on an anchor.
+
+### `EItemType` and the tooltip label
+
+The top-right item classification in the item tooltip comes from `itemType @4`, not
+`EItemClassify @5`. The tooltip Lua reads `getItemType()` and selects these localized
+GAME-sheet strings:
+
+| Value | `EItemType` name | Tooltip label |
+|---:|---|---|
+| 0 | Normal | General |
+| 1 | Equip | Equipment |
+| 2 | Skill | Consumable |
+| 3 | Tent | Holding Tool |
+| 4 | Installation | Installable Object |
+| 5 | Jewel | Socket Item |
+| 6 | CannonBall | Cannonball |
+| 7 | Mapae | License |
+| 8 | Material | Crafting Material |
+| 9 | Interaction | Enter Area |
+| 10 | ContentsEvent | Special Items |
+| 11–19 | ToVehicle / unidentified or reserved | General |
+
+Trade goods add a contextual override: type 2 displays `Trade Item`; type 8 displays
+`Crafting Material/Trade Item`; other types display `<label>/Trade Item`. The extractor
+exports the numeric `ItemType` enum and its generated metadata supplies the ordinary
+tooltip title. `ItemType.TooltipTitle(forTrade)` applies the trade override.
 
 ### Name / Icon / EnchantKey (positional)
 
@@ -424,6 +456,45 @@ their `skillNo`. Do not match localized description text: wording and stat names
 by language. Families without a distinctive marker require another confirmed client
 relation or a small explicit, auditable member list.
 
+### `lightstoneset.bss` — artifact/lightstone combinations
+
+This PABR table defines the named bonuses activated by combinations of three or four
+lightstones in an artifact setup. The row key is also the id in localization table
+**113**. The referenced skill supplies the actual effects through the normal
+`skill.dbss` → `buff.dbss` chain.
+
+Rows are packed consecutively without an item-count field:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | key | combination id; loc table 113 id |
+| 4 | u32 | skillKey | low 16 bits identify the skill |
+| 8 | u16 | reserved | zero |
+| 10 | u32 ×3 | requiredItems | first three required item ids; duplicates are meaningful |
+| 22 | u32 | fourthItem | present only for four-lightstone combinations |
+| 22 or 26 | u32 | descriptionIndex | embedded Korean UTF-16 string-table index |
+
+There is no explicit discriminator for the optional fourth item. Item ids and string
+indexes occupy disjoint key spaces: the next `u32` is the fourth item when it is not a
+valid string index. The corresponding `skilloffset.dbss` key is
+`(uint16(skillKey) << 16) | 1`, where `1` is skill level one.
+
+After all rows is a global item-equivalence map:
+
+| Order | Type | Field | Notes |
+|---|---|---|---|
+| 1 | u32 | aliasCount | number of pairs |
+| 2 | repeated u32 ×2 | item / countsAs | alternate item and the canonical requirement it satisfies |
+
+The map is how amplified lightstones satisfy requirements written for their ordinary
+counterparts. It also contains identity pairs. Some aliases can reference client
+records omitted from a localized item table. The output therefore preserves numeric
+`itemId`/`countsAsId` values for every pair and adds item URNs only when resolvable.
+
+`enchantlightstone.bss` and `lightstoneenchantgroup.bss` are valid but empty PABR
+tables in the current client; individual artifact and lightstone stats are carried by
+their ordinary item/enhancement records.
+
 ---
 
 ## 6. `cronenchant.bss` — Caphras chart
@@ -478,18 +549,23 @@ record's stride, not contiguously.
 
 ## 7. Consumable effect chain (item→skill→buff)
 
-Food and elixirs are `itemType = "Skill"`: using one casts a skill that applies buffs.
-The data is a three-table chain (`internal/tables/buffs.go`). A consumable's `skillKey`
-(`u32 @192` in the item row) indexes `skilloffset.dbss` → a record in `skill.dbss`, which
+Food and elixirs use `ItemTypeSkill` (`itemType = 2`): using one casts a skill that applies buffs.
+The data is a three-table chain (`internal/tables/buffs.go`). A consumable's skill keys
+(`u32[2] @204/@208` in the item row) indexes `skilloffset.dbss` → records in `skill.dbss`, which
 carries the cooldown (`u32 @95`, ms; kept when >0, ≤1e8, %1000==0) and a `u16` buff-index
-list from `@99` (read until a 0, or an index absent from `buff.dbss`). Each index →
-a `buff.dbss` record; English effect names come from localization table 5 (key1==0).
+list from `@99` (read until a 0, or an index absent from `buff.dbss`). Effects from both
+skill slots are combined in slot order. Each index →
+a `buff.dbss` record. A skill therefore applies several buff records; a module does not
+contain or grant skills. Each buff has one `ModuleType` selecting how its arguments are
+interpreted.
 
 ### `buff.dbss` schema
 
-Non-PABR, uniform record layout (validated to consume all 44,178 records), read with a
-schema (`internal/schema/buff.go`). Fields in order (strings are variable-length, so the
-schema is walked sequentially rather than by fixed offset):
+`buffoffset.dbss` is a PABR index with 10-byte rows `[u16 key, u32 offset, u32 size]`.
+Its 44,295 entries tile `buff.dbss` exactly after the four-byte row count, and every
+index key equals the `Index` at the start of its record. The index supplies the record
+boundaries; fields are then consumed sequentially because inline strings make the
+records variable-length:
 
 | Type | Field | Notes |
 |---|---|---|
@@ -505,13 +581,21 @@ schema is walked sequentially rather than by fixed offset):
 | u8 | IsAbsolute | |
 | u8 | IsOverlapped | |
 | [92 bytes] | EffectData | module arguments (below) |
-| i32 | DurationMs | |
-| [25 bytes] | — | unmapped |
+| i32 | DurationMs | milliseconds; negative values are preserved by the decoder |
+| [25 bytes] | UnknownDuration | application/timing fields, unmapped |
 | Text | ApplyToGroup | |
 | UtfText | Icon | UTF-8 path |
-| byte, i32 | — | unmapped |
+| u8 | UnknownIconByte | unmapped |
+| i32 | UnknownIconValue | unmapped |
 | Text | Desc | |
-| [27 bytes] | — | unmapped |
+| [24 bytes] | UnknownTail0To23 | unmapped trailing configuration |
+| u8 | StackingCategory | broad buff family/control category |
+| u8 | UnknownTail25 | normally 1 for categorized effects |
+| u8 | UnknownTail26 | unmapped |
+
+`buffsimply.bss` is a 30-byte-per-row PABR projection over the same 44,295 buff keys.
+It includes the icon string-table reference but not the complete effect arguments, so
+the full `buff.dbss` record remains the source for effect decoding.
 
 ### Effect modules (structured effects)
 
@@ -536,6 +620,7 @@ reverse-engineered and hand-named. Representative signatures (full table `buffMo
 | module | signature | meaning |
 |---|---|---|
 | 2/3/5/6/8 | (amount) | Max HP / HP Recovery / MP / MP Recovery / Stamina |
+| 63 | (amount) | immediate Worker Stamina recovery |
 | 29 | (amount×10000) | Weight Limit (LT) |
 | 9/10/11/30/50/57 | (amount%) | Move/Attack/Cast Speed, Crit Rate, Mount EXP, Drop Rate |
 | 25 | (amount%, kind, lifeSkill) | kind 0 Combat / 1 Skill / 2 life-skill EXP |
@@ -545,6 +630,9 @@ reverse-engineered and hand-named. Representative signatures (full table `buffMo
 | 67 | (kind, ranks) | potential slots |
 | 93 | (kind, amount%) | special-attack extra damage |
 | 80 / 149 | (lifeSkill, amount) / (lifeSkill, _, amount) | life-skill EXP / mastery |
+| 79 | (amount) | immediate Energy recovery |
+| 89 | (fitness, amount, rule) | immediate Breath / Strength / Health EXP |
+| 90 | (amount%) | Death Penalty Resistance |
 | 128 | (kind, amount%) | weather resistance |
 | 95 | (ms) | Underwater Breathing (sec) |
 
@@ -558,12 +646,112 @@ Critical Hits / Retaliation"); **111** manufacturing — value slot 1, slot 0 se
 Alchemy/Cooking Time or Processing Success Rate; **120** Monster DR — slot 0 = Rate% vs
 flat; **136** extra AP — the value's *slot* is the variant (vs Monsters / Adventurers).
 
-Fallbacks: a module not in the table falls back to the localization-table-5 English name parsed into
-`{stat, op, value, unit}`; a buff with neither is *hidden* (the game doesn't show it
-either) and named from the Korean. A "master" buff (a draught's headline) carries the
-full multi-line text in localization table 5 while its component buffs are Korean-only — which is why
-text parsing alone under-counts, and the module decode is primary. `BuffType` is not a
-usable shown/hidden flag (it's `1` for nearly everything).
+Module 58 is the composite/preset record used by draughts, perfumes and Cron meals. Its
+description is the multi-line headline shown by the client, while sibling buff rows
+carry the individually structured effects. Item rows contain two fixed skill keys;
+composite meals distribute their component buffs across both skill records. Some
+components also have public skills keyed `(buff.Index << 16) | 1`, but those are not the
+item's link. Combining both item skill slots recovers the complete Cron-meal effects
+without parsing localized descriptions.
+
+Module 184 is the meal's Satiated marker. Module 38 appears on internal/proxy consumable
+records and its argument is not an item foreign key. Neither is emitted as a stat
+modifier.
+
+### Buff replacement and consumable families
+
+`Group` and `StackingCategory` describe different scopes. `Group` is the narrow
+replacement key for variants of one effect: food buffs of different grades and
+durations that grant Max HP all use group 5616, for example. Consumers should keep at
+most the active member of a nonzero group rather than summing two members of that same
+group. Across linked consumables, all 130 shared groups whose modules resolve contain
+one canonical stat type; none mix unrelated stats (four additional groups contain only
+unresolved marker modules).
+
+`StackingCategory` is a broader family/control byte shared by every component of a
+consumable. Its confirmed values are:
+
+| value | family/control | evidence |
+|---:|---|---|
+| 1 | food | ordinary meals and all their component buffs |
+| 2 | elixir/draught | ordinary elixirs and every draught component |
+| 6 | perfume | every perfume component |
+| 10 | Cron/special-meal secondary effect | secondary meal skill and its extra components |
+| 21 | whale-tendon elixir | Whale Tendon, Tough Whale Tendon and Sturdy Whale Tendon effects |
+| 26 | draught reset control | unique module-58 `영약 추가 효과 초기화` record |
+
+Draught items carry a second fixed skill applying the category-26 control buff. That
+control clears category 2, explaining why the last draught replaces other draught and
+ordinary elixir effects while category-6 perfumes and category-21 whale-tendon elixirs
+remain. `Effects.buffCategories` contains every nonzero category in the complete item
+buff chain, including non-stat control records; a draught therefore carries `[2,26]`,
+a perfume `[6]`, and a Cron meal `[1,10]`. `Effects.clearsBuffCategories` contains the
+families removed on use, so it contains `[2]` for a draught. Each emitted stat also
+retains `buffGroup` and `buffCategory`, allowing consumers to apply both the narrow
+replacement rule and broad reset rule without parsing tooltip text. `ConditionType`
+is unrelated to this mechanism; it selects triggers such as on-hit or
+on-critical-hit recovery.
+
+Fallbacks: a module not in the table falls back to the localization-table-5 English
+name parsed into `{stat, op, value, unit}`; a buff with neither is kept as a hidden
+Korean-named effect when it can be parsed. Text parsing alone under-counts consumables
+because many component buffs are Korean-only, so the binary module decode is primary.
+Resolved effects also carry a canonical `statId` where the shared stat model has an
+equivalent accumulator key; `buffModule` remains available for traceability. Each
+emitted stat preserves its own duration and whether it is immediate;
+the item-level duration is only the longest timed component. `BuffType` is not a usable
+shown/hidden flag (it is `1` for nearly everything).
+
+### Player skill groups and passive stats
+
+Player abilities are split across a rank-chain table, per-class UI grids and the
+ordinary skill→buff effect chain. This is enough to associate a passive with a class,
+select its learned rank and apply its canonical stat modifiers without parsing tooltip
+text. A selected rank replaces the earlier rank; the rank effects are not cumulative.
+
+`skillgroup.bss` is a non-PABR rank map:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | groupCount | |
+| row +0 | u16 | groupNo | joins UI skill-grid cells |
+| row +2 | u32 | rankCount | includes the unlearned entry |
+| row +6 | u32 ×rankCount | skillKeys | first key is 0; remaining keys pack `skillNo << 16 \| skillLevel` |
+
+`ui_skillgroup_combat.bss` and `ui_skillgroup_awakening.bss` are PABR tables with one
+variable row per class. Their grid cells tile the record stream exactly:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| row +0 | u8 | classType | playable-class enum |
+| row +1 | u32 | width | grid columns |
+| row +5 | u32 | height | grid rows |
+| cell +0 | u32 | typeCount | number of drawing/cell types |
+| cell +4 | u8 ×typeCount | types | type 2 means the cell owns a skill group |
+| — | u16 | groupNo | low half of the packed cell value |
+| — | u8 | unknown | middle byte of the packed cell value |
+| — | u8 | subGroup | high byte of the packed cell value |
+
+The grids are row-major and preserve blank/line cells as well as skill cells, so they
+can reproduce the class skill-tree layout. A subgroup directory follows all class
+grids; its string keys are readable, but its internal entries remain preserved as an
+unknown footer.
+
+`skilltype.dbss` supplies each rank's identity. The paired offset index points past a
+repeated four-byte row key; the record itself begins:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | skillKey | matches the offset-index key |
+| 4 | inline UTF-16 | sourceName | Korean skill/rank name |
+| — | inline UTF-16 | sourceGroupName | Korean family name; may be empty |
+| — | u32 | kind | 0 unknown/internal, 1 active, 2 passive |
+| — | variable | action configuration | animation, icon, presentation and combat behavior; not decoded here |
+
+Localization table 10 maps `skillNo` to the displayed name and description. Passive
+rank effects use the same `skill.dbss` → `buff.dbss` chain described above. For example,
+the client data resolves Sword Training XX to All AP +1 and All Evasion +2, Precise
+Martial Arts to All AP +5, and Infinite Mastery VI to Max HP +200 and All Accuracy +18.
 
 ---
 
@@ -592,6 +780,7 @@ file is ~1.38M strings across ~114 `key0` tables. The ones this tool joins:
 | 5 | buff / effect display names (key1==0) |
 | 6 | entity names — classes, creatures, NPCs, resources (NPC English names) |
 | 9 | knowledge theme / category names |
+| 10 | skill names and descriptions, keyed by skill number |
 | 12 | territories — field 0 = nation, description = territory name |
 | 17 | topography — place / region names |
 | 18 | quests — name, description, giver, objective |
@@ -602,6 +791,25 @@ file is ~1.38M strings across ~114 `key0` tables. The ones this tool joins:
 | 115/116/117 | Monster Zone Info sub-category / zone / tag names |
 | 121 | crystal transfusion group — id = group, key1 = max count, text = name |
 | 123 | workshop / house names (by `eHouseIconType`) |
+
+### Crystal transfusion rules
+
+An item's footer carries its crystal group number. Localization table 121 supplies the
+display name and limit, while `jewelgroupstaticstatus.bss` independently defines the
+same limit and is used as the structural source of truth:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | sourceNameIndex | index into the table's Korean UTF-16 string table |
+| 4 | u16 | groupNo | joins the item footer and loc table 121 |
+| 6 | u16 | maxCount | 1000 represents no practical limit |
+
+`jewelspecialslotsgroupstaticstatus.bss` restricts newer preset slots to particular
+crystal groups. Its variable rows are `[u8 specialSlot][u32 count][count × u16
+groupNo]`. Confirmed special-slot values are 14 costume armor, 17 necklace, 18/19
+rings, 20/21 earrings and 22 belt. Costume armor accepts Ancient Spirit group 101;
+the six accessory slots accept Dawn group 103. The extracted `crystal_rules.json`
+keeps the numeric relations so consumers do not need localized-name matching.
 
 Internal table text (Name fields in `.dbss`) is **Korean** even on the EU client; the
 display text is resolved through `.loc` by id. Searching the binaries for English finds
@@ -864,6 +1072,112 @@ client's `lvdd`/`lvpv` terminology make attack/defence growth plausible, but tha
 interpretation is not yet strong enough to expose as a named gameplay stat.
 
 The class groups end exactly 200 zero bytes before the PABR string table.
+
+### Adventure journals and family stats
+
+`journalquest.dbss` describes the adventure bookshelf: journal groups, books and the
+ordered quest ids used as pages. Its first `u32` is the journal-group count. Each
+group begins with a `u32 bookCount`, followed by its variable-length book records.
+`journalquestoffset.dbss` supplies the grouping and exact record boundaries:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | groupCount | Number of following journal groups |
+| 4 | repeated | groups | `{u32 groupKey, u32 bookCount, bookCount × BookIndex}` |
+
+| BookIndex @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u32 | bookKey | Book number within the group |
+| 4 | u32 | offset | Absolute offset in `journalquest.dbss` |
+| 8 | u32 | size | Exact record length |
+
+Book-index order is UI order and need not be physical file order. The indexed records,
+plus one four-byte book count per group, tile the data file exactly.
+
+| Book record field | Type | Notes |
+|---|---|---|
+| journalKey | u32 | Matches the containing group |
+| bookKey | u32 | Matches the offset-index key |
+| unknown8 | u8 | Boolean; set on several narrative journals |
+| sourceJournalName | inline UTF-16 | Korean source title |
+| sourceJournalDescription | inline UTF-16 | Korean source description |
+| sourceBookName | inline UTF-16 | Korean volume title |
+| sourceRequirement | inline UTF-16 | Korean unlock requirement |
+| icon | inline UTF-8 | Bookshelf icon asset |
+| texture | inline UTF-8 | Book texture asset |
+| pageCount | u32 | Number of following packed quest ids |
+| pageQuests | u32 × pageCount | `(questIndex << 16) | questGroup` |
+| reservedEnd | u32 | Zero |
+
+Localization table 63 is keyed by `journalKey`; the low 24 bits of its packed field
+select `bookKey`, while the high byte selects the presentation field:
+
+| Field plane | Localized value |
+|---:|---|
+| 0 | Parent journal name |
+| 1 | Parent journal description |
+| 2 | Book unlock requirement |
+| 3 | Book name |
+
+The output uses these localized values for the selected client language and falls
+back to the embedded Korean fields when a translation is absent.
+
+The packed ids join localization table 18 for each page's translated quest name,
+description, giver and objective. They also join the corresponding variable record in
+`quest.dbss`. Journal-page quest records have a stable 128-byte prefix: the packed id
+at +0, twelve zero reserved bytes at +8, and a quest-kind word at +20 whose low byte is
+7. The remaining +24..+127 prefix is retained as unknown data. Every referenced page
+has exactly one record matching that structure.
+
+`allquestlist.bss` is a PABR array of packed quest ids in the same physical order as
+the variable records in `quest.dbss`. The condition sub-record near the end of each
+ordinary quest has the following shape. Its self id and the next ordered quest id
+provide structural record boundaries; condition text is executable client DSL rather
+than localized prose.
+
+| Condition tail field | Type | Notes |
+|---|---|---|
+| questId | u32 | `(questIndex << 16) \| questGroup`; repeats the owning record id |
+| unknownHeader | 25 bytes | Fixed condition-tail configuration |
+| acceptCondition | inline UTF-16 | Prerequisites such as `ClearQuest(...)`, level, class or item checks |
+| completeCondition | inline UTF-16 | Completion expression such as `meet(...)` |
+| unknownObjectivePrefix | variable bytes | At least 24 bytes; may contain a short counted section |
+| sourceObjective | inline UTF-16 | Korean presentation text for the objective |
+| unknownEnd | u32 | Final scalar; also marks the exact end of the record |
+
+Condition expressions use semicolon-separated calls, comparisons, `!` negation and
+markers such as `<or>`. Localization table 18 supplies the translated objective text;
+it does not replace the condition DSL. The final entry in the current quest list is
+an incomplete placeholder and has no condition tail.
+
+Quest records contain five fixed-stride base-reward unions. Their family-stat
+sub-block begins at `128 + rewardSlot × 178`, for reward slots 0 through 4. Journal
+pages normally use slot 0; ordinary quests with permanent Family rewards may use a
+later slot. The sub-block is byte-packed; in particular, `inventory` is one byte, so
+the later fields are not four-byte aligned:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 128 | u32 | familyStatType | Selects the populated value field; 16 means no family-stat reward |
+| 132 | f32 | offence | All AP |
+| 136 | f32 | defence | All DP |
+| 140 | f32 | hp | Max HP |
+| 144 | f32 | mp | Max MP |
+| 148 | i32 | stamina | Max Stamina |
+| 152 | i32 | weight | Divide by 10,000 for LT |
+| 156 | u8 | inventory | Inventory slots |
+| 157 | f32 | accuracy | Accuracy |
+| 161 | f32 | evasion | Evasion |
+| 165 | i32 | enhancementChance | Enhancement Chance |
+| 169 | i32 | valksLimit | Additional Enhancement Chance Limit |
+| 173 | i32 | stackLimit | Enhancement Chance Stack Limit |
+
+The type values are 0 through 11 in the same order as the value fields above. A real
+reward populates only its selected field. Type 16 is the empty/default union. The same
+structural quest subtype covers both bookshelf pages and the separate quests that
+grant permanent Family stats. Reading all five slots therefore captures the complete
+quest-backed source list as well as the bookshelf hierarchy; summing it produces the
+client's permanent Family-stat totals.
 
 ### Life-skill types and progression
 
@@ -1302,11 +1616,28 @@ build derives territory from the nearest region by x/z distance. A main node's c
 are its directly connected non-main neighbors in that graph; this matches every shared
 public plant-zone parent relation, whereas @104 co-location does not.
 
-### `characterfunction.dbss` — manager-family owner ordering
+### `characterfunction.dbss` — NPC services and manager-family ordering
 
 The compact 10-byte offset index is keyed by character-template id. The full variable
-record remains only partially mapped; the manager join uses one exact counted list found
-inside it:
+record remains only partially mapped. Its prefix describes the NPC's first item-service
+module, when one is active:
+
+| @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | u16 | unknownType | Appears to classify the surrounding character-function record |
+| 2 | u16 | moduleTag | `0x0600` for the observed item-service prefix |
+| 4 | UTF-16 | serviceName | Inline source label such as shop or secret shop; empty means inactive |
+| v | UTF-16 | conditionDsl | Client-evaluated access condition; empty means unconditional |
+| v | u16 | unknownKey | Trailing module key; meaning unresolved |
+
+This module covers shops, secret shops, exchanges, contracts and similar NPC item
+services. Its condition belongs to the service rather than to each item. Consequently,
+every item listed for an NPC can inherit the same requirement, such as an exploration
+unlock, intimacy threshold, quest completion, class, time window or PC-room check.
+Prefix tags `0` and `0x0100` select other character-function layouts and do not contain
+this item-service prefix.
+
+The manager join uses a separate exact counted list found later in the record:
 
 | Relative @ | Type | Field | Notes |
 |---:|---|---|---|
@@ -1338,6 +1669,35 @@ and no `characterfunction` list references them:
 
 The build therefore does not synthesize managers or enforce `contribution > 0 ⇔
 manager`.
+
+### `detail_dialog.dbss` — conditioned contribution-point rentals
+
+`detail_dialogoffset.dbss` is a standard 12-byte offset index. Its u32 key packs the
+placed dialogue variant in the high word and the character-template id in the low word:
+
+| Bits | Field | Join |
+|---:|---|---|
+| 0–15 | characterKey | `npcsimply.bss` and `characterfunction.dbss` |
+| 16–31 | dialogIndex | A placed NPC variant's `regioninfo` spawn record |
+
+The dialogue record contains several node variants. A normal action node (`variant=0`)
+has this variable-width layout:
+
+| Relative @ | Type | Field | Notes |
+|---:|---|---|---|
+| 0 | UTF-16 | conditionDsl | Client condition; empty means unconditional |
+| v | UTF-16 | sourceName | Dialogue-button text |
+| v | u16 | unknown0 | Unresolved; zero on all observed rental actions |
+| v | u16 | variant | `0` for the action layout decoded here |
+| v | UTF-16 | sourceDescription | Dialogue response/description |
+| v | UTF-16 | actionDsl | Client action invoked by the button |
+
+Contribution-point rentals use
+`buyItemByPoint(itemKey,itemSubKey,count,pointType,pointCost)`. `pointType` is `5` on
+all observed rental actions. The paired condition DSL uses semicolon-separated AND
+terms and `<or>` between alternative branches; known functions include `getlevel`,
+`checkclass`, `getitemcount` and `clearquest`. The extractor keeps the original DSL so
+consumers can evaluate or present requirements without losing unknown functions.
 
 ### Worker-production item tables
 
@@ -1540,7 +1900,7 @@ index. Its fixed header is:
 
 English names come from localization table 9 (themes) and localization table 34 (cards; description +
 acquisition columns). **Links are by localized name, not id** — the id spaces overlap
-coincidentally. The "You can learn about X" items (`itemType == "Skill"`) match a theme
+coincidentally. The "You can learn about X" items (`itemType == 2`, `ItemTypeSkill`) match a theme
 name (group item) or card name (single item); a card's NPC is matched by name to localization table 6.
 `knowledgelearning*.bss` is card↔card (learning prereqs), not the item link.
 

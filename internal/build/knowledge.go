@@ -11,7 +11,7 @@ import (
 )
 
 // buildKnowledge decodes the mentaltheme tree + mentalcard entries (names from
-// loc tables 9/34), links them to items/NPCs by name, and writes knowledge.json.
+// loc tables 9/34), links them to items/NPCs by name, and registers knowledge.json.
 // Skips if absent.
 func (b *Builder) buildKnowledge() error {
 	themeData, err := b.src.Read("mentaltheme.dbss")
@@ -29,7 +29,7 @@ func (b *Builder) buildKnowledge() error {
 	itemLinks := b.linkKnowledge(themes, entries)
 	characters, charLinks := b.buildCharacters(entries)
 
-	kp, err := b.write("knowledge.json", map[string]any{"themes": themes, "entries": entries})
+	kp, err := b.addJSON("knowledge.json", map[string]any{"themes": themes, "entries": entries})
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func (b *Builder) buildKnowledge() error {
 		),
 	)
 
-	cp, err := b.write("characters.json", characters)
+	cp, err := b.addJSON("characters.json", characters)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (b *Builder) linkKnowledge(themes []model.KnowledgeTheme, entries []model.K
 	// iteration order isn't).
 	kItem := map[string]uint32{}
 	for id, it := range b.items {
-		if it.ItemType == "Skill" && it.Name != "" {
+		if it.ItemType == model.ItemTypeSkill && it.Name != "" {
 			l := strings.ToLower(it.Name)
 			if cur, ok := kItem[l]; !ok || id < cur {
 				kItem[l] = id

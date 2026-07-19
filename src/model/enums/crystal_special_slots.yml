@@ -1,0 +1,36 @@
+package: model
+type: CrystalSpecialSlot
+underlying: uint8
+marshalText: false
+out: ..
+# These are the special crystal-preset slots referenced by
+# jewelspecialslotsgroupstaticstatus.bss. Other values belong to ordinary or
+# separately unlocked preset slots and are not present in that restriction table.
+values:
+  - name: PearlAvatarChest
+    wire: 14
+    title: "Costume Armor"
+
+  - name: Necklace
+    wire: 17
+    title: "Necklace"
+
+  - name: RingI
+    wire: 18
+    title: "Ring I"
+
+  - name: RingII
+    wire: 19
+    title: "Ring II"
+
+  - name: EarringI
+    wire: 20
+    title: "Earring I"
+
+  - name: EarringII
+    wire: 21
+    title: "Earring II"
+
+  - name: Belt
+    wire: 22
+    title: "Belt"

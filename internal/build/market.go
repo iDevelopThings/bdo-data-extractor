@@ -96,7 +96,7 @@ func (l *marketLearner) fill(it *model.Item) bool {
 	return true
 }
 
-// buildMarketCategories writes the Central Market category tree (loc table 44) in
+// buildMarketCategories registers the Central Market category tree (loc table 44) in
 // the game's display order: main categories by id, sub-categories by sub id. These
 // ids are the same @188/@189 values items carry in marketCategory/marketSubCategory.
 func (b *Builder) buildMarketCategories() error {
@@ -123,7 +123,7 @@ func (b *Builder) buildMarketCategories() error {
 		cats = append(cats, model.MarketCategory{ID: uint32(id), Name: mc.Name, SubCategories: subs})
 	}
 
-	p, err := b.write("marketcategories.json", cats)
+	p, err := b.addJSON("marketcategories.json", cats)
 	if err != nil {
 		return err
 	}

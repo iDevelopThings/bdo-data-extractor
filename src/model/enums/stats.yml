@@ -185,6 +185,37 @@ values:
     unit: "%"
     alias: kfr
 
+  - name: fearResistance
+    label: "Fear Resistance"
+    category: resistance
+    unit: "%"
+
+  - name: ignoreAllResistance
+    label: "Ignore All Resistance"
+    category: resistance
+    unit: "%"
+    fanout: [ignoreGrappleResistance, ignoreKnockbackResistance, ignoreKnockdownResistance, ignoreStunResistance]
+
+  - name: ignoreGrappleResistance
+    label: "Ignore Grapple Resistance"
+    category: resistance
+    unit: "%"
+
+  - name: ignoreKnockbackResistance
+    label: "Ignore Knockback/Floating Resistance"
+    category: resistance
+    unit: "%"
+
+  - name: ignoreKnockdownResistance
+    label: "Ignore Knockdown/Bound Resistance"
+    category: resistance
+    unit: "%"
+
+  - name: ignoreStunResistance
+    label: "Ignore Stun/Stiffness/Freezing Resistance"
+    category: resistance
+    unit: "%"
+
   - name: attackSpeed
     label: "Attack Speed"
     category: combat
@@ -218,10 +249,34 @@ values:
     category: resource
     alias: hpr
 
+  - name: hpRecoveryOnHit
+    label: "HP Recovery on Hit"
+    category: resource
+
+  - name: hpRecoveryOnCriticalHit
+    label: "HP Recovery on Critical Hit"
+    category: resource
+
   - name: resourceRecovery
     label: "MP/WP/SP Recovery"
     category: resource
     alias: mpwpspr
+
+  - name: resourceRecoveryOnHit
+    label: "MP/WP/SP Recovery on Hit"
+    category: resource
+
+  - name: resourceRecoveryOnCriticalHit
+    label: "MP/WP/SP Recovery on Critical Hit"
+    category: resource
+
+  - name: maxEnergy
+    label: "Max Energy"
+    category: resource
+
+  - name: energyRecovery
+    label: "Energy Recovery"
+    category: resource
 
   - name: blackSpiritRage
     label: "Black Spirit's Rage"
@@ -415,6 +470,10 @@ values:
     unit: "%"
     alias: expbre
 
+  - name: healthExp
+    label: "Health EXP"
+    category: life
+
   - name: gatheringTime
     label: "Gathering Time"
     category: life
@@ -491,6 +550,36 @@ values:
     category: misc
     unit: "%"
     alias: idc
+
+  - name: itemDropAmount
+    label: "Item Drop Amount"
+    category: misc
+    unit: "%"
+
+  - name: higherGradeKnowledgeChance
+    label: "Higher Grade Knowledge Gain Chance"
+    category: misc
+    unit: "%"
+
+  - name: karmaRecovery
+    label: "Karma Recovery"
+    category: misc
+    unit: "%"
+
+  - name: swimmingSpeed
+    label: "Swimming Speed"
+    category: misc
+    unit: "%"
+
+  - name: heatstrokeResistance
+    label: "Heatstroke Resistance"
+    category: misc
+    unit: "%"
+
+  - name: hypothermiaResistance
+    label: "Hypothermia Resistance"
+    category: misc
+    unit: "%"
 
   - name: jumpHeight
     label: "Jump Height"
@@ -651,6 +740,10 @@ values:
     alias: edtae
     fanout: [apVsEdania, awakeningApVsEdania]
 
+  - name: beastAp
+    label: "Extra AP Against Beasts"
+    category: ap
+
   - name: damageReduction
     label: "Damage Reduction"
     category: aggregate
@@ -674,6 +767,11 @@ values:
     category: defense
     alias: mdr
     fanout: [meleeMonsterDamageReduction, rangedMonsterDamageReduction, magicMonsterDamageReduction]
+
+  - name: monsterDamageReductionRate
+    label: "Monster Damage Reduction Rate"
+    category: defense
+    unit: "%"
 
   - name: meleeMonsterDamageReduction
     label: "Melee Damage Reduction vs Monsters"
@@ -891,3 +989,6 @@ values:
     alias: ga
     cap: 5
 
+  - name: workerStaminaRecovery
+    label: "Worker Stamina Recovery"
+    category: life

@@ -47,11 +47,19 @@ type Ref struct {
 
 // QuestRef is a "group-index" quest id resolved to its loc texts (filled by the build).
 type QuestRef struct {
-	ID        string `json:"id"`
-	Name      string `json:"name,omitempty"`
-	Desc      string `json:"desc,omitempty"`
-	Giver     string `json:"giver,omitempty"`
-	Objective string `json:"objective,omitempty"`
+	ID         string           `json:"id"`
+	Name       string           `json:"name,omitempty"`
+	Desc       string           `json:"desc,omitempty"`
+	Giver      string           `json:"giver,omitempty"`
+	Objective  string           `json:"objective,omitempty"`
+	Conditions *QuestConditions `json:"conditions,omitempty"`
+}
+
+// QuestConditions contains the client expressions evaluated before a quest can
+// be accepted and when its objective is completed.
+type QuestConditions struct {
+	AcceptDSL   string `json:"acceptDsl,omitempty"`
+	CompleteDSL string `json:"completeDsl,omitempty"`
 }
 
 // NodeRef is the zone's waypoint/node: the key (links the node graph), the zone

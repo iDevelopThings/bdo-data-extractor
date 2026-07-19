@@ -9,7 +9,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 )
 
-// buildCaphras writes the Caphras Enhancement chart (cronenchant.bss — the
+// buildCaphras registers the Caphras Enhancement chart (cronenchant.bss — the
 // game's internal name for the Caphras system): per category (cronKey 1..10)
 // and enhancement level (18/19/20), the 20 Caphras levels' stone costs and
 // added stats. The item→category mapping is computed inside the game client,
@@ -26,7 +26,7 @@ func (b *Builder) buildCaphras() error {
 			return err
 		}
 	}
-	p, err := b.write("caphras.json", cats)
+	p, err := b.addJSON("caphras.json", cats)
 	if err != nil {
 		return err
 	}

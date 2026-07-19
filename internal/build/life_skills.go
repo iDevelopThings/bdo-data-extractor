@@ -6,7 +6,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 )
 
-// buildLifeSkillProgression writes the client life-skill experience curves.
+// buildLifeSkillProgression registers the client life-skill experience curves.
 func (b *Builder) buildLifeSkillProgression() error {
 	experienceData, err := b.src.Read("lifeexp.dbss")
 	if err != nil {
@@ -21,7 +21,7 @@ func (b *Builder) buildLifeSkillProgression() error {
 		return err
 	}
 
-	name, err := b.write("life_skill_progression.json", progression)
+	name, err := b.addJSON("life_skill_progression.json", progression)
 	if err != nil {
 		return err
 	}

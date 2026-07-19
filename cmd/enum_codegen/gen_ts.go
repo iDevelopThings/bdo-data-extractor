@@ -113,12 +113,27 @@ func renderTS(s *spec, fields []field, entries []entry, srcName, tsOutAbs string
 	p("] as const;")
 	p("")
 
-	p("export const %sByName: Record<string, %s> = {", T, T)
+	p("export const %sByName = {", T)
 	for _, e := range members {
 		p("  %q: %s.%s,", e.Name, contV, s.memberIdent(e.Name))
 	}
 	p("} as const;")
 	p("")
+
+	piped := ""
+	for _, e := range members {
+		piped += fmt.Sprintf("%q | ", e.Name)
+	}
+
+	p("export type %sNames = keyof (typeof %sByName)", T, T)
+	p("")
+	/*piped := ""
+	for _, e := range members {
+		piped += fmt.Sprintf("%q | ", e.Name)
+	}
+
+	p("export type %sNames = %s", T, piped[:len(piped)-3]) // trim trailing " | "
+	p("")*/
 
 	lower := camel(T) + "ByLowerName"
 	p("const %s: Record<string, %s> = {};", lower, T)

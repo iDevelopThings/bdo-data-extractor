@@ -1,5 +1,7 @@
 # bdo-data-extractor
 
+If you're just a gamer, we've got you covered, there's also a **[Companion Viewer](https://github.com/iDevelopThings/bdo-viewer)** using this library/output with a clean UI & Tools.
+
 A single, fast, read-only Go CLI that decodes **Black Desert Online's** client
 data files — the `PAZ` archives, the `.bss`/`.dbss` binary tables, the per-item
 recipe XMLs, and the `.loc` localization — into clean cached JSON (`items.json`,
@@ -140,6 +142,11 @@ A full `build` reads each source table once and finishes in a few seconds for
 | File | Contents |
 |---|---|
 | `data/items.json` | every item: name, description, icon path, grade, category, **market category/sub** (real when market-listed, else *derived* for untradeable gear — see `tradeable`), **`equipInfo`** (slot / kind / type, plus `slots` for multi-slot costumes; `type` = the market-style item type, present even for untradeable items like Tuvala), weight, buy/sell/repair prices, **max durability**, **class restriction** (`classes` — absent = all classes), **`crystalGroup`** (transfusion group + max count for socket crystals), **`expirationMinutes`** (timed items), **`requiredLevel`**, **`maxStack`**, **`dyeParts`**, max enhance, enhancement curve, consumable effects, and acquisition (`vendors` that sell it, `gatheredFrom`/`gatherNodes`; unmatched source text remains in `unresolvedVendors`/`unresolvedGatherNodes`) |
+| `data/lightstone_combinations.json` | artifact/lightstone combination bonuses: localized names and descriptions, required item refs (including duplicate requirements), decoded skill/buff effects, and amplified-lightstone equivalences |
+| `data/class_skills.json` | playable-class combat/awakening skill grids plus every referenced skill-group rank; ranks include localized/source names, active/passive kind, and decoded canonical stat effects for passives |
+| `data/crystal_rules.json` | all crystal transfusion groups and maximum equipped counts, plus special costume/accessory slot restrictions and their accepted groups |
+| `data/quests.json` | localized quest records with the raw client `acceptDsl` prerequisite and `completeDsl` objective expressions; the DSL preserves quest, level, class, item, equipment, time and content checks without parsing localized prose |
+| `data/adventure_journals.json` | the Adventure Log bookshelf hierarchy, localized book requirements and ordered quest pages, plus each permanent family-stat reward and the summed totals |
 | `data/recipes.json` | crafting recipes `{output, type, station, inputs:[{item,count}]}` — cooking/alchemy/processing **and House Crafting** (`station` = the workshop, e.g. "Jeweler"); merged from both the localized and base per-item XMLs |
 | `data/marketcategories.json` | the Central Market category tree `[{id, name, subCategories:[{id, name}]}]` in the game's display order (mains by id, subs by sub-id); the `id`/sub-`id` are the same values items carry as `marketCategory`/`marketSubCategory` |
 | `data/knowledge.json` | the full knowledge/ecology dataset — `themes` (the category tree, `{key,name,parent,item}`) + `entries` (cards, `{key,theme,name,description,image,minFavor,maxFavor,interest,item,character}`); linked to items and NPCs by name |
@@ -171,8 +178,9 @@ internal/
   paz/      archive layer: ICE cipher, BDO-LZ, meta index, read-only access
   bss/      .bss/.dbss record reader + schema + offset-index + PABR helpers
   loc/      languagedata_<lang>.loc decoder
-  tables/   the leaf parsers: items, enchant curves, buffs/skills, recipe XML, npcs,
-            regions, zones, fishing, region maps, knowledge (mentalcard/mentaltheme)
+  tables/   the leaf parsers: items, enchant curves, buffs/skills, class skill trees,
+            crystal rules, recipe XML, npcs, regions, zones, fishing, region maps,
+            knowledge (mentalcard/mentaltheme)
   build/    the assembler: Builder reads sources, joins across tables, writes JSON
             (items, recipes, market, world, zones, fishing, knowledge, mastery, caphras)
   schema/   declarative table schemas (used by `table`)
