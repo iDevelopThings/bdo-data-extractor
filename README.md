@@ -142,7 +142,7 @@ A full `build` reads each source table once and finishes in a few seconds for
 # microbench
 go test ./internal/tables/ -bench=BenchmarkDecodeItemStats -benchmem -count=10
 
-# full-build A/B (no images)
+# full-build A/B (no images; local helper under ignored scripts/)
 .\scripts\bench-build.ps1 -Runs 5 -Region na -Pretty
 
 # profile a hot run
