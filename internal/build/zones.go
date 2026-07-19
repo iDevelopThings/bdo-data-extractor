@@ -82,7 +82,7 @@ func (b *Builder) buildZones() error {
 			z.Node.Node = model.WorldNodeRef(z.Node.Key)
 		}
 		if z.MainCategory != nil {
-			z.MainCategory.Name = gs.MainCatNames[z.MainCategory.ID]
+			z.MainCategory.Name = gs.Territories[z.MainCategory.ID].Nation
 			z.MainCategory.Icon = mainIcons[z.MainCategory.ID]
 		}
 		for j := range z.SubCategories {
@@ -90,11 +90,12 @@ func (b *Builder) buildZones() error {
 			z.SubCategories[j].Icon = subIcons[z.SubCategories[j].ID]
 		}
 		for j := range z.Titles {
-			z.Titles[j].Name = gs.Titles[z.Titles[j].ID]
-			z.Titles[j].Desc = gs.TitleDescs[z.Titles[j].ID]
+			t := gs.Titles[z.Titles[j].ID]
+			z.Titles[j].Name = t.Name
+			z.Titles[j].Desc = t.Description
 		}
 		for j := range z.Ecology {
-			z.Ecology[j].Name = gs.EntityNames[z.Ecology[j].ID]
+			z.Ecology[j].Name = gs.Entities[z.Ecology[j].ID].Name
 			if slug := utils.Slug(z.Ecology[j].Name); slug != "" {
 				z.Ecology[j].URN = new(urn.Character.New(slug))
 			}
@@ -112,8 +113,9 @@ func (b *Builder) buildZones() error {
 		for j := range z.Tags {
 			k := z.Tags[j].Key
 			c := tagColor[k]
-			z.Tags[j].Name = gs.Tags[k]
-			z.Tags[j].Desc = gs.TagDescs[k]
+			tag := gs.Tags[k]
+			z.Tags[j].Name = tag.Name
+			z.Tags[j].Desc = tag.Description
 			z.Tags[j].Color = c.Color
 			z.Tags[j].FontColor = c.FontColor
 		}

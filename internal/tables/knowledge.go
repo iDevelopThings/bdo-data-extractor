@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
+	"github.com/idevelopthings/bdo-data-extractor/internal/loc"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 	"github.com/idevelopthings/bdo-data-extractor/src/models"
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
@@ -51,7 +52,7 @@ func themeParent(data []byte, off int) uint32 {
 // reached by its .dds anchor, since the embedded strings are variable-length. The
 // subject kind is the theme category, not a header field — see model.KnowledgeEntry.
 // Record layout: see FORMATS.md, "mentalcard.dbss".
-func DecodeKnowledgeEntries(offsetRaw, dataRaw []byte, names, descs, acquire map[uint32]string) ([]model.KnowledgeEntry, error) {
+func DecodeKnowledgeEntries(offsetRaw, dataRaw []byte, cards map[uint32]loc.KnowledgeCardText) ([]model.KnowledgeEntry, error) {
 	out := make([]model.KnowledgeEntry, 0)
 	for e, err := range bss.IndexedRecords(offsetRaw, dataRaw) {
 		if err != nil {
@@ -73,14 +74,15 @@ func DecodeKnowledgeEntries(offsetRaw, dataRaw []byte, names, descs, acquire map
 		c.U32()               // @32  │ read through so the cursor lands on the name;
 		c.U32()               // @36  ┘ populated only on ~2.5k non-default cards.
 
+		card := cards[e.Entry.Key]
 		out = append(
 			out, model.KnowledgeEntry{
 				BaseFor:     models.NewBaseFor[model.KnowledgeEntry](e.Entry.Key, "entry"),
 				Key:         e.Entry.Key,
 				Theme:       model.ThemeRef(theme),
-				Name:        names[e.Entry.Key],
-				Description: descs[e.Entry.Key],
-				Acquisition: acquire[e.Entry.Key],
+				Name:        card.Name,
+				Description: card.Description,
+				Acquisition: card.Acquire,
 				Image:       imageName(rec),
 				MinFavor:    round2(minFavor),
 				MaxFavor:    round2(maxFavor),

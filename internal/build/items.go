@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/config"
 	"github.com/idevelopthings/bdo-data-extractor/internal/loc"
@@ -19,21 +20,30 @@ import (
 // buildItems decodes the item-stat, max-level, buff/skill, and enchant tables,
 // merges them into one Item per id, flags gathered materials, and registers its outputs.
 func (b *Builder) buildItems() error {
+	const stage = "items"
+
+	t0 := time.Now()
 	t, err := b.loadItemTables()
 	if err != nil {
 		return err
 	}
+	b.logStep(stage, "loadTables", time.Since(t0))
 
+	t0 = time.Now()
 	b.items = b.mergeItems(t)
 	b.logf(fmt.Sprintf("icons: backfilled %d name-only items from id-named archive icons", b.backfillShellIcons()))
+	b.logStep(stage, "merge", time.Since(t0))
+
+	t0 = time.Now()
 	b.scanItemInfo() // populates b.recipes (needed to tell raw mats from processed)
+	b.logStep(stage, "scanItemInfo", time.Since(t0))
+
+	t0 = time.Now()
 	if err := b.attachItemRentals(); err != nil {
 		return err
 	}
-
 	gathered := b.flagGathered()
 	b.logf(fmt.Sprintf("itemmaking: flagged %d gathered items", gathered))
-
 	untradable, caphrasItems, nv, ng, err := b.finalizeItems(t.maxLevels)
 	if err != nil {
 		return err
@@ -41,6 +51,9 @@ func (b *Builder) buildItems() error {
 	b.logf(fmt.Sprintf("market categories: derived for %d untradeable equipment items", untradable))
 	b.logf(fmt.Sprintf("caphras: derived chart categories for %d items", caphrasItems))
 	b.logf(fmt.Sprintf("item variants: %d copies linked to canonical, %d ghost records flagged", nv, ng))
+	b.logStep(stage, "finalize", time.Since(t0))
+
+	t0 = time.Now()
 	if err := b.buildItemSets(); err != nil {
 		return err
 	}
@@ -53,8 +66,11 @@ func (b *Builder) buildItems() error {
 	if err := b.buildCrystalRules(); err != nil {
 		return err
 	}
-
-	return b.addItemOutputs()
+	if err := b.addItemOutputs(); err != nil {
+		return err
+	}
+	b.logStep(stage, "sideTables", time.Since(t0))
+	return nil
 }
 
 // itemTables holds the decoded PAZ tables that feed mergeItems and the side stages.
@@ -234,17 +250,12 @@ func (b *Builder) mergeItems(t itemTables) map[uint32]*model.Item {
 	for id, lv := range t.maxLevels {
 		get(id).MaxEnhance = new(lv)
 	}
-	for id, nm := range b.gs.Names {
-		get(id).Name = nm
-	}
-	for id, d := range b.gs.Descs {
-		get(id).Description = d
-	}
-	for id, text := range b.gs.UseTexts {
-		get(id).UseText = text
-	}
-	for id, text := range b.gs.ExchangeTexts {
-		get(id).ExchangeInfo = text
+	for id, it := range b.gs.Items {
+		item := get(id)
+		item.Name = it.Name
+		item.Description = it.Description
+		item.UseText = it.Use
+		item.ExchangeInfo = it.Exchange
 	}
 	for id, base := range t.links {
 		if c := t.curves[base]; c != nil {
@@ -469,7 +480,7 @@ func (b *Builder) buildEffects(buffs map[uint16]tables.Buff, se tables.SkillEffe
 			continue
 		}
 		if name := b.gs.BuffNames[uint32(bid)]; name != "" {
-			if stat, op, val, unit, ok := tables.ParseStat(name); ok {
+			if stat, op, val, unit, ok := tables.ParseStatFromLoc(name); ok {
 				id, _ := model.StatIDFromLabel(stat)
 				stats = append(stats, makeStat(buff, id, stat, op, val, unit))
 				bump(buff)

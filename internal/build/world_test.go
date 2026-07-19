@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/idevelopthings/bdo-data-extractor/internal/loc"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 )
 
@@ -15,20 +16,15 @@ func TestAugmentNPCs(t *testing.T) {
 		30: {model.NPCSpawnTypeExplorer},
 		40: {model.NPCSpawnTypeNormal},
 	}
-	names := map[uint32]string{
-		10: "First Manager",
-		20: "Existing Keeper",
-		40: "No Role",
-	}
-	titles := map[uint32]string{
-		10: "<Manager>",
-		20: "<Warehouse Keeper>",
-		40: "<Normal NPC>",
+	entities := map[uint32]loc.EntityText{
+		10: {Name: "First Manager", Title: "<Manager>"},
+		20: {Name: "Existing Keeper", Title: "<Warehouse Keeper>"},
+		40: {Name: "No Role", Title: "<Normal NPC>"},
+		50: {Name: "Service NPC"},
 	}
 	itemServices := map[uint32]bool{50: true, 60: true}
-	names[50] = "Service NPC"
 
-	got, added := augmentNPCs(npcs, roles, itemServices, names, titles)
+	got, added := augmentNPCs(npcs, roles, itemServices, entities)
 	if added != 3 {
 		t.Fatalf("added = %d, want 3", added)
 	}

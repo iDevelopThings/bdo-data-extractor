@@ -120,7 +120,7 @@ func (b *Builder) buildClassSkills(buffs map[uint16]tables.Buff, effects map[uin
 				return fmt.Errorf("class skill group %d rank %d: skilltype key %#x is missing", key, rank, skillKey)
 			}
 			skillNo := uint16(skillKey >> 16)
-			localized := b.gs.SkillTexts[uint32(skillNo)]
+			localized := b.gs.Skills[uint32(skillNo)]
 			resolvedRank := model.ClassSkillRank{
 				Rank:            rank,
 				SkillKey:        skillKey,

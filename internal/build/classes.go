@@ -45,7 +45,7 @@ func (b *Builder) buildCharacterProgression() error {
 				CharacterClassUnknowns: class.Unknowns,
 				ClassType:              class.ClassType,
 				CharacterKey:           class.CharacterKey,
-				Name:                   b.gs.EntityNames[class.CharacterKey],
+				Name:                   b.gs.Entities[class.CharacterKey].Name,
 				SourceName:             class.SourceName,
 				SourceDescription:      class.SourceDescription,
 				Gender:                 class.Gender,

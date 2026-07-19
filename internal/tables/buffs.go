@@ -209,12 +209,28 @@ var statRe = regexp.MustCompile(`^(.+?)\s*([+\-])\s*([0-9]+(?:\.[0-9]+)?)\s*(%?)
 func ParseStat(name string) (stat, op string, value float64, unit string, ok bool) {
 	m := statRe.FindStringSubmatch(name)
 	if m == nil {
-		// fmt.Printf("WARNING: ParseStat failed to parse stat name %q\n", name)
 		return "", "", 0, "", false
 	}
 	v, _ := strconv.ParseFloat(m[3], 64)
 	return strings.TrimSpace(m[1]), m[2], v, m[4], true
 }
+
+// ParseStatFromLoc tries ParseStat on each line of a loc buff blob after stripping
+// <PA…> markup (kept in BuffNames for display; parse needs the plain "+N" form).
+func ParseStatFromLoc(text string) (stat, op string, value float64, unit string, ok bool) {
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(paMarkup.ReplaceAllString(line, ""))
+		if line == "" {
+			continue
+		}
+		if stat, op, value, unit, ok = ParseStat(line); ok {
+			return stat, op, value, unit, true
+		}
+	}
+	return "", "", 0, "", false
+}
+
+var paMarkup = regexp.MustCompile(`<PA[^>]*>`)
 
 // krFoodWrap strips the Korean food-buff wrapper and trailing duration so the
 // inner "<stat> ±N[%]" can go through ParseStat, e.g.

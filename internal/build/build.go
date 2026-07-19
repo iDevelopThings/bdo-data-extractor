@@ -160,6 +160,13 @@ func (b *Builder) logStage(name string, d time.Duration) {
 	))
 }
 
+// logStep records a sub-stage timing inside a named stage. Format:
+//
+//	[step] <stage>/<name>  <seconds>s
+func (b *Builder) logStep(stage, name string, d time.Duration) {
+	progress.Default().Log(fmt.Sprintf("[step] %s/%s  %.3fs", stage, name, d.Seconds()))
+}
+
 // loadStrings decodes the localization tables (names, descriptions, market cats,
 // buff names, and the various inline-name tables the later stages resolve against).
 func (b *Builder) loadStrings() error {
@@ -170,8 +177,8 @@ func (b *Builder) loadStrings() error {
 	b.gs = gs
 	b.logf(
 		fmt.Sprintf(
-			"loc(%s): %d names, %d descriptions, %d market cats, %d buff names",
-			b.lang, len(gs.Names), len(gs.Descs), len(gs.MarketCats), len(gs.BuffNames),
+			"loc(%s): %d items, %d market cats, %d buff names",
+			b.lang, len(gs.Items), len(gs.MarketCats), len(gs.BuffNames),
 		),
 	)
 

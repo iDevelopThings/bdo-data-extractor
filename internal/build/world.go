@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/idevelopthings/bdo-data-extractor/internal/loc"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 	"github.com/idevelopthings/bdo-data-extractor/src/models"
@@ -79,11 +80,13 @@ func (b *Builder) loadTerritories() ([]model.Territory, error) {
 	iconNames := tables.TerritoryIconFiles(iconRaws)
 	for i := range terrs {
 		id := uint32(terrs[i].Index)
-		if en := b.gs.TerritoryNames[id]; en != "" {
-			terrs[i].Name = en
-		}
-		if en := b.gs.MainCatNames[id]; en != "" {
-			terrs[i].Nation = en
+		if t := b.gs.Territories[id]; t.Name != "" || t.Nation != "" {
+			if t.Name != "" {
+				terrs[i].Name = t.Name
+			}
+			if t.Nation != "" {
+				terrs[i].Nation = t.Nation
+			}
 		}
 		if terrs[i].IconLarge != "" {
 			terrs[i].IconLarge = "icons/territories/" + iconNames[terrs[i].IconLarge]
@@ -552,7 +555,7 @@ func (b *Builder) buildNpcs() error {
 	// Join the English names and role flags, then add localized role-bearing
 	// characters so every node-manager and town-service reference can resolve.
 	var added int
-	npcs, added = augmentNPCs(npcs, spawnTypes, itemServiceIDs, b.gs.EntityNames, b.gs.EntityTitles)
+	npcs, added = augmentNPCs(npcs, spawnTypes, itemServiceIDs, b.gs.Entities)
 	roleNPCs := 0
 	for i := range npcs {
 		if len(npcs[i].SpawnTypes) > 0 {
@@ -631,17 +634,18 @@ func augmentNPCs(
 	npcs []model.NPC,
 	spawnTypes map[uint32]model.NPCSpawnTypes,
 	itemServiceIDs map[uint32]bool,
-	names map[uint32]string,
-	titles map[uint32]string,
+	entities map[uint32]loc.EntityText,
 ) ([]model.NPC, int) {
 	existing := make(map[uint32]bool, len(npcs))
 	for i := range npcs {
 		existing[npcs[i].ID] = true
-		if name := names[npcs[i].ID]; name != "" {
-			npcs[i].Name = name
-		}
-		if title := titles[npcs[i].ID]; title != "" {
-			npcs[i].Title = title
+		if e := entities[npcs[i].ID]; e.Name != "" || e.Title != "" {
+			if e.Name != "" {
+				npcs[i].Name = e.Name
+			}
+			if e.Title != "" {
+				npcs[i].Title = e.Title
+			}
 		}
 		npcs[i].SpawnTypes = spawnTypes[npcs[i].ID]
 	}
@@ -658,18 +662,19 @@ func augmentNPCs(
 
 	ids := make([]int, 0, len(candidates))
 	for id := range candidates {
-		if !existing[id] && (names[id] != "" || itemServiceIDs[id]) {
+		if !existing[id] && (entities[id].Name != "" || itemServiceIDs[id]) {
 			ids = append(ids, int(id))
 		}
 	}
 	sort.Ints(ids)
 	for _, rawID := range ids {
 		id := uint32(rawID)
+		e := entities[id]
 		npcs = append(npcs, model.NPC{
 			BaseFor:    models.NewBaseFor[model.NPC](id),
 			ID:         id,
-			Name:       names[id],
-			Title:      titles[id],
+			Name:       e.Name,
+			Title:      e.Title,
 			SpawnTypes: spawnTypes[id],
 		})
 	}

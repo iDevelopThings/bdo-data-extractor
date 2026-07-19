@@ -124,11 +124,11 @@ func (b *Builder) npcIndexByName() map[string][]uint32 {
 	}
 
 	idsByName := map[string][]uint32{}
-	for id, name := range b.gs.EntityNames {
-		if name == "" || !isNpc[id] {
+	for id, e := range b.gs.Entities {
+		if e.Name == "" || !isNpc[id] {
 			continue
 		}
-		key := strings.ToLower(name)
+		key := strings.ToLower(e.Name)
 		idsByName[key] = append(idsByName[key], id)
 	}
 	for _, ids := range idsByName {

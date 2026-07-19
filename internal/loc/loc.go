@@ -22,6 +22,9 @@
 //	bytes 0-1         per-id index (quest index, market sub-category id)
 //
 // These files live in the game install dir (NOT the PAZ) and are read-only.
+//
+// Loc strings may contain Pearl Abyss UI markup (<PA…> color/font tags). LoadGame
+// leaves that markup intact so consumers can style it.
 package loc
 
 import (
@@ -30,12 +33,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
-	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
 	"github.com/klauspost/compress/zlib"
+
+	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
 )
 
 // loc key0 values are stable semantic categories (not shifting indices), so
@@ -145,16 +148,37 @@ type JewelGroup struct {
 	Max  int
 }
 
-// LightstoneSetText is one localized lightstone-combination name and effect text.
-type LightstoneSetText struct {
+// Text is the common name + description pair used by most loc tables.
+type Text struct {
 	Name        string
 	Description string
 }
 
-// SkillText is one localized skill name and description from loc table 10.
-type SkillText struct {
+// ItemText is one item's loc columns from table 0 (name/desc/use/exchange).
+type ItemText struct {
 	Name        string
 	Description string
+	Use         string
+	Exchange    string
+}
+
+// KnowledgeCardText is one knowledge-card entry from table 34.
+type KnowledgeCardText struct {
+	Name        string
+	Description string
+	Acquire     string
+}
+
+// EntityText is one general entity row from table 6 (name + NPC-style title).
+type EntityText struct {
+	Name  string
+	Title string // e.g. "<Farm Vendor>"
+}
+
+// TerritoryText is one table-12 row: nation grouping plus finer territory name.
+type TerritoryText struct {
+	Nation string // field 0 (was MainCatNames)
+	Name   string // desc field (was TerritoryNames)
 }
 
 // AdventureJournalText is one localized adventure-journal book and its parent
@@ -167,106 +191,190 @@ type AdventureJournalText struct {
 }
 
 // GameStrings is everything the build needs from the .loc, decoded in one pass:
-// item names/descriptions (table 0), market categories (table 44), and buff
-// effect names (table 5).
+// item text (table 0), market categories (table 44), buff effect text (table 5),
+// and the various inline-name tables later stages resolve against.
 type GameStrings struct {
-	Names             map[uint32]string
-	Descs             map[uint32]string
-	UseTexts          map[uint32]string // item id -> use/open confirmation text, lists box contents (table 0, column 2)
-	ExchangeTexts     map[uint32]string // item id -> NPC exchange offers (table 0, column 3)
-	MarketCats        map[uint32]MarketCat
-	BuffNames         map[uint32]string
+	Items             map[uint32]ItemText                        // item id -> name/desc/use/exchange (table 0)
+	MarketCats        map[uint32]MarketCat                       // central-market category id -> name + subs (table 44)
+	BuffNames         map[uint32]string                          // buff id -> full decoded text, may be multi-line + <PA> tags (table 5)
 	ItemSetTexts      Table                                      // skillpiece text (table 52), indexed by skillNo and packed field
 	AdventureJournals map[uint32]map[uint32]AdventureJournalText // journal group -> book key -> text (table 63)
-	LightstoneSets    map[uint32]LightstoneSetText               // lightstone combination text (table 113)
-	SkillTexts        map[uint32]SkillText                       // skill number -> localized name/description (table 10)
+	LightstoneSets    map[uint32]Text                            // lightstone combination key -> name/description (table 113)
+	Skills            map[uint32]Text                            // skill number -> localized name/description (table 10)
 	// Monster Zone Info linkage (inline names):
-	Titles         map[uint32]string               // title id -> name (table 1)
-	TitleDescs     map[uint32]string               // title id -> requirement/description (table 1 desc field)
-	EntityNames    map[uint32]string               // general entity-name table: classes/creatures/NPCs/resources (table 6)
-	EntityTitles   map[uint32]string               // similar to above, the "<Farm Vendor>" type tags/titles for npcs
-	MainCatNames   map[uint32]string               // main-category (region) id -> nation name (table 12, field 0)
-	TerritoryNames map[uint32]string               // territory id -> territory name (table 12, desc field)
-	Topography     map[uint32]string               // place/topography id -> name (table 17)
-	NodeNames      map[uint32]string               // worldmap node key -> name (table 29)
-	Quests         map[uint32]map[uint32]QuestText // quest group -> index -> texts (table 18)
-	SubCatNames    map[uint32]string               // sub-category (content filter) id -> name (table 115)
-	Tags           map[uint32]string               // tag key -> label (table 117)
-	TagDescs       map[uint32]string               // tag key -> description (table 117 desc field)
-	ZoneNames      []string                        // table 116, non-null in id order (== zone record order)
-	ThemeNames     map[uint32]string               // knowledge theme key -> name (table 9)
-	CardNames      map[uint32]string               // knowledge card key -> name (table 34)
-	CardDescs      map[uint32]string               // knowledge card key -> description (table 34 desc field)
-	CardAcquire    map[uint32]string               // knowledge card key -> acquisition hint (table 34, column 2)
-	HouseNames     map[uint32]string               // house type -> workshop name (table 123)
-	JewelGroups    map[uint32]JewelGroup           // crystal group id -> name + max count (table 121)
+	Titles      map[uint32]Text                 // title id -> name + requirement/description (table 1)
+	Entities    map[uint32]EntityText           // general entity table: classes/creatures/NPCs/resources (table 6); Title holds "<Farm Vendor>"-style tags
+	Territories map[uint32]TerritoryText        // territory id -> nation (field 0) + territory name (desc) (table 12)
+	Topography  map[uint32]string               // place/topography id -> name (table 17)
+	NodeNames   map[uint32]string               // worldmap node key -> name (table 29)
+	Quests      map[uint32]map[uint32]QuestText // quest group -> index -> texts (table 18)
+	SubCatNames map[uint32]string               // sub-category (content filter) id -> name (table 115)
+	Tags        map[uint32]Text                 // tag key -> label + description (table 117)
+	ZoneNames   []string                        // table 116, non-null in id order (== zone record order)
+	ThemeNames  map[uint32]string               // knowledge theme key -> name (table 9)
+	Cards       map[uint32]KnowledgeCardText    // knowledge card key -> name/desc/acquire (table 34)
+	HouseNames  map[uint32]string               // house type -> workshop name (table 123)
+	JewelGroups map[uint32]JewelGroup           // crystal group id -> name + max count (table 121)
 }
 
-var paTag = regexp.MustCompile(`<PA[^>]*>`)
+// decodeLocString UTF-16-decodes one loc field, drops the "<null>" sentinel, and
+// trims surrounding whitespace. Pearl Abyss <PA…> markup inside the string is kept.
+func decodeLocString(raw []byte) string {
+	if t := bss.DecodeUTF16(raw); t != "<null>" {
+		return strings.TrimSpace(t)
+	}
+	return ""
+}
 
-// LoadGame decodes the item, market-category, and buff-name tables in a single
-// pass, decoding only those tables rather than the whole 1.4M-string file.
+// setNameDesc assigns fieldName / fieldDesc into m[id]; other key1 values are ignored.
+func setNameDesc(m map[uint32]Text, id, key1 uint32, s string) {
+	if s == "" {
+		return
+	}
+	t := m[id]
+	switch key1 {
+	case fieldName:
+		t.Name = s
+	case fieldDesc:
+		t.Description = s
+	default:
+		return
+	}
+	m[id] = t
+}
+
+// setItemField assigns item table 0 columns 0..3 into Items[id].
+func setItemField(items map[uint32]ItemText, id, key1 uint32, s string) {
+	if s == "" {
+		return
+	}
+	it := items[id]
+	switch key1 {
+	case fieldName:
+		it.Name = s
+	case fieldDesc:
+		it.Description = s
+	case fieldCol2:
+		it.Use = s
+	case fieldCol3:
+		it.Exchange = s
+	default:
+		return
+	}
+	items[id] = it
+}
+
+// setKnowledgeCardField assigns card name / description / acquire columns.
+func setKnowledgeCardField(cards map[uint32]KnowledgeCardText, id, key1 uint32, s string) {
+	if s == "" {
+		return
+	}
+	c := cards[id]
+	switch key1 {
+	case fieldName:
+		c.Name = s
+	case fieldDesc:
+		c.Description = s
+	case fieldCol2:
+		c.Acquire = s
+	default:
+		return
+	}
+	cards[id] = c
+}
+
+// setEntityField assigns entity name (field 0) or title (field 1).
+func setEntityField(entities map[uint32]EntityText, id, key1 uint32, s string) {
+	if s == "" {
+		return
+	}
+	e := entities[id]
+	switch key1 {
+	case fieldName:
+		e.Name = s
+	case fieldDesc:
+		e.Title = s
+	default:
+		return
+	}
+	entities[id] = e
+}
+
+// setTerritoryField assigns nation (field 0) or territory name (desc field).
+func setTerritoryField(territories map[uint32]TerritoryText, id, key1 uint32, s string) {
+	if s == "" {
+		return
+	}
+	t := territories[id]
+	switch key1 {
+	case fieldName:
+		t.Nation = s
+	case fieldDesc:
+		t.Name = s
+	default:
+		return
+	}
+	territories[id] = t
+}
+
+// setLightstoneText stores table 113's single-field blob as Description and
+// derives Name from the first line (optional [brackets]), leaving <PA> tags intact.
+func setLightstoneText(sets map[uint32]Text, id uint32, blob string) {
+	if blob == "" {
+		return
+	}
+	name, _, _ := strings.Cut(blob, "\n")
+	name = strings.TrimSpace(name)
+	name = strings.TrimSuffix(strings.TrimPrefix(name, "["), "]")
+	sets[id] = Text{Name: name, Description: blob}
+}
+
+// setBuffName stores table 5 text (full multi-line blob, first write wins).
+func setBuffName(names map[uint32]string, id, key1 uint32, s string) {
+	if key1 != 0 || s == "" {
+		return
+	}
+	if _, ok := names[id]; ok {
+		return
+	}
+	names[id] = s
+}
+
+// LoadGame decodes the tables the build needs in a single pass, decoding only
+// those tables rather than the whole 1.4M-string file.
 func LoadGame(gameDir, lang string) (*GameStrings, error) {
 	body, err := readBody(gameDir, lang)
 	if err != nil {
 		return nil, err
 	}
 	gs := &GameStrings{
-		Names:             map[uint32]string{},
-		Descs:             map[uint32]string{},
-		UseTexts:          map[uint32]string{},
-		ExchangeTexts:     map[uint32]string{},
+		Items:             map[uint32]ItemText{},
 		MarketCats:        map[uint32]MarketCat{},
 		BuffNames:         map[uint32]string{},
 		ItemSetTexts:      make(Table),
 		AdventureJournals: map[uint32]map[uint32]AdventureJournalText{},
-		LightstoneSets:    map[uint32]LightstoneSetText{},
-		SkillTexts:        map[uint32]SkillText{},
-		Titles:            map[uint32]string{},
-		TitleDescs:        map[uint32]string{},
-		EntityNames:       map[uint32]string{},
-		EntityTitles:      map[uint32]string{},
-		MainCatNames:      map[uint32]string{},
-		TerritoryNames:    map[uint32]string{},
+		LightstoneSets:    map[uint32]Text{},
+		Skills:            map[uint32]Text{},
+		Titles:            map[uint32]Text{},
+		Entities:          map[uint32]EntityText{},
+		Territories:       map[uint32]TerritoryText{},
 		Topography:        map[uint32]string{},
 		NodeNames:         map[uint32]string{},
 		Quests:            map[uint32]map[uint32]QuestText{},
 		SubCatNames:       map[uint32]string{},
-		Tags:              map[uint32]string{},
-		TagDescs:          map[uint32]string{},
+		Tags:              map[uint32]Text{},
 		ThemeNames:        map[uint32]string{},
-		CardNames:         map[uint32]string{},
-		CardDescs:         map[uint32]string{},
-		CardAcquire:       map[uint32]string{},
+		Cards:             map[uint32]KnowledgeCardText{},
 		HouseNames:        map[uint32]string{},
 		JewelGroups:       map[uint32]JewelGroup{},
 	}
-	zone116 := map[uint32]string{} // collected, then flattened in id order
-	text := func(raw []byte) string {
-		if t := bss.DecodeUTF16(raw); t != "<null>" {
-			return t
-		}
-		return ""
-	}
+	zone116 := map[uint32]string{}
 	forEachRecord(body, func(key0, id, key1 uint32, raw []byte) {
 		switch key0 {
 		case itemTable:
-			t := text(raw)
-			if t == "" {
-				return
-			}
-			switch key1 {
-			case fieldName:
-				gs.Names[id] = t
-			case fieldDesc:
-				gs.Descs[id] = t
-			case fieldCol2:
-				gs.UseTexts[id] = t
-			case fieldCol3:
-				gs.ExchangeTexts[id] = t
-			}
+			setItemField(gs.Items, id, key1, decodeLocString(raw))
 		case marketCatTable:
-			t := text(raw)
+			t := decodeLocString(raw)
 			if t == "" {
 				return
 			}
@@ -282,109 +390,53 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 			}
 			gs.MarketCats[id] = c
 		case buffNameTable:
-			if key1 != 0 {
-				return
-			}
-			name := paTag.ReplaceAllString(text(raw), "")
-			if i := strings.IndexByte(name, '\n'); i >= 0 {
-				name = name[:i] // some debuffs carry a multi-line description
-			}
-			if name = strings.TrimSpace(name); name != "" {
-				if _, ok := gs.BuffNames[id]; !ok {
-					gs.BuffNames[id] = name
-				}
-			}
+			setBuffName(gs.BuffNames, id, key1, decodeLocString(raw))
 		case itemSetTable:
-			if t := text(raw); t != "" {
+			if t := decodeLocString(raw); t != "" {
 				if gs.ItemSetTexts[id] == nil {
 					gs.ItemSetTexts[id] = make(map[uint32]string)
 				}
 				gs.ItemSetTexts[id][key1] = t
 			}
 		case adventureJournalTable:
-			setAdventureJournalText(gs.AdventureJournals, id, key1, text(raw))
+			setAdventureJournalText(gs.AdventureJournals, id, key1, decodeLocString(raw))
 		case lightstoneSetTable:
-			if key1 != fieldName {
-				return
-			}
-			if description := text(raw); description != "" {
-				plain := paTag.ReplaceAllString(description, "")
-				name, _, _ := strings.Cut(plain, "\n")
-				name = strings.TrimSpace(name)
-				name = strings.TrimSuffix(strings.TrimPrefix(name, "["), "]")
-				gs.LightstoneSets[id] = LightstoneSetText{Name: name, Description: description}
+			if key1 == fieldName {
+				setLightstoneText(gs.LightstoneSets, id, decodeLocString(raw))
 			}
 		case skillTable:
-			t := text(raw)
-			if t == "" {
-				return
-			}
-			skill := gs.SkillTexts[id]
-			switch key1 {
-			case fieldName:
-				skill.Name = t
-			case fieldDesc:
-				skill.Description = t
-			default:
-				return
-			}
-			gs.SkillTexts[id] = skill
+			setNameDesc(gs.Skills, id, key1, decodeLocString(raw))
 		case titleTable:
-			if t := text(raw); t != "" {
-				switch key1 {
-				case fieldName:
-					gs.Titles[id] = t
-				case fieldDesc:
-					gs.TitleDescs[id] = strings.TrimSpace(paTag.ReplaceAllString(t, ""))
-				}
-			}
+			setNameDesc(gs.Titles, id, key1, decodeLocString(raw))
 		case entityNameTable:
-			if key1 == fieldName {
-				if t := strings.TrimSpace(paTag.ReplaceAllString(text(raw), "")); t != "" {
-					gs.EntityNames[id] = t
-				}
-			}
-			if key1 == fieldDesc {
-				if t := strings.TrimSpace(paTag.ReplaceAllString(text(raw), "")); t != "" {
-					gs.EntityTitles[id] = t
-				}
-			}
+			setEntityField(gs.Entities, id, key1, decodeLocString(raw))
 		case mainCatTable:
-			// field 0 = nation grouping ("Republic of Calpheon"); the desc field
-			// (0x01000000) holds the finer territory name ("Balenos").
-			if t := text(raw); t != "" {
-				switch key1 {
-				case fieldName:
-					gs.MainCatNames[id] = t
-				case fieldDesc:
-					gs.TerritoryNames[id] = t
-				}
-			}
+			setTerritoryField(gs.Territories, id, key1, decodeLocString(raw))
 		case houseTable:
 			if key1 == fieldName {
-				if t := strings.TrimSpace(text(raw)); t != "" {
+				if t := decodeLocString(raw); t != "" {
 					gs.HouseNames[id] = t
 				}
 			}
 		case jewelGroupTable: // key1 IS the max transfusable count, not a field id
-			if t := strings.TrimSpace(text(raw)); t != "" {
+			if t := decodeLocString(raw); t != "" {
 				gs.JewelGroups[id] = JewelGroup{Name: t, Max: int(key1)}
 			}
 		case subCatTable:
 			if key1 == fieldName {
-				if t := text(raw); t != "" {
+				if t := decodeLocString(raw); t != "" {
 					gs.SubCatNames[id] = t
 				}
 			}
 		case topographyTable:
 			if key1 == fieldName {
-				if t := text(raw); t != "" {
+				if t := decodeLocString(raw); t != "" {
 					gs.Topography[id] = t
 				}
 			}
 		case nodeNameTable:
 			if key1 == fieldName {
-				if t := text(raw); t != "" {
+				if t := decodeLocString(raw); t != "" {
 					gs.NodeNames[id] = t
 				}
 			}
@@ -393,7 +445,7 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 			if plane > 3 {
 				return // planes 4-9 are accept/complete NPC dialogue
 			}
-			t := text(raw)
+			t := decodeLocString(raw)
 			if t == "" {
 				return
 			}
@@ -406,7 +458,7 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 			case 0:
 				q.Name = t
 			case 1:
-				q.Desc = strings.TrimSpace(paTag.ReplaceAllString(t, ""))
+				q.Desc = t
 			case 2:
 				q.Giver = t
 			case 3:
@@ -414,40 +466,23 @@ func LoadGame(gameDir, lang string) (*GameStrings, error) {
 			}
 			gs.Quests[id][idx] = q
 		case tagTable:
-			if t := text(raw); t != "" {
-				switch key1 {
-				case fieldName:
-					gs.Tags[id] = t
-				case fieldDesc:
-					gs.TagDescs[id] = t
-				}
-			}
+			setNameDesc(gs.Tags, id, key1, decodeLocString(raw))
 		case zoneNameTable:
 			if key1 == fieldName {
-				if t := text(raw); t != "" {
+				if t := decodeLocString(raw); t != "" {
 					zone116[id] = t
 				}
 			}
 		case knowledgeThemeTable:
 			if key1 == fieldName {
-				if t := strings.TrimSpace(paTag.ReplaceAllString(text(raw), "")); t != "" {
+				if t := decodeLocString(raw); t != "" {
 					gs.ThemeNames[id] = t
 				}
 			}
 		case knowledgeCardTable:
-			if t := strings.TrimSpace(paTag.ReplaceAllString(text(raw), "")); t != "" {
-				switch key1 {
-				case fieldName:
-					gs.CardNames[id] = t
-				case fieldDesc:
-					gs.CardDescs[id] = t
-				case fieldCol2:
-					gs.CardAcquire[id] = t
-				}
-			}
+			setKnowledgeCardField(gs.Cards, id, key1, decodeLocString(raw))
 		}
 	})
-	// flatten table 116 to record order: non-null entries sorted by id.
 	ids := make([]int, 0, len(zone116))
 	for id := range zone116 {
 		ids = append(ids, int(id))

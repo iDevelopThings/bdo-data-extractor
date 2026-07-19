@@ -16,7 +16,7 @@ func TestAttachAcquisitionPreservesUnresolvedNames(t *testing.T) {
 		t0:    time.Now(),
 		items: map[uint32]*model.Item{1: item},
 		gs: &loc.GameStrings{
-			EntityNames: map[uint32]string{100: "Known Vendor"},
+			Entities: map[uint32]loc.EntityText{100: {Name: "Known Vendor"}},
 			NodeNames: map[uint32]string{
 				10: "Known Farm",
 				11: "Cotton Farming",

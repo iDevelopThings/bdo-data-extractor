@@ -110,7 +110,7 @@ func (b *Builder) scanItemInfo() {
 				continue
 			}
 			if id, ok := krNpc[v]; ok {
-				if name := b.gs.EntityNames[id]; name != "" {
+				if name := b.gs.Entities[id].Name; name != "" {
 					m.vendors = utils.AppendUnique(m.vendors, name)
 				}
 			}

@@ -46,7 +46,7 @@ func (b *Builder) buildKnowledge() error {
 		if !ok {
 			return fmt.Errorf("mentalcard.dbss present without mentalcardoffset.dbss")
 		}
-		entries, err = tables.DecodeKnowledgeEntries(cardOff, cardData, b.gs.CardNames, b.gs.CardDescs, b.gs.CardAcquire)
+		entries, err = tables.DecodeKnowledgeEntries(cardOff, cardData, b.gs.Cards)
 		if err != nil {
 			return err
 		}
@@ -125,8 +125,8 @@ func (b *Builder) buildCharacters(entries []model.KnowledgeEntry) ([]model.Chara
 		}
 	}
 	idsByName := map[string][]uint32{}
-	for id, nm := range b.gs.EntityNames {
-		l := strings.ToLower(nm)
+	for id, e := range b.gs.Entities {
+		l := strings.ToLower(e.Name)
 		idsByName[l] = append(idsByName[l], id)
 	}
 	isNpc := make(map[uint32]bool, len(b.npcs))
