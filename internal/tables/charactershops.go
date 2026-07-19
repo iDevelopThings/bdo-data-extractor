@@ -20,42 +20,37 @@ type CharacterItemServiceRow struct {
 // shops, exchanges, contracts and similar item services. Rows with an empty
 // module name have no active item service and are omitted.
 func DecodeCharacterItemServices(offsetData, data []byte) (map[uint32]CharacterItemServiceRow, error) {
-	entries, err := bss.ParseU16OffsetIndex("characterfunction", offsetData, len(data))
-	if err != nil {
-		return nil, fmt.Errorf("character function index: %w", err)
-	}
-
 	rows := make(map[uint32]CharacterItemServiceRow)
-	for _, entry := range entries {
-		record, ok := entry.Slice(data)
-		if !ok {
-			return nil, fmt.Errorf("character function %d is out of bounds", entry.Key)
+	for rec, err := range bss.IndexedRecordsU16("characterfunction", offsetData, data) {
+		if err != nil {
+			return nil, fmt.Errorf("character function index: %w", err)
 		}
+		record := rec.Data
 		if len(record) < 4 {
-			return nil, fmt.Errorf("character function %d is truncated", entry.Key)
+			return nil, fmt.Errorf("character function %d is truncated", rec.Entry.Key)
 		}
 		switch tag := bss.U16(record, 2); tag {
 		case 0, 0x0100:
 			continue
 		case 0x0600:
 		default:
-			return nil, fmt.Errorf("character function %d has unknown prefix tag %#04x", entry.Key, tag)
+			return nil, fmt.Errorf("character function %d has unknown prefix tag %#04x", rec.Entry.Key, tag)
 		}
 		c := bss.NewCursor(record, 4, len(record))
 		name := c.UTF16()
 		condition := c.UTF16()
 		unknownKey := uint16(c.U16())
 		if !c.OK() {
-			return nil, fmt.Errorf("character function %d has a truncated item-service module", entry.Key)
+			return nil, fmt.Errorf("character function %d has a truncated item-service module", rec.Entry.Key)
 		}
 		if strings.ContainsRune(name, '\x00') || strings.ContainsRune(condition, '\x00') {
-			return nil, fmt.Errorf("character function %d has an invalid item-service string", entry.Key)
+			return nil, fmt.Errorf("character function %d has an invalid item-service string", rec.Entry.Key)
 		}
 		if name == "" {
 			continue
 		}
-		rows[entry.Key] = CharacterItemServiceRow{
-			CharacterKey: entry.Key,
+		rows[rec.Entry.Key] = CharacterItemServiceRow{
+			CharacterKey: rec.Entry.Key,
 			SourceName:   name,
 			ConditionDSL: condition,
 			Unknown0:     bss.U16(record, 0),

@@ -105,22 +105,17 @@ func romanToInt(s string) (val int, ok bool) {
 // DecodeEnchantCurves decodes enchantstaticstatus into per-baseID curves.
 // Record key = (level<<24) | baseID; bits 16..23 are reserved and zero.
 func DecodeEnchantCurves(offsetRaw, dataRaw []byte) (map[uint32]*model.Enhancement, error) {
-	idx, err := bss.ParseOffsetIndex(offsetRaw, len(dataRaw))
-	if err != nil {
-		return nil, err
-	}
 	out := map[uint32]*model.Enhancement{}
-	for _, e := range idx {
-		level := int(e.Key >> 24)
-		base := e.Key & 0xFFFF
-		if e.Key&0x00FF0000 != 0 {
-			return nil, fmt.Errorf("enchantstaticstatus: key %08x has nonzero reserved byte", e.Key)
+	for e, err := range bss.IndexedRecords(offsetRaw, dataRaw) {
+		if err != nil {
+			return nil, err
 		}
-		rec, ok := e.Slice(dataRaw)
-		if !ok {
-			return nil, fmt.Errorf("enchantstaticstatus: baseID %d level %d is out of bounds", base, level)
+		level := int(e.Entry.Key >> 24)
+		base := e.Entry.Key & 0xFFFF
+		if e.Entry.Key&0x00FF0000 != 0 {
+			return nil, fmt.Errorf("enchantstaticstatus: key %08x has nonzero reserved byte", e.Entry.Key)
 		}
-		lv, err := decodeEnchantRow(rec, e.Key)
+		lv, err := decodeEnchantRow(e.Data, e.Entry.Key)
 		if err != nil {
 			return nil, fmt.Errorf("enchantstaticstatus: baseID %d level %d: %w", base, level, err)
 		}
@@ -384,19 +379,18 @@ func buildEnchantCombatStats(
 // u32 immediately before the row's Name string (see enchantKeyOf). The curve is
 // attached only when its level count matches the item's max enhance level.
 func EnchantLinks(ienOff, ienData []byte, curves map[uint32]*model.Enhancement, maxlevel map[uint32]int) (map[uint32]uint32, error) {
-	idx, err := bss.ParseOffsetIndex(ienOff, len(ienData))
-	if err != nil {
-		return nil, err
-	}
 	links := map[uint32]uint32{}
-	for _, e := range idx {
-		iid := e.Key
+	for e, err := range bss.IndexedRecords(ienOff, ienData) {
+		if err != nil {
+			return nil, err
+		}
+		iid := e.Entry.Key
 		if iid >= maxItemID {
 			continue
 		}
 		ml, hasML := maxlevel[iid]
-		rec, ok := e.Slice(ienData)
-		if !ok || len(rec) < 12 {
+		rec := e.Data
+		if len(rec) < 12 {
 			continue
 		}
 		if bss.U32(rec, 0) != iid {

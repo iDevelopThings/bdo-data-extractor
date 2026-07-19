@@ -7,6 +7,9 @@ package tables
 import (
 	"bytes"
 	"fmt"
+	"runtime"
+
+	"github.com/dgravesa/go-parallel/parallel"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
@@ -159,26 +162,53 @@ func DecodeItemStats(offsetRaw, data []byte) (map[uint32]ItemStat, error) {
 	if err != nil {
 		return nil, fmt.Errorf("itemenchant offset: %w", err)
 	}
-	out := make(map[uint32]ItemStat, len(idx))
+	entries := make([]bss.IndexEntry, 0, len(idx))
 	for _, e := range idx {
-		if e.Key >= maxItemID { // skip enchant-entry rows
-			continue
+		if e.Key < maxItemID {
+			entries = append(entries, e)
 		}
+	}
+
+	stats := make([]ItemStat, len(entries))
+	errs := make([]error, len(entries))
+	workers := runtime.GOMAXPROCS(0)
+	if workers > len(entries) {
+		workers = len(entries)
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	parallel.WithNumGoroutines(workers).For(len(entries), func(i, _ int) {
+		e := entries[i]
 		rec, ok := e.Slice(data)
 		if !ok {
-			return nil, fmt.Errorf("itemenchant item %d: invalid indexed slice", e.Key)
+			errs[i] = fmt.Errorf("itemenchant item %d: invalid indexed slice", e.Key)
+			return
 		}
 		if len(rec) < itemRowMin {
-			return nil, fmt.Errorf("itemenchant item %d: record size %d, want at least %d", e.Key, len(rec), itemRowMin)
+			errs[i] = fmt.Errorf("itemenchant item %d: record size %d, want at least %d", e.Key, len(rec), itemRowMin)
+			return
 		}
 		if bss.U32(rec, 0) != e.Key {
-			return nil, fmt.Errorf("itemenchant item %d: record id %d", e.Key, bss.U32(rec, 0))
+			errs[i] = fmt.Errorf("itemenchant item %d: record id %d", e.Key, bss.U32(rec, 0))
+			return
 		}
 		stat, err := decodeItemRow(rec, e.Key)
 		if err != nil {
+			errs[i] = err
+			return
+		}
+		stats[i] = stat
+	})
+	for _, err := range errs {
+		if err != nil {
 			return nil, err
 		}
-		out[e.Key] = stat
+	}
+
+	out := make(map[uint32]ItemStat, len(entries))
+	for i, e := range entries {
+		out[e.Key] = stats[i]
 	}
 	ownItemTails(out)
 	return out, nil

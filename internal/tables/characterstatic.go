@@ -39,20 +39,16 @@ type CharacterStatic struct {
 // getknowledge(N) script yields the knowledge-card link.
 // Record layout: see FORMATS.md, "characterstatic.dbss".
 func DecodeCharacterStatic(offsetRaw, dataRaw []byte) map[uint32]CharacterStatic {
-	idx, err := bss.ParseU16OffsetIndex("characterstatic", offsetRaw, len(dataRaw))
-	if err != nil {
-		log.Printf("characterstatic: %v — no NPC knowledge links or model paths will be resolved", err)
-		return nil
-	}
-	out := make(map[uint32]CharacterStatic, len(idx))
-	for _, entry := range idx {
-		if entry.Key == 0 || entry.Size < 8 {
+	out := make(map[uint32]CharacterStatic)
+	for entry, err := range bss.IndexedRecordsU16("characterstatic", offsetRaw, dataRaw) {
+		if err != nil {
+			log.Printf("characterstatic: %v — no NPC knowledge links or model paths will be resolved", err)
+			return nil
+		}
+		if entry.Entry.Key == 0 || entry.Entry.Size < 8 {
 			continue
 		}
-		rec, ok := entry.Slice(dataRaw)
-		if !ok {
-			continue
-		}
+		rec := entry.Data
 
 		model, modelOff := modelPathAt(rec)
 		cs := CharacterStatic{Model: model}
@@ -69,7 +65,7 @@ func DecodeCharacterStatic(offsetRaw, dataRaw []byte) map[uint32]CharacterStatic
 		c.Skip(1)
 		id := c.U32()
 		npcKind := c.U32()
-		if c.OK() && id == entry.Key { // scripts parsed → id landed → npcKind is valid
+		if c.OK() && id == entry.Entry.Key { // scripts parsed → id landed → npcKind is valid
 			cs.NpcKind = npcKind
 			// Capture the still-unidentified structured u32s between npcKind and the
 			// model path (the config section) verbatim — nothing dropped.
@@ -81,7 +77,7 @@ func DecodeCharacterStatic(offsetRaw, dataRaw []byte) map[uint32]CharacterStatic
 				cs.Fields = append(cs.Fields, c.U32())
 			}
 		}
-		out[entry.Key] = cs
+		out[entry.Entry.Key] = cs
 	}
 	return out
 }

@@ -192,12 +192,11 @@ func DecodeSkillTypeHeaders(offsetData, data []byte) (map[uint32]SkillTypeHeader
 	}
 
 	out := make(map[uint32]SkillTypeHeader, len(entries))
-	for _, entry := range entries {
-		record, ok := entry.Slice(data)
-		if !ok {
-			return nil, fmt.Errorf("skilltype: key %#x has an invalid indexed slice", entry.Key)
+	for rec, err := range bss.RecordsFromEntries(entries, data) {
+		if err != nil {
+			return nil, fmt.Errorf("skilltype: key %#x: %w", rec.Entry.Key, err)
 		}
-		c := bss.NewCursor(record, 0, len(record))
+		c := bss.NewCursor(rec.Data, 0, len(rec.Data))
 		header := SkillTypeHeader{
 			SkillKey:        c.U32(),
 			SourceName:      c.UTF16(),
@@ -205,16 +204,16 @@ func DecodeSkillTypeHeaders(offsetData, data []byte) (map[uint32]SkillTypeHeader
 			Kind:            model.SkillKind(c.U32()),
 		}
 		_ = c.Bytes(c.Remaining())
-		if !c.OK() || c.Remaining() != 0 {
-			return nil, fmt.Errorf("skilltype: key %#x is truncated", entry.Key)
+		if err := bss.RequireExhausted(c); err != nil {
+			return nil, fmt.Errorf("skilltype: key %#x: %w", rec.Entry.Key, err)
 		}
-		if header.SkillKey != entry.Key {
-			return nil, fmt.Errorf("skilltype: index key %#x resolves to %#x", entry.Key, header.SkillKey)
+		if header.SkillKey != rec.Entry.Key {
+			return nil, fmt.Errorf("skilltype: index key %#x resolves to %#x", rec.Entry.Key, header.SkillKey)
 		}
-		if _, exists := out[entry.Key]; exists {
-			return nil, fmt.Errorf("skilltype: duplicate key %#x", entry.Key)
+		if _, exists := out[rec.Entry.Key]; exists {
+			return nil, fmt.Errorf("skilltype: duplicate key %#x", rec.Entry.Key)
 		}
-		out[entry.Key] = header
+		out[rec.Entry.Key] = header
 	}
 	return out, nil
 }
