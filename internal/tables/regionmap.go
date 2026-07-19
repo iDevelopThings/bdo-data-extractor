@@ -113,11 +113,11 @@ func DecodeRegionMap(name string, bkd, rid []byte) *RegionMap {
 // decodeBKDFlat expands the BKD's run-length spans into one flat row-major index
 // array of length rowCount*65536, or nil if the data isn't a valid BKD.
 func decodeBKDFlat(bkd []byte) []uint16 {
-	if len(bkd) < 8 || string(bkd[0:4]) != "PABR" {
+	n, ok := bss.PABRCount(bkd)
+	if !ok {
 		return nil
 	}
-	n := int(bss.U32(bkd, 4))
-	if n <= 0 || n > 1<<20 {
+	if n > 1<<20 {
 		return nil
 	}
 	flat := make([]uint16, n*65536)
@@ -197,11 +197,8 @@ func findRegionWidth(flat []uint16) int {
 // PALETTE = count×4-byte RGBA (region colors); REMAP = count×u16 (region keys).
 // Both carry a fixed 51-byte tail. Returns 0-based slices indexed by region index.
 func decodeRID(rid []byte) (pal []color.RGBA, keys []uint32) {
-	if len(rid) < 8 || string(rid[0:4]) != "PABR" {
-		return nil, nil
-	}
-	cnt := int(bss.U32(rid, 4))
-	if cnt <= 0 {
+	cnt, ok := bss.PABRCount(rid)
+	if !ok {
 		return nil, nil
 	}
 	switch {

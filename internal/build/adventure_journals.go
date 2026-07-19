@@ -9,22 +9,16 @@ import (
 )
 
 func (b *Builder) buildAdventureJournals() error {
-	indexData, err := b.src.Read("journalquestoffset.dbss")
+	files, err := b.readFiles(
+		"journalquestoffset.dbss",
+		"journalquest.dbss",
+		"allquestlist.bss",
+		"quest.dbss",
+	)
 	if err != nil {
 		return err
 	}
-	journalData, err := b.src.Read("journalquest.dbss")
-	if err != nil {
-		return err
-	}
-	questListData, err := b.src.Read("allquestlist.bss")
-	if err != nil {
-		return err
-	}
-	questData, err := b.src.Read("quest.dbss")
-	if err != nil {
-		return err
-	}
+	indexData, journalData, questListData, questData := files[0], files[1], files[2], files[3]
 	b.questConditions, err = tables.DecodeQuestConditions(questListData, questData)
 	if err != nil {
 		return err

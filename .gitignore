@@ -5,6 +5,7 @@
 # Generated data (run `bdo-data-extractor build` locally — never commit game-derived data)
 /data/
 /data_previous_version/
+/.tmp/
 /scripts/
 /_probe/
 /cmd/gen

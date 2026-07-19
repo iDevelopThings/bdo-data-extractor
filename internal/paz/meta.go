@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
 )
@@ -33,8 +34,9 @@ type Index struct {
 	FolderNames []string
 	FileNames   []string
 
-	byBase   map[string]int   // lazily built, lowercased basename -> first file index
-	byFolder map[uint32][]int // lazily built, FolderID -> file indices (archive order)
+	byBase    map[string]int   // lazily built, lowercased basename -> first file index
+	byFolder  map[uint32][]int // lazily built, FolderID -> file indices (archive order)
+	indexOnce sync.Once
 }
 
 // PazDir returns the Paz/ directory for a game install.
@@ -59,21 +61,20 @@ func (ix *Index) PathOf(f PazFile) string {
 // few thousand files ever need — so basenames come straight from FileNames and Path
 // recomputes a single path on demand.
 func (ix *Index) buildIndex() {
-	if ix.byBase != nil {
-		return
-	}
-	ix.byBase = make(map[string]int, len(ix.Files))
-	ix.byFolder = make(map[uint32][]int)
-	for i, f := range ix.Files {
-		if int(f.FileID) < len(ix.FileNames) {
-			name := ix.FileNames[f.FileID]
-			base := strings.ToLower(name[strings.LastIndexByte(name, '/')+1:])
-			if _, ok := ix.byBase[base]; !ok {
-				ix.byBase[base] = i
+	ix.indexOnce.Do(func() {
+		ix.byBase = make(map[string]int, len(ix.Files))
+		ix.byFolder = make(map[uint32][]int)
+		for i, f := range ix.Files {
+			if int(f.FileID) < len(ix.FileNames) {
+				name := ix.FileNames[f.FileID]
+				base := strings.ToLower(name[strings.LastIndexByte(name, '/')+1:])
+				if _, ok := ix.byBase[base]; !ok {
+					ix.byBase[base] = i
+				}
 			}
+			ix.byFolder[f.FolderID] = append(ix.byFolder[f.FolderID], i)
 		}
-		ix.byFolder[f.FolderID] = append(ix.byFolder[f.FolderID], i)
-	}
+	})
 }
 
 // normFolder normalizes a folder path for suffix comparison: lowercase, forward

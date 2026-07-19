@@ -110,17 +110,16 @@ func DecodeBuffs(offsetData, data []byte) (map[uint16]Buff, error) {
 	}
 
 	out := make(map[uint16]Buff, len(entries))
-	for _, entry := range entries {
-		record, ok := entry.Slice(data)
-		if !ok {
-			return nil, fmt.Errorf("buff %d: invalid indexed slice", entry.Key)
-		}
-		buff, err := decodeBuffRecord(record)
+	for rec, err := range bss.RecordsFromEntries(entries, data) {
 		if err != nil {
-			return nil, fmt.Errorf("buff %d: %w", entry.Key, err)
+			return nil, fmt.Errorf("buff %d: %w", rec.Entry.Key, err)
 		}
-		if uint32(buff.Index) != entry.Key {
-			return nil, fmt.Errorf("buff %d: record index is %d", entry.Key, buff.Index)
+		buff, err := decodeBuffRecord(rec.Data)
+		if err != nil {
+			return nil, fmt.Errorf("buff %d: %w", rec.Entry.Key, err)
+		}
+		if uint32(buff.Index) != rec.Entry.Key {
+			return nil, fmt.Errorf("buff %d: record index is %d", rec.Entry.Key, buff.Index)
 		}
 		if _, exists := out[buff.Index]; exists {
 			return nil, fmt.Errorf("buff %d: duplicate index", buff.Index)
@@ -156,8 +155,8 @@ func decodeBuffRecord(record []byte) (Buff, error) {
 	buff.StackingCategory = c.Byte()
 	buff.UnknownTail25 = c.Byte()
 	buff.UnknownTail26 = c.Byte()
-	if !c.OK() || c.Remaining() != 0 {
-		return Buff{}, fmt.Errorf("record consumed %d of %d bytes", c.Pos(), len(record))
+	if err := bss.RequireExhausted(c); err != nil {
+		return Buff{}, err
 	}
 	buff.DurationMs = int(duration)
 	return buff, nil
@@ -166,17 +165,16 @@ func decodeBuffRecord(record []byte) (Buff, error) {
 // DecodeSkillEffects maps skill key -> {cooldown, buff list}, from skilloffset.dbss
 // + skill.dbss. buffs (from DecodeBuffs) terminates the variable-length buff list.
 func DecodeSkillEffects(offsetRaw, data []byte, buffs map[uint16]Buff) (map[uint32]SkillEffect, error) {
-	idx, err := bss.ParseOffsetIndex(offsetRaw, len(data))
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[uint32]SkillEffect, len(idx))
-	for _, e := range idx {
-		rec, ok := e.Slice(data)
-		if !ok || len(rec) < skillBuffList+2 {
+	out := make(map[uint32]SkillEffect)
+	for e, err := range bss.IndexedRecords(offsetRaw, data) {
+		if err != nil {
+			return nil, err
+		}
+		rec := e.Data
+		if len(rec) < skillBuffList+2 {
 			continue
 		}
-		if _, seen := out[e.Key]; seen {
+		if _, seen := out[e.Entry.Key]; seen {
 			continue
 		}
 		var se SkillEffect
@@ -184,19 +182,19 @@ func DecodeSkillEffects(offsetRaw, data []byte, buffs map[uint16]Buff) (map[uint
 			se.CooldownMs = cd
 		}
 		for j := skillBuffList; j+2 <= len(rec); j += 2 {
-			b := bss.U16(rec, j)
-			if b == 0 {
+			id := bss.U16(rec, j)
+			if id == 0 {
 				break
 			}
-			if _, ok := buffs[b]; !ok {
+			if _, ok := buffs[id]; !ok {
 				break
 			}
-			se.Buffs = append(se.Buffs, b)
+			se.Buffs = append(se.Buffs, id)
 			if len(se.Buffs) >= 40 {
 				break
 			}
 		}
-		out[e.Key] = se
+		out[e.Entry.Key] = se
 	}
 	return out, nil
 }

@@ -19,14 +19,11 @@ import (
 // buildItems decodes the item-stat, max-level, buff/skill, and enchant tables,
 // merges them into one Item per id, flags gathered materials, and registers its outputs.
 func (b *Builder) buildItems() error {
-	encOff, err := b.src.Read("itemenchantoffset.dbss")
+	pair, err := b.readFiles("itemenchantoffset.dbss", "itemenchant.dbss")
 	if err != nil {
 		return err
 	}
-	encDat, err := b.src.Read("itemenchant.dbss")
-	if err != nil {
-		return err
-	}
+	encOff, encDat := pair[0], pair[1]
 	stats, err := tables.DecodeItemStats(encOff, encDat)
 	if err != nil {
 		return err
@@ -36,14 +33,11 @@ func (b *Builder) buildItems() error {
 	}
 	b.logf(fmt.Sprintf("itemenchant: %d item stat rows", len(stats)))
 
-	mlOff, err := b.src.Read("itemmaxleveloffset.dbss")
+	pair, err = b.readFiles("itemmaxleveloffset.dbss", "itemmaxlevel.dbss")
 	if err != nil {
 		return err
 	}
-	mlDat, err := b.src.Read("itemmaxlevel.dbss")
-	if err != nil {
-		return err
-	}
+	mlOff, mlDat := pair[0], pair[1]
 	maxlv, err := tables.DecodeMaxLevels(mlOff, mlDat)
 	if err != nil {
 		return err
@@ -51,23 +45,12 @@ func (b *Builder) buildItems() error {
 	b.logf(fmt.Sprintf("itemmaxlevel: %d rows", len(maxlv)))
 
 	// consumable effect chain: item->skill->buff (typed effects + cooldown)
-	buffDat, err := b.src.Read("buff.dbss")
+	pair, err = b.readFiles("buffoffset.dbss", "buff.dbss", "skilloffset.dbss", "skill.dbss")
 	if err != nil {
 		return err
 	}
-	buffOff, err := b.src.Read("buffoffset.dbss")
-	if err != nil {
-		return err
-	}
+	buffOff, buffDat, skillOff, skillDat := pair[0], pair[1], pair[2], pair[3]
 	buffs, err := tables.DecodeBuffs(buffOff, buffDat)
-	if err != nil {
-		return err
-	}
-	skillOff, err := b.src.Read("skilloffset.dbss")
-	if err != nil {
-		return err
-	}
-	skillDat, err := b.src.Read("skill.dbss")
 	if err != nil {
 		return err
 	}
@@ -77,14 +60,11 @@ func (b *Builder) buildItems() error {
 	}
 	b.logf(fmt.Sprintf("buffs: %d, skills: %d", len(buffs), len(skills)))
 
-	essOff, err := b.src.Read("enchantstaticstatusoffset.dbss")
+	pair, err = b.readFiles("enchantstaticstatusoffset.dbss", "enchantstaticstatus.dbss")
 	if err != nil {
 		return err
 	}
-	essDat, err := b.src.Read("enchantstaticstatus.dbss")
-	if err != nil {
-		return err
-	}
+	essOff, essDat := pair[0], pair[1]
 	curves, err := tables.DecodeEnchantCurves(essOff, essDat)
 	if err != nil {
 		return err

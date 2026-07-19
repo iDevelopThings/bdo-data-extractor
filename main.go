@@ -12,6 +12,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/internal/config"
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
 	"github.com/idevelopthings/bdo-data-extractor/pipeline"
+	"github.com/idevelopthings/bdo-data-extractor/src/output"
 )
 
 func main() {
@@ -28,6 +29,11 @@ func main() {
 		err = cmdExtract(*conf.GameDir, rest[0], rest[1])
 	case "build":
 		err = build.Run()
+	case "diff-outputs":
+		if len(rest) < 2 {
+			config.DumpUsageAndExit()
+		}
+		err = cmdDiffOutputs(rest[0], rest[1])
 	case "icons":
 		err = pipeline.Icons()
 	case "index":
@@ -106,6 +112,35 @@ func cmdExtract(gameDir, substr, outDir string) error {
 	}
 	fmt.Printf("extracted %d files -> %s\n", n, outDir)
 	return nil
+}
+
+// cmdDiffOutputs compares two build dirs using each side's .build-outputs.json.
+// Unowned assets (icons, tiles, provenance) are ignored.
+func cmdDiffOutputs(leftDir, rightDir string) error {
+	diff, err := output.DiffOwned(leftDir, rightDir)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("owned files: %d identical\n", diff.Same)
+	for _, name := range diff.OnlyLeft {
+		fmt.Printf("  only in left:  %s\n", name)
+	}
+	for _, name := range diff.OnlyRight {
+		fmt.Printf("  only in right: %s\n", name)
+	}
+	for _, c := range diff.Changed {
+		fmt.Printf("  changed: %s  left=%dB(%s) right=%dB(%s)\n",
+			c.Name, c.LeftSize, c.LeftSHA, c.RightSize, c.RightSHA)
+	}
+
+	if diff.Equal() {
+		fmt.Println("outputs match")
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "outputs differ: %d only-left, %d only-right, %d changed\n",
+		len(diff.OnlyLeft), len(diff.OnlyRight), len(diff.Changed))
+	return fmt.Errorf("build outputs differ")
 }
 
 // outFile resolves an output path (default, or rest[0] if given) and ensures its

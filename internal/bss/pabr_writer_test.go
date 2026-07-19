@@ -19,3 +19,15 @@ func TestPackPABRRoundTrip(t *testing.T) {
 		t.Fatalf("records = %v, want %v", got, body)
 	}
 }
+
+func TestPABRCount(t *testing.T) {
+	t.Parallel()
+
+	if _, ok := PABRCount([]byte("nope")); ok {
+		t.Fatal("expected false")
+	}
+	rows, ok := PABRCount([]byte{'P', 'A', 'B', 'R', 3, 0, 0, 0})
+	if !ok || rows != 3 {
+		t.Fatalf("rows=%d ok=%v", rows, ok)
+	}
+}

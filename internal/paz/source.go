@@ -11,8 +11,8 @@ import (
 
 // Source bundles the parsed archive index with read access to the archive. It
 // centralizes the load-meta / open / find / read / close sequence the commands
-// share. Call Close when done. Not safe for concurrent use of the Source methods
-// themselves; Archive.Content is concurrent-safe.
+// share. Call Close when done. Concurrent Read / ReadIfExists / Find are safe
+// (Index lazy maps use sync.Once; Archive.Content is concurrent-safe).
 type Source struct {
 	Index   *Index
 	Archive *Archive

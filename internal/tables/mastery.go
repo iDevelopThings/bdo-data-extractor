@@ -55,13 +55,11 @@ func DecodeAlchemyMastery(b []byte) ([]model.MasteryBracket, error) {
 // DecodeProcessingMastery decodes manufacturingstat.bss. The file holds 6 identical
 // per-method sub-curves, each `[u32 count][count × {mastery f32, procRate u32/1e6,
 // batch u32, 0}]`; the first sub-curve's count is at offset 8. They match, so we
-// return the first.
+// return the first. Note: offset 4 is 0 (not a row count) — this is PABR-magic only,
+// not a full OpenPABR string-table table.
 func DecodeProcessingMastery(b []byte) ([]model.ProcessingBracket, error) {
-	if _, err := bss.OpenPABR(b); err != nil {
-		return nil, err
-	}
-	if len(b) < 12 {
-		return nil, fmt.Errorf("manufacturingstat: truncated header")
+	if len(b) < 12 || string(b[:4]) != "PABR" {
+		return nil, fmt.Errorf("manufacturingstat: not a PABR-framed table")
 	}
 	cnt := int(bss.U32(b, 8))
 	if cnt <= 0 {

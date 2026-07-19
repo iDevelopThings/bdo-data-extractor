@@ -115,6 +115,7 @@ go install github.com/idevelopthings/bdo-data-extractor@latest   # or, from sour
 bdo-data-extractor build
 
 # other commands
+bdo-data-extractor diff-outputs <left> <right> # compare two build dirs via .build-outputs.json (owned JSON only)
 bdo-data-extractor icons                       # decode item icons (DXT .dds) -> ./data/icons/<id>.webp (+ zone-category icons -> ./data/icons/zonecategories/)
 bdo-data-extractor knowledge-icons             # decode knowledge card images -> ./data/knowledge_icons/<path>.webp
 bdo-data-extractor worldmap                    # decode the world map -> ./data/worldmap/<layer>/ (tile pyramid + meta.json)

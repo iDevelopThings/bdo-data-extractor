@@ -15,15 +15,29 @@ type PABR struct {
 // the string table — callers choose raw vs UTF-16 via ReadStringTable /
 // ReadUTF16StringTable at StringTablePos.
 func OpenPABR(data []byte) (PABR, error) {
-	if len(data) < 16 || string(data[:4]) != "PABR" {
+	if len(data) < 16 {
 		return PABR{}, fmt.Errorf("not a PABR table")
 	}
-	rows := int(U32(data, 4))
+	rows, ok := PABRCount(data)
+	if !ok {
+		return PABR{}, fmt.Errorf("not a PABR table")
+	}
 	stPos := int(U64(data, len(data)-8))
-	if rows <= 0 || stPos <= 8 || stPos > len(data) {
+	if stPos <= 8 || stPos > len(data) {
 		return PABR{}, fmt.Errorf("bad PABR header (rows=%d stringTablePos=%d)", rows, stPos)
 	}
 	return PABR{Rows: rows, RecordsStart: 8, StringTablePos: stPos}, nil
+}
+
+// PABRCount returns the u32 at offset 4 when data begins with the PABR magic.
+// Prefer OpenPABR for full tables with a string-table footer; use this for
+// PABR-framed blobs that are not full tables (BKD/RID sidecars).
+func PABRCount(data []byte) (rows int, ok bool) {
+	if len(data) < 8 || string(data[:4]) != "PABR" {
+		return 0, false
+	}
+	rows = int(U32(data, 4))
+	return rows, rows > 0
 }
 
 // RecordSize returns the fixed record width for tables whose records evenly tile

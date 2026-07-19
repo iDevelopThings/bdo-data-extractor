@@ -44,9 +44,31 @@ func TestDecodeZonesRejectsNonPABR(t *testing.T) {
 	}
 }
 
-func TestDecodeManufactureRejectsNonPABR(t *testing.T) {
+func TestDecodeProcessingMastery(t *testing.T) {
 	t.Parallel()
-	if _, err := DecodeManufacture([]byte("nope")); err == nil {
+
+	// manufacturingstat uses PABR magic with rows@4==0; bracket count lives at @8.
+	rec := make([]byte, 12)
+	rec[0], rec[1], rec[2], rec[3] = 'P', 'A', 'B', 'R'
+	binary.LittleEndian.PutUint32(rec[8:], 1)
+	body := make([]byte, 16)
+	binary.LittleEndian.PutUint32(body[0:], math.Float32bits(50))
+	binary.LittleEndian.PutUint32(body[4:], 500_000) // 0.5
+	binary.LittleEndian.PutUint32(body[8:], 2)
+	data := append(rec, body...)
+
+	got, err := DecodeProcessingMastery(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Mastery != 50 || got[0].ProcRate != 0.5 || got[0].Batch != 2 {
+		t.Fatalf("got %#v", got)
+	}
+}
+
+func TestDecodeProcessingMasteryRejectsNonPABR(t *testing.T) {
+	t.Parallel()
+	if _, err := DecodeProcessingMastery([]byte("nope")); err == nil {
 		t.Fatal("expected error")
 	}
 }

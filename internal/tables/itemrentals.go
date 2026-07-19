@@ -33,25 +33,19 @@ type ItemRentalRow struct {
 // paired index key packs the character key in its low word and dialog variant
 // in its high word.
 func DecodeItemRentals(offsetData, data []byte) ([]ItemRentalRow, error) {
-	entries, err := bss.ParseOffsetIndex(offsetData, len(data))
-	if err != nil {
-		return nil, fmt.Errorf("detail dialog index: %w", err)
-	}
-
 	rows := make([]ItemRentalRow, 0)
 	seen := make(map[ItemRentalRow]bool)
-	for _, entry := range entries {
-		record, ok := entry.Slice(data)
-		if !ok {
-			return nil, fmt.Errorf("detail dialog %08x is out of bounds", entry.Key)
-		}
-		decoded, err := decodeItemRentalRecord(record)
+	for rec, err := range bss.IndexedRecords(offsetData, data) {
 		if err != nil {
-			return nil, fmt.Errorf("detail dialog %08x: %w", entry.Key, err)
+			return nil, fmt.Errorf("detail dialog index: %w", err)
+		}
+		decoded, err := decodeItemRentalRecord(rec.Data)
+		if err != nil {
+			return nil, fmt.Errorf("detail dialog %08x: %w", rec.Entry.Key, err)
 		}
 		for _, row := range decoded {
-			row.CharacterKey = uint32(uint16(entry.Key))
-			row.DialogIndex = uint16(entry.Key >> 16)
+			row.CharacterKey = uint32(uint16(rec.Entry.Key))
+			row.DialogIndex = uint16(rec.Entry.Key >> 16)
 			if seen[row] {
 				continue
 			}

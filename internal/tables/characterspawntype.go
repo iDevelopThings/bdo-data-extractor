@@ -39,20 +39,22 @@ func DecodeCharacterSpawnTypes(indexData, data []byte) (map[uint32]model.NPCSpaw
 	}
 
 	out := make(map[uint32]model.NPCSpawnTypes, count)
-	for _, entry := range entries {
-		rec, ok := entry.Slice(data)
-		if !ok || len(rec) != characterSpawnTypeRecordSize {
-			return nil, fmt.Errorf("character spawn-type record %d is out of bounds", entry.Key)
+	for rec, err := range bss.RecordsFromEntries(entries, data) {
+		if err != nil {
+			return nil, fmt.Errorf("character spawn-type record %d: %w", rec.Entry.Key, err)
 		}
-		key := uint32(bss.U16(rec, 0))
-		if key == 0 || key != entry.Key {
-			return nil, fmt.Errorf("character spawn-type index key %d does not match record key %d", entry.Key, key)
+		if len(rec.Data) != characterSpawnTypeRecordSize {
+			return nil, fmt.Errorf("character spawn-type record %d is out of bounds", rec.Entry.Key)
+		}
+		key := uint32(bss.U16(rec.Data, 0))
+		if key == 0 || key != rec.Entry.Key {
+			return nil, fmt.Errorf("character spawn-type index key %d does not match record key %d", rec.Entry.Key, key)
 		}
 		if _, exists := out[key]; exists {
 			return nil, fmt.Errorf("duplicate character spawn-type key %d", key)
 		}
 		roles := make(model.NPCSpawnTypes, 0)
-		for i, enabled := range rec[2:] {
+		for i, enabled := range rec.Data[2:] {
 			if enabled > 1 {
 				return nil, fmt.Errorf("character %d spawn type %d has invalid flag %d", key, i, enabled)
 			}

@@ -88,28 +88,18 @@ func (b *Builder) buildWorld() error {
 	if err != nil {
 		return err
 	}
-	plantData, err := b.src.Read("plantzone.dbss")
-	if err != nil {
-		return err
-	}
-	plantIndex, err := b.src.Read("plantzoneoffset.dbss")
-	if err != nil {
-		return err
-	}
-	exchangeData, err := b.src.Read("plantexchangegroup.bss")
-	if err != nil {
-		return err
-	}
-	subgroupData, err := b.src.Read("itemsubgroup.dbss")
-	if err != nil {
-		return err
-	}
-	subgroupIndex, err := b.src.Read("itemsubgroupoffset.dbss")
+	plantFiles, err := b.readFiles(
+		"plantzone.dbss",
+		"plantzoneoffset.dbss",
+		"plantexchangegroup.bss",
+		"itemsubgroup.dbss",
+		"itemsubgroupoffset.dbss",
+	)
 	if err != nil {
 		return err
 	}
 	products, err := tables.DecodePlantNodeProducts(
-		plantData, plantIndex, exchangeData, subgroupData, subgroupIndex,
+		plantFiles[0], plantFiles[1], plantFiles[2], plantFiles[3], plantFiles[4],
 	)
 	if err != nil {
 		return err

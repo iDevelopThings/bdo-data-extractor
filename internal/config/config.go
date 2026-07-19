@@ -103,6 +103,8 @@ func usage() {
 		`bdo-data-extractor <command> [flags] [args]    (flags precede positional args)
 
   build [outPath]            collects all possible data, items, recipes, territories etc...
+  diff-outputs <left> <right>
+                             compare two build dirs via .build-outputs.json (owned files only)
   meta                       parse pad00000.meta, print summary
   extract <substr> <outDir>  extract decoded files whose path contains substr
   index <outDir> <(opt)ignore-exts> <(opt)only-exts> <(opt)only-dirs> dump the archive listing -> <out>/paz_files.json + paz_dirs.json
