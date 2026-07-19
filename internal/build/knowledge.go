@@ -12,19 +12,44 @@ import (
 
 // buildKnowledge decodes the mentaltheme tree + mentalcard entries (names from
 // loc tables 9/34), links them to items/NPCs by name, and registers knowledge.json.
-// Skips if absent.
+// Skips if absent; fails if present but corrupt.
 func (b *Builder) buildKnowledge() error {
-	themeData, err := b.src.Read("mentaltheme.dbss")
+	themeData, ok, err := b.src.ReadIfExists("mentaltheme.dbss")
 	if err != nil {
+		return err
+	}
+	if !ok {
 		return nil
 	}
-	themeOff, _ := b.src.Read("mentalthemeoffset.dbss")
-	themes := tables.DecodeKnowledgeThemes(themeOff, themeData, b.gs.ThemeNames)
+	themeOff, ok, err := b.src.ReadIfExists("mentalthemeoffset.dbss")
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("mentaltheme.dbss present without mentalthemeoffset.dbss")
+	}
+	themes, err := tables.DecodeKnowledgeThemes(themeOff, themeData, b.gs.ThemeNames)
+	if err != nil {
+		return err
+	}
 
 	var entries []model.KnowledgeEntry
-	if cardData, err := b.src.Read("mentalcard.dbss"); err == nil {
-		cardOff, _ := b.src.Read("mentalcardoffset.dbss")
-		entries = tables.DecodeKnowledgeEntries(cardOff, cardData, b.gs.CardNames, b.gs.CardDescs, b.gs.CardAcquire)
+	cardData, ok, err := b.src.ReadIfExists("mentalcard.dbss")
+	if err != nil {
+		return err
+	}
+	if ok {
+		cardOff, ok, err := b.src.ReadIfExists("mentalcardoffset.dbss")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("mentalcard.dbss present without mentalcardoffset.dbss")
+		}
+		entries, err = tables.DecodeKnowledgeEntries(cardOff, cardData, b.gs.CardNames, b.gs.CardDescs, b.gs.CardAcquire)
+		if err != nil {
+			return err
+		}
 	}
 	itemLinks := b.linkKnowledge(themes, entries)
 	characters, charLinks := b.buildCharacters(entries)
@@ -92,8 +117,10 @@ func (b *Builder) linkKnowledge(themes []model.KnowledgeTheme, entries []model.K
 // Statue" is a kind=monster record — the 1289 non-NPC subjects become real records.
 func (b *Builder) buildCharacters(entries []model.KnowledgeEntry) ([]model.Character, int) {
 	var static map[uint32]tables.CharacterStatic
-	if off, err := b.src.Read("characterstaticoffset.dbss"); err == nil {
-		if dat, derr := b.src.Read("characterstatic.dbss"); derr == nil {
+	off, ok, err := b.src.ReadIfExists("characterstaticoffset.dbss")
+	if err == nil && ok {
+		dat, ok, err := b.src.ReadIfExists("characterstatic.dbss")
+		if err == nil && ok {
 			static = tables.DecodeCharacterStatic(off, dat)
 		}
 	}

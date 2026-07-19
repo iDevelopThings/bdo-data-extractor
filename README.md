@@ -123,7 +123,6 @@ bdo-data-extractor loc                         # dump the entire localization ->
 bdo-data-extractor lua-strings                 # dump resolved PAGetString keys -> ./data/lua_strings_<lang>.json
 bdo-data-extractor meta                        # parse the archive index, print a summary
 bdo-data-extractor extract <substr> <outDir>   # extract decoded archive files whose path contains substr
-bdo-data-extractor table <name>                # decode one schema-known table -> JSON (stdout)
 bdo-data-extractor index                       # dump the archive listing -> ./data/paz_files.json + paz_dirs.json
 ```
 
@@ -171,19 +170,18 @@ so they map straight back to `items.json`.
 ## Architecture
 
 ```
-main.go                    CLI entry point + subcommands (build, icons, loc, meta, table, …)
+main.go                    CLI entry point + subcommands (build, icons, loc, meta, …)
 pipeline/                  icon / region-map / knowledge-icon / loc-dump pipelines
 internal/
   config/   flag parsing + global config
   paz/      archive layer: ICE cipher, BDO-LZ, meta index, read-only access
-  bss/      .bss/.dbss record reader + schema + offset-index + PABR helpers
+  bss/      .bss/.dbss cursor, offset-index iterators, PABR helpers
   loc/      languagedata_<lang>.loc decoder
   tables/   the leaf parsers: items, enchant curves, buffs/skills, class skill trees,
             crystal rules, recipe XML, npcs, regions, zones, fishing, region maps,
             knowledge (mentalcard/mentaltheme)
   build/    the assembler: Builder reads sources, joins across tables, writes JSON
             (items, recipes, market, world, zones, fishing, knowledge, mastery, caphras)
-  schema/   declarative table schemas (used by `table`)
   jsonio/   buffered + parallel JSON file writer
   tex/      DXT1/DXT5/uncompressed DDS -> RGBA
   progress/ pipeline progress sink

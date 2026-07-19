@@ -23,14 +23,12 @@ import (
 // Record 0 uses a compact header variant. Validated: sortIndex == record index for all 105,
 // and the section walk lands exactly on the stat block for 102/105 (the rest get
 // stat + name only). isItem reports whether an id is a known item.
-func DecodeZones(data []byte, isItem func(uint32) bool) []model.Zone {
-	if len(data) < 16 || string(data[0:4]) != "PABR" {
-		return nil
+func DecodeZones(data []byte, isItem func(uint32) bool) ([]model.Zone, error) {
+	pabr, err := bss.OpenPABR(data)
+	if err != nil {
+		return nil, err
 	}
-	stPtr := int(bss.U64(data, len(data)-8))
-	if stPtr < 8 || stPtr > len(data) {
-		return nil
-	}
+	stPtr := pabr.StringTablePos
 	statF := func(o int) bool { f := bss.F32(data, o); return f >= 1 && f <= 3000 }
 
 	// byte-scan the stat-block offsets (one per record), skipping past each match
@@ -45,6 +43,9 @@ func DecodeZones(data []byte, isItem func(uint32) bool) []model.Zone {
 			}
 		}
 		p++
+	}
+	if len(stat) == 0 {
+		return nil, fmt.Errorf("dropuihuntinggroundinfo: no zone stat blocks found")
 	}
 
 	zones := make([]model.Zone, 0, len(stat))
@@ -109,25 +110,25 @@ func DecodeZones(data []byte, isItem func(uint32) bool) []model.Zone {
 		}
 		zones = append(zones, z)
 	}
-	return zones
+	return zones, nil
 }
 
 // DecodeTags decodes dropuitaginfo.bss — a PABR table whose numeric section is
 // 44 fixed 32-byte rows: [key u32][4 unknown u32][textureColor u32][fontColor u32].
 // (String payload — the Korean labels — is ignored; labels come from loc.)
-func DecodeTags(data []byte) []model.TagInfo {
-	if len(data) < 8 || string(data[0:4]) != "PABR" {
-		return nil
+func DecodeTags(data []byte) ([]model.TagInfo, error) {
+	pabr, err := bss.OpenPABR(data)
+	if err != nil {
+		return nil, err
 	}
-	count := int(bss.U32(data, 4))
-	if count <= 0 || count > 1000 {
-		return nil
+	if pabr.Rows <= 0 || pabr.Rows > 1000 {
+		return nil, fmt.Errorf("dropuitaginfo: bad row count %d", pabr.Rows)
 	}
-	out := make([]model.TagInfo, 0, count)
-	for i := 0; i < count; i++ {
-		o := 8 + i*32
+	out := make([]model.TagInfo, 0, pabr.Rows)
+	for i := 0; i < pabr.Rows; i++ {
+		o := pabr.RecordsStart + i*32
 		if o+32 > len(data) {
-			break
+			return nil, fmt.Errorf("dropuitaginfo: truncated at row %d", i)
 		}
 		out = append(
 			out, model.TagInfo{
@@ -137,7 +138,7 @@ func DecodeTags(data []byte) []model.TagInfo {
 			},
 		)
 	}
-	return out
+	return out, nil
 }
 
 // questList reads a [u32 count][count×u32] block and formats each entry from its

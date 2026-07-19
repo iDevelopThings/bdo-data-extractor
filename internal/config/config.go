@@ -105,7 +105,6 @@ func usage() {
   build [outPath]            collects all possible data, items, recipes, territories etc...
   meta                       parse pad00000.meta, print summary
   extract <substr> <outDir>  extract decoded files whose path contains substr
-  table <name>               decode one table via a known schema -> JSON (stdout)
   index <outDir> <(opt)ignore-exts> <(opt)only-exts> <(opt)only-dirs> dump the archive listing -> <out>/paz_files.json + paz_dirs.json
   icons [outDir]             decode each item's icon to <id>.webp (default <out>/icons)
   knowledge-icons            decode each knowledge card's encyclopedia image to <out>/knowledge_icons/<image>

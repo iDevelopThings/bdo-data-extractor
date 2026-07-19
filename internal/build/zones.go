@@ -11,30 +11,52 @@ import (
 
 // buildZones decodes the Monster Zone Info table (dropuihuntinggroundinfo),
 // resolving every referenced id to its name/icon inline, and registers zones.json.
-// Skips silently if the table is absent.
+// Skips if the table is absent; fails if present but corrupt.
 func (b *Builder) buildZones() error {
-	zoneData, err := b.src.Read("dropuihuntinggroundinfo.bss")
+	zoneData, ok, err := b.src.ReadIfExists("dropuihuntinggroundinfo.bss")
 	if err != nil {
+		return err
+	}
+	if !ok {
 		return nil
 	}
 	gs := b.gs
 	isItem := func(v uint32) bool { _, ok := b.items[v]; return ok }
-	zones := tables.DecodeZones(zoneData, isItem)
+	zones, err := tables.DecodeZones(zoneData, isItem)
+	if err != nil {
+		return err
+	}
 
 	// tag colors come from dropuitaginfo; labels/descriptions/names from loc
 	tagColor := map[uint32]model.TagInfo{}
-	if td, err := b.src.Read("dropuitaginfo.bss"); err == nil {
-		for _, t := range tables.DecodeTags(td) {
+	td, ok, err := b.src.ReadIfExists("dropuitaginfo.bss")
+	if err != nil {
+		return err
+	}
+	if ok {
+		tags, err := tables.DecodeTags(td)
+		if err != nil {
+			return err
+		}
+		for _, t := range tags {
 			tagColor[t.Key] = t
 		}
 	}
 	// category icons (dropui*categoryinfo); names from loc.
 	mainIcons := map[uint32]string{}
-	if mc, err := b.src.Read("dropuimaincategoryinfo.bss"); err == nil {
+	mc, ok, err := b.src.ReadIfExists("dropuimaincategoryinfo.bss")
+	if err != nil {
+		return err
+	}
+	if ok {
 		mainIcons = tables.DecodeMainCategoryIcons(mc)
 	}
 	subIcons := map[uint32]string{}
-	if sc, err := b.src.Read("dropuisubcategoryinfo.bss"); err == nil {
+	sc, ok, err := b.src.ReadIfExists("dropuisubcategoryinfo.bss")
+	if err != nil {
+		return err
+	}
+	if ok {
 		subIcons = tables.DecodeSubCategoryIcons(sc)
 	}
 	// A zone's node key is a worldmap node key for 99 of the 105 zones; the rest point

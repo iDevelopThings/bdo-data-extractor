@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/dgravesa/go-parallel/parallel"
 
@@ -126,6 +127,7 @@ func (b *Builder) scanItemInfo() {
 // stays serial and in order, so the merged output is unchanged.
 func (b *Builder) parseItemInfos(indices []int, keep func(path string) bool) []*tables.ItemInfo {
 	out := make([]*tables.ItemInfo, len(indices))
+	var readErrs atomic.Int32
 	parallel.For(len(indices), func(k, _ int) {
 		idx := indices[k]
 		if !keep(b.src.Index.Path(idx)) {
@@ -133,10 +135,14 @@ func (b *Builder) parseItemInfos(indices []int, keep func(path string) bool) []*
 		}
 		data, err := b.src.Archive.Content(b.src.Index.Files[idx])
 		if err != nil {
+			readErrs.Add(1)
 			return
 		}
 		out[k] = tables.ParseItemInfo(data, b.houseName)
 	})
+	if n := readErrs.Load(); n > 0 {
+		b.logf(fmt.Sprintf("item info: skipped %d unreadable XML files", n))
+	}
 	return out
 }
 

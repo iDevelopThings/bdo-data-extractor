@@ -10,18 +10,43 @@ import (
 // buildMastery decodes the life-skill mastery curve tables (cooking/alchemy/
 // processing) into mastery.json — the client-side proc/yield rates keyed by mastery
 // value, used to model production procs (base output is server-side, effectively 1).
-// Skips if the tables are absent.
+// Skips if the tables are absent; fails if a present table is corrupt.
 func (b *Builder) buildMastery() error {
 	var mc model.MasteryCurves
-	if d, err := b.src.Read("cookingstatdata.bss"); err == nil {
-		mc.Cooking = tables.DecodeCookingMastery(d)
+
+	d, ok, err := b.src.ReadIfExists("cookingstatdata.bss")
+	if err != nil {
+		return err
 	}
-	if d, err := b.src.Read("alchemystatdata.bss"); err == nil {
-		mc.Alchemy = tables.DecodeAlchemyMastery(d)
+	if ok {
+		mc.Cooking, err = tables.DecodeCookingMastery(d)
+		if err != nil {
+			return fmt.Errorf("cookingstatdata: %w", err)
+		}
 	}
-	if d, err := b.src.Read("manufacturingstat.bss"); err == nil {
-		mc.Processing = tables.DecodeProcessingMastery(d)
+
+	d, ok, err = b.src.ReadIfExists("alchemystatdata.bss")
+	if err != nil {
+		return err
 	}
+	if ok {
+		mc.Alchemy, err = tables.DecodeAlchemyMastery(d)
+		if err != nil {
+			return fmt.Errorf("alchemystatdata: %w", err)
+		}
+	}
+
+	d, ok, err = b.src.ReadIfExists("manufacturingstat.bss")
+	if err != nil {
+		return err
+	}
+	if ok {
+		mc.Processing, err = tables.DecodeProcessingMastery(d)
+		if err != nil {
+			return fmt.Errorf("manufacturingstat: %w", err)
+		}
+	}
+
 	if len(mc.Cooking)+len(mc.Alchemy)+len(mc.Processing) == 0 {
 		return nil
 	}
@@ -41,15 +66,18 @@ func (b *Builder) buildMastery() error {
 
 // buildManufacture decodes manufacture.bss into manufacture.json (recipe group,
 // inputs, result item, action type, success rate — no yield count; yield is
-// server-rolled). Skips if absent.
+// server-rolled). Skips if absent; fails if present but corrupt.
 func (b *Builder) buildManufacture() error {
-	d, err := b.src.Read("manufacture.bss")
+	d, ok, err := b.src.ReadIfExists("manufacture.bss")
 	if err != nil {
+		return err
+	}
+	if !ok {
 		return nil
 	}
-	recs := tables.DecodeManufacture(d)
-	if len(recs) == 0 {
-		return nil
+	recs, err := tables.DecodeManufacture(d)
+	if err != nil {
+		return err
 	}
 	p, err := b.addJSON("manufacture.json", recs)
 	if err != nil {

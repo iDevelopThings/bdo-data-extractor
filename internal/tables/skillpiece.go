@@ -13,18 +13,12 @@ const maxItemSetBonuses = 64
 
 // DecodeItemSets reads skillpieceoffset.dbss and skillpiece.dbss.
 func DecodeItemSets(offsetData, data []byte) ([]model.ItemSet, error) {
-	entries, err := bss.ParseU16OffsetIndex("skillpiece", offsetData, len(data))
-	if err != nil {
-		return nil, err
-	}
-
-	sets := make([]model.ItemSet, 0, len(entries))
-	for _, entry := range entries {
-		record, ok := entry.Slice(data)
-		if !ok {
-			return nil, fmt.Errorf("skillpiece: key %d record is out of bounds", entry.Key)
+	sets := make([]model.ItemSet, 0)
+	for rec, err := range bss.IndexedRecordsU16("skillpiece", offsetData, data) {
+		if err != nil {
+			return nil, err
 		}
-		set, err := decodeItemSet(entry.Key, record)
+		set, err := decodeItemSet(rec.Entry.Key, rec.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -64,12 +58,10 @@ func decodeItemSet(indexKey uint32, record []byte) (model.ItemSet, error) {
 		})
 	}
 	footer := c.U32()
-
+	if err := bss.RequireExhausted(c); err != nil {
+		return model.ItemSet{}, fmt.Errorf("skillpiece: key %d: %w", indexKey, err)
+	}
 	switch {
-	case !c.OK():
-		return model.ItemSet{}, fmt.Errorf("skillpiece: key %d record is truncated while decoding", indexKey)
-	case c.Remaining() != 0:
-		return model.ItemSet{}, fmt.Errorf("skillpiece: key %d has %d trailing bytes", indexKey, c.Remaining())
 	case skillNo != indexKey:
 		return model.ItemSet{}, fmt.Errorf("skillpiece: index key %d resolves to skill %d", indexKey, skillNo)
 	case footer != 0:

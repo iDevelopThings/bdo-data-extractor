@@ -4,27 +4,31 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
+	"sync"
 
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
 // Source bundles the parsed archive index with read access to the archive. It
 // centralizes the load-meta / open / find / read / close sequence the commands
-// share. Call Close when done. Not safe for concurrent use.
+// share. Call Close when done. Not safe for concurrent use of the Source methods
+// themselves; Archive.Content is concurrent-safe.
 type Source struct {
 	Index   *Index
 	Archive *Archive
 }
 
 var (
-	isOpen     atomic.Bool
+	openMu     sync.Mutex
 	openSource *Source
 )
 
-// OpenSource loads pad00000.meta and opens the archive (read-only).
+// OpenSource loads pad00000.meta and opens the archive (read-only). Concurrent
+// callers share one Source while it remains open.
 func OpenSource(gameDir string) (*Source, error) {
-	if isOpen.Load() {
+	openMu.Lock()
+	defer openMu.Unlock()
+	if openSource != nil {
 		return openSource, nil
 	}
 
@@ -32,12 +36,8 @@ func OpenSource(gameDir string) (*Source, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load meta: %w", err)
 	}
-	s := &Source{Index: ix, Archive: Open(gameDir)}
-
-	isOpen.Store(true)
-	openSource = s
-
-	return s, nil
+	openSource = &Source{Index: ix, Archive: Open(gameDir)}
+	return openSource, nil
 }
 
 // Read returns the decoded bytes of the file whose basename is name.
@@ -95,8 +95,9 @@ func (s *Source) ReadAny(names ...string) ([]byte, string, error) {
 func (s *Source) Close() {
 	s.Archive.Close()
 
+	openMu.Lock()
+	defer openMu.Unlock()
 	if openSource == s {
 		openSource = nil
-		isOpen.Store(false)
 	}
 }

@@ -73,30 +73,25 @@ func DecodePlantNodeProducts(
 }
 
 func decodePlantProductionKeys(data, index []byte) (map[uint32]uint32, error) {
-	entries, err := bss.ParseOffsetIndex(index, len(data))
-	if err != nil {
-		return nil, fmt.Errorf("parse plant-zone index: %w", err)
-	}
-	out := make(map[uint32]uint32, len(entries))
-	for _, entry := range entries {
-		rec, ok := entry.Slice(data)
-		if !ok {
-			return nil, fmt.Errorf("plant-zone record %d is out of bounds", entry.Key)
+	out := make(map[uint32]uint32)
+	for rec, err := range bss.IndexedRecords(index, data) {
+		if err != nil {
+			return nil, fmt.Errorf("parse plant-zone index: %w", err)
 		}
-		c := bss.NewCursor(rec, 0, len(rec))
+		c := bss.NewCursor(rec.Data, 0, len(rec.Data))
 		key := c.U32()
 		c.Skip(4 + 4 + 2 + 1 + 2 + 2 + 4)
 		production := uint32(uint16(c.U32()))
 		speciesCount := int(c.U32())
 		if speciesCount < 0 || speciesCount > 32 {
-			return nil, fmt.Errorf("plant-zone %d has invalid worker species count %d", entry.Key, speciesCount)
+			return nil, fmt.Errorf("plant-zone %d has invalid worker species count %d", rec.Entry.Key, speciesCount)
 		}
 		c.Skip(speciesCount)
-		if !c.OK() || c.Remaining() != 0 {
-			return nil, fmt.Errorf("plant-zone %d has invalid record size", entry.Key)
+		if err := bss.RequireExhausted(c); err != nil {
+			return nil, fmt.Errorf("plant-zone %d: %w", rec.Entry.Key, err)
 		}
-		if key != entry.Key || key == 0 || production == 0 {
-			return nil, fmt.Errorf("plant-zone index key %d does not match record key %d/production %d", entry.Key, key, production)
+		if key != rec.Entry.Key || key == 0 || production == 0 {
+			return nil, fmt.Errorf("plant-zone index key %d does not match record key %d/production %d", rec.Entry.Key, key, production)
 		}
 		if _, exists := out[key]; exists {
 			return nil, fmt.Errorf("duplicate plant-zone node %d", key)

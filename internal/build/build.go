@@ -49,6 +49,11 @@ type Builder struct {
 	nodesDecoded     []model.WorldNode
 	waypointsDecoded map[uint32]tables.WorldWaypoint
 
+	// characterFunction* memoizes characterfunction.dbss (+ offset), shared by
+	// node-manager ownership and NPC item-service decoding in buildWorld / buildNpcs.
+	characterFunctionOff  []byte
+	characterFunctionData []byte
+
 	// outputs owns staging and publication for the complete generated dataset.
 	outputs *output.Transaction
 }

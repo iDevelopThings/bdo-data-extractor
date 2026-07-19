@@ -4,26 +4,34 @@ import "testing"
 
 func TestSourceCloseReleasesActiveSource(t *testing.T) {
 	s := &Source{Archive: Open(t.TempDir())}
+	openMu.Lock()
 	openSource = s
-	isOpen.Store(true)
+	openMu.Unlock()
 
 	s.Close()
 
-	if openSource != nil || isOpen.Load() {
-		t.Fatalf("closed source remains active: source=%p open=%t", openSource, isOpen.Load())
+	openMu.Lock()
+	active := openSource
+	openMu.Unlock()
+	if active != nil {
+		t.Fatalf("closed source remains active: source=%p", active)
 	}
 }
 
 func TestStaleSourceCloseKeepsActiveSource(t *testing.T) {
 	stale := &Source{Archive: Open(t.TempDir())}
 	active := &Source{Archive: Open(t.TempDir())}
+	openMu.Lock()
 	openSource = active
-	isOpen.Store(true)
+	openMu.Unlock()
 
 	stale.Close()
 
-	if openSource != active || !isOpen.Load() {
-		t.Fatalf("stale close changed active source: source=%p open=%t", openSource, isOpen.Load())
+	openMu.Lock()
+	got := openSource
+	openMu.Unlock()
+	if got != active {
+		t.Fatalf("stale close changed active source: source=%p", got)
 	}
 	active.Close()
 }

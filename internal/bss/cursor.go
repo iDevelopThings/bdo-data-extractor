@@ -2,8 +2,14 @@ package bss
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"math"
 )
+
+// ErrTruncated is returned by RequireExhausted when the cursor hit end-of-record
+// mid-field (sticky error set).
+var ErrTruncated = errors.New("truncated record")
 
 // Standalone little-endian readers for random access into a decoded table — the
 // recurring `binary.LittleEndian.Uint32(b[o:])` pattern, named once.
@@ -25,8 +31,8 @@ func AllZero(b []byte) bool {
 // Cursor is a bounds-checked, byte-granular sequential reader over a (sub)slice
 // of a decoded table. Records in these tables are byte-packed, so fields land at
 // arbitrary offsets; the cursor advances by the exact field width. A read past
-// the end sets a sticky error — check OK after a run of reads rather than each
-// one. It is the byte-level counterpart to Reader (which is schema-driven).
+// the end sets a sticky error — check OK / RequireExhausted after a run of reads
+// rather than after each one.
 type Cursor struct {
 	b        []byte
 	pos, end int
@@ -43,6 +49,18 @@ func NewCursor(b []byte, start, end int) *Cursor {
 
 func (c *Cursor) OK() bool { return !c.bad }
 func (c *Cursor) Pos() int { return c.pos }
+
+// RequireExhausted reports an error unless the cursor consumed its whole span
+// without a sticky truncation. Use after a fixed-layout sequential walk.
+func RequireExhausted(c *Cursor) error {
+	if !c.OK() {
+		return fmt.Errorf("%w at byte %d", ErrTruncated, c.Pos())
+	}
+	if n := c.Remaining(); n != 0 {
+		return fmt.Errorf("%d trailing bytes at byte %d", n, c.Pos())
+	}
+	return nil
+}
 
 func (c *Cursor) avail(n int) bool {
 	if c.bad || n < 0 || c.pos < 0 || c.pos > c.end || n > c.end-c.pos {

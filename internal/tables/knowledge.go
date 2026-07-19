@@ -2,7 +2,6 @@ package tables
 
 import (
 	"bytes"
-	"log"
 	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
@@ -15,24 +14,21 @@ import (
 // u32-count header then 10-byte index records [u16 key, u32 offset, u32 size].
 // Each data record is [u16 key, i64 nameLen, nameLen*2 UTF-16 name, u16 parent];
 // the embedded name is the source language, so the English name comes from loc.
-func DecodeKnowledgeThemes(offsetRaw, dataRaw []byte, names map[uint32]string) []model.KnowledgeTheme {
-	idx, err := bss.ParseU16OffsetIndex("mentaltheme", offsetRaw, len(dataRaw))
-	if err != nil {
-		log.Printf("mentaltheme: %v — the knowledge theme tree will be empty", err)
-		return nil
-	}
-
-	out := make([]model.KnowledgeTheme, 0, len(idx))
-	for _, entry := range idx {
+func DecodeKnowledgeThemes(offsetRaw, dataRaw []byte, names map[uint32]string) ([]model.KnowledgeTheme, error) {
+	out := make([]model.KnowledgeTheme, 0)
+	for rec, err := range bss.IndexedRecordsU16("mentaltheme", offsetRaw, dataRaw) {
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, model.KnowledgeTheme{
-			BaseFor: models.NewBaseFor[model.KnowledgeTheme](entry.Key, "theme"),
-			Key:     entry.Key,
-			Name:    names[entry.Key],
-			Parent:  model.ThemeRef(themeParent(dataRaw, int(entry.Offset))),
+			BaseFor: models.NewBaseFor[model.KnowledgeTheme](rec.Entry.Key, "theme"),
+			Key:     rec.Entry.Key,
+			Name:    names[rec.Entry.Key],
+			Parent:  model.ThemeRef(themeParent(dataRaw, int(rec.Entry.Offset))),
 		})
 	}
 
-	return out
+	return out, nil
 }
 
 // themeParent reads the parent theme key that follows the name in a mentaltheme
@@ -55,16 +51,14 @@ func themeParent(data []byte, off int) uint32 {
 // reached by its .dds anchor, since the embedded strings are variable-length. The
 // subject kind is the theme category, not a header field — see model.KnowledgeEntry.
 // Record layout: see FORMATS.md, "mentalcard.dbss".
-func DecodeKnowledgeEntries(offsetRaw, dataRaw []byte, names, descs, acquire map[uint32]string) []model.KnowledgeEntry {
-	idx, err := bss.ParseOffsetIndex(offsetRaw, len(dataRaw))
-	if err != nil {
-		return nil
-	}
-
-	out := make([]model.KnowledgeEntry, 0, len(idx))
-	for _, e := range idx {
-		rec, ok := e.Slice(dataRaw)
-		if !ok || len(rec) < 40 {
+func DecodeKnowledgeEntries(offsetRaw, dataRaw []byte, names, descs, acquire map[uint32]string) ([]model.KnowledgeEntry, error) {
+	out := make([]model.KnowledgeEntry, 0)
+	for e, err := range bss.IndexedRecords(offsetRaw, dataRaw) {
+		if err != nil {
+			return nil, err
+		}
+		rec := e.Data
+		if len(rec) < 40 {
 			continue
 		}
 		c := bss.NewCursor(rec, 0, len(rec))
@@ -81,12 +75,12 @@ func DecodeKnowledgeEntries(offsetRaw, dataRaw []byte, names, descs, acquire map
 
 		out = append(
 			out, model.KnowledgeEntry{
-				BaseFor:     models.NewBaseFor[model.KnowledgeEntry](e.Key, "entry"),
-				Key:         e.Key,
+				BaseFor:     models.NewBaseFor[model.KnowledgeEntry](e.Entry.Key, "entry"),
+				Key:         e.Entry.Key,
 				Theme:       model.ThemeRef(theme),
-				Name:        names[e.Key],
-				Description: descs[e.Key],
-				Acquisition: acquire[e.Key],
+				Name:        names[e.Entry.Key],
+				Description: descs[e.Entry.Key],
+				Acquisition: acquire[e.Entry.Key],
 				Image:       imageName(rec),
 				MinFavor:    round2(minFavor),
 				MaxFavor:    round2(maxFavor),
@@ -96,7 +90,7 @@ func DecodeKnowledgeEntries(offsetRaw, dataRaw []byte, names, descs, acquire map
 		)
 	}
 
-	return out
+	return out, nil
 }
 
 // imageName returns the card's embedded image as a lowercase, PAZ-relative asset

@@ -305,11 +305,7 @@ func nearestRegionTerritory(regions []model.WorldRegion, pos [3]float64) int {
 
 func (b *Builder) resolveNodeManagerOwners(nodes []model.WorldNode) (int, int, error) {
 	families := nodeManagerFamilies(nodes)
-	indexData, err := b.src.Read("characterfunctionoffset.dbss")
-	if err != nil {
-		return 0, 0, err
-	}
-	data, err := b.src.Read("characterfunction.dbss")
+	indexData, data, err := b.characterFunctionTable()
 	if err != nil {
 		return 0, 0, err
 	}
@@ -456,6 +452,25 @@ func (b *Builder) npcTable() ([]model.NPC, error) {
 	return npcs, nil
 }
 
+// characterFunctionTable loads characterfunction.dbss (+ offset) once for the
+// node-manager and NPC item-service stages.
+func (b *Builder) characterFunctionTable() (index, data []byte, err error) {
+	if b.characterFunctionData != nil {
+		return b.characterFunctionOff, b.characterFunctionData, nil
+	}
+	index, err = b.src.Read("characterfunctionoffset.dbss")
+	if err != nil {
+		return nil, nil, err
+	}
+	data, err = b.src.Read("characterfunction.dbss")
+	if err != nil {
+		return nil, nil, err
+	}
+	b.characterFunctionOff = index
+	b.characterFunctionData = data
+	return index, data, nil
+}
+
 // buildNpcs decodes NPCs, attaches each NPC's spawn locations from the world
 // regions (built by buildWorld), and registers npcs.json.
 func (b *Builder) buildNpcs() error {
@@ -475,11 +490,7 @@ func (b *Builder) buildNpcs() error {
 	if err != nil {
 		return err
 	}
-	functionIndex, err := b.src.Read("characterfunctionoffset.dbss")
-	if err != nil {
-		return err
-	}
-	functionData, err := b.src.Read("characterfunction.dbss")
+	functionIndex, functionData, err := b.characterFunctionTable()
 	if err != nil {
 		return err
 	}

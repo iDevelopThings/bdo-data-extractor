@@ -3,17 +3,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
 	"github.com/idevelopthings/bdo-data-extractor/internal/build"
 	"github.com/idevelopthings/bdo-data-extractor/internal/config"
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
-	"github.com/idevelopthings/bdo-data-extractor/internal/schema"
 	"github.com/idevelopthings/bdo-data-extractor/pipeline"
 )
 
@@ -29,16 +26,8 @@ func main() {
 			config.DumpUsageAndExit()
 		}
 		err = cmdExtract(*conf.GameDir, rest[0], rest[1])
-	case "table":
-		if len(rest) < 1 {
-			config.DumpUsageAndExit()
-		}
-		err = cmdTable(*conf.GameDir, *conf.Out, rest[0])
 	case "build":
-		// var out string
-		// if out, err = outFile(filepath.Join(*conf.Out, "items.json"), rest); err == nil {
 		err = build.Run()
-		// }
 	case "icons":
 		err = pipeline.Icons()
 	case "index":
@@ -119,34 +108,6 @@ func cmdExtract(gameDir, substr, outDir string) error {
 	return nil
 }
 
-func cmdTable(gameDir, outDir, name string) error {
-	sc := schema.Registry[strings.ToLower(name)]
-	if sc == nil {
-		return fmt.Errorf("no schema registered for %q (known: %v)", name, knownSchemas())
-	}
-	src, err := paz.OpenSource(gameDir)
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-	content, _, err := src.ReadAny(name+".bss", name+".dbss")
-	if err != nil {
-		return fmt.Errorf("table %q: %w", name, err)
-	}
-	rows, err := bss.NewReader(content).ReadAll(sc)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: %v (decoded %d rows)\n", err, len(rows))
-	}
-	fmt.Printf("decoded %d rows from %s\n", len(rows), name)
-	show := rows
-	if len(show) > 5 {
-		show = show[:5]
-	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(show)
-}
-
 // outFile resolves an output path (default, or rest[0] if given) and ensures its
 // parent directory exists.
 func outFile(defaultPath string, rest []string) (string, error) {
@@ -155,12 +116,4 @@ func outFile(defaultPath string, rest []string) (string, error) {
 		p = rest[0]
 	}
 	return p, os.MkdirAll(filepath.Dir(p), 0o755)
-}
-
-func knownSchemas() []string {
-	var ks []string
-	for k := range schema.Registry {
-		ks = append(ks, k)
-	}
-	return ks
 }

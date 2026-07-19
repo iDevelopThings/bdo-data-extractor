@@ -1,6 +1,8 @@
 package tables
 
 import (
+	"fmt"
+
 	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 )
@@ -22,14 +24,12 @@ import (
 //
 //	u32 group, u32 matCount(1..6), matCount×{u32 item, u32 count, u32 zero},
 //	u32 결과물(legacy, dropped), u32 0, u32 0, u32 typeIndex(0..11), u32 successPercent(/1e6), u32 extra, u8 0x28
-func DecodeManufacture(b []byte) []model.ManufactureRecipe {
-	if len(b) < 16 || string(b[:4]) != "PABR" {
-		return nil
+func DecodeManufacture(b []byte) ([]model.ManufactureRecipe, error) {
+	pabr, err := bss.OpenPABR(b)
+	if err != nil {
+		return nil, err
 	}
-	stPos := int(bss.U64(b, len(b)-8))
-	if stPos <= 8 || stPos > len(b) {
-		return nil
-	}
+	stPos := pabr.StringTablePos
 	u := func(p int) uint32 { return bss.U32(b, p) }
 	isItem := func(v uint32) bool { return v >= 1 && v <= 1_000_000_000 }
 	isCount := func(v uint32) bool { return v >= 1 && v <= 1_000_000 }
@@ -44,7 +44,7 @@ func DecodeManufacture(b []byte) []model.ManufactureRecipe {
 		}
 	}
 	if p < 0 {
-		return nil
+		return nil, fmt.Errorf("manufacture: no recipe records found")
 	}
 
 	var out []model.ManufactureRecipe
@@ -78,6 +78,8 @@ func DecodeManufacture(b []byte) []model.ManufactureRecipe {
 		)
 		p = q + 24 + 1 // 6-u32 tail + 1 separator byte
 	}
-
-	return out
+	if len(out) == 0 {
+		return nil, fmt.Errorf("manufacture: decoded zero recipes")
+	}
+	return out, nil
 }

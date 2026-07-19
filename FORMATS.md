@@ -85,24 +85,23 @@ the bytes are already readable.
 
 ## 2. .bss / .dbss tables
 
-Structured data tables. Both physical shapes are an ordered list of records, each an
-ordered list of typed fields (`Byte/Int16/UInt16/Int32/UInt32/Int64/Float/Bytes` +
-strings). See `internal/bss/reader.go`.
+Structured data tables. Records are byte-packed C++ object dumps: fixed scalars,
+fixed arrays, and length-prefixed strings/lists in declaration order. Production
+decoders walk each record with `bss.Cursor` (see `internal/bss/cursor.go`). Offset
+indexes are iterated with `bss.IndexedRecords` / `IndexedRecordsU16`
+(`iter.Seq2[IndexedRecord, error]`).
 
 - **PABR** (magic `PABR` = `0x52424150` at offset 0): the **string table is at the
   end**. The last 8 bytes are an `int64` pointer to it; at that pointer sits the string
-  table (`[int32 count]` then per-string `[int32 len][bytes][sep]`), immediately
-  followed by `int32 rowCount` and the records. String fields are an `int32` index into
-  the table.
-- **Non-PABR** (first `int32` is the rowCount): records carry **inline** strings — an
-  `int64` length prefix then `len × factor` bytes: `UtfText` factor 1 (UTF-8), `Text`
-  factor 2 (UTF-16), `UniText` factor 4 (decoded as UTF-16 units). `itemenchant.dbss`
-  and `buff.dbss` are this shape.
+  table (`[int32 count]` then per-string `[int32 len][bytes][sep]`). Records occupy
+  `[8, stringTablePos)`. Open via `bss.OpenPABR`.
+- **Non-PABR / offset-indexed** (e.g. `itemenchant.dbss`, `buff.dbss`): a sibling
+  `*offset.dbss` supplies `[key, offset, size]` per row; strings are often inline
+  (`i64` length + UTF-16/UTF-8 bytes). Variable or type-conditional layouts stay
+  hand-written cursor walks inside those record boundaries.
 
-A schema (`internal/schema`) is an ordered `[]Field`; `ReadAll` walks records by it.
-That works for tables with **one uniform record layout**. Tables with variable or
-type-conditional layouts are read sequentially inside the record boundaries supplied
-by their offset index.
+Tables with **one uniform fixed record layout** can use `OpenPABR` + `RecordSize`
+and a per-row cursor. Mixed layouts must not be forced into a flat field list.
 
 ### Offset index — `*offset.dbss`
 
