@@ -11,6 +11,37 @@ Consumers should re-run extraction after upgrading — most releases change the 
 
 ## [Unreleased]
 
+## [0.1.6] — 2026-07-19
+
+Mainly a **refactor, performance, and stability** pass on the extract pipeline — shared BSS
+helpers, parallel I/O, clearer build staging, and tougher fail behavior when tables are missing.
+Re-extract after upgrading if you want the loc-string policy changes below.
+
+### Changed (output changed — re-extract)
+
+- **Loc strings keep Pearl Abyss `<PA…>` markup** (`<PAColor0x…>` / `<PAOldColor>`) instead of
+  stripping it, so consumers can style colored spans.
+- **Buff loc blobs are stored in full** (no first-line truncation); effect parsing still works via
+  line-aware `ParseStatFromLoc`.
+- **GameStrings consolidated** onto shared text types (`Text`, `ItemText`, `KnowledgeCardText`,
+  `EntityText`, `TerritoryText`) instead of parallel name/desc maps.
+
+### Changed
+
+- Optional missing tables **fail consistently** instead of silently skipping.
+- Manufacturing / PABR open misuse fixed (`PABRCount` for BKD/RID sidecars).
+- Dead `schema/` path and the `table` subcommand removed — one decode path.
+- README / FORMATS updated for the CLI and perf-testing notes.
+
+### Performance
+
+- Sibling PAZ file reads fan out in parallel (`readFiles` + `Index` sync.Once).
+- More table decoders on shared `IndexedRecords` / `RecordsFromEntries` / `RequireExhausted`
+  (shops, character static, skilltype, enchant, mastery, zones, knowledge, and related).
+- Item enchant decode parallelized; world/items stages split into named helpers.
+- Build progress reports `[stage]` / `[done]` (and finer `[step]` timings inside items); optional
+  `--cpuprofile` for hot runs.
+
 ## [0.1.5] — 2026-07-19
 
 Adds five new datasets — adventure journals, quests, class skills, crystal transfusion rules and
@@ -401,7 +432,8 @@ the PAZ archives, the `.bss`/`.dbss` binary tables, the per-item recipe XMLs and
 localization — into JSON (`items.json`, `recipes.json`, and more), plus decoded item icons.
 Distributed via `go install …@latest`.
 
-[Unreleased]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.2...v0.1.3
