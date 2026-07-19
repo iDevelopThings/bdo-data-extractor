@@ -22,13 +22,55 @@ import (
 // all exploration nodes. The decoded regions are kept on the Builder for the NPC
 // and fishing stages.
 func (b *Builder) buildWorld() error {
-	tData, err := b.src.Read("territoryinfo.bss")
+	terrs, err := b.loadTerritories()
 	if err != nil {
 		return err
 	}
-	terrs, err := tables.DecodeTerritories(tData)
+	regions, capitals, regionsNamed, err := b.loadRegions()
 	if err != nil {
 		return err
+	}
+	attachTerritoryCapitals(terrs, regions, capitals)
+
+	nodes, nodeStats, err := b.loadWorldNodes(regions)
+	if err != nil {
+		return err
+	}
+	spawnCount, loadedSpawnFiles, err := b.attachRegionSpawns(regions)
+	if err != nil {
+		return err
+	}
+	withBounds := b.attachRegionBounds(regions)
+
+	b.regions = regions
+	b.logf(fmt.Sprintf("region spawns: %s", strings.Join(loadedSpawnFiles, " -> ")))
+
+	p, err := b.addJSON("world.json", model.World{Territories: terrs, Regions: regions, Nodes: nodes})
+	if err != nil {
+		return err
+	}
+	b.logf(
+		fmt.Sprintf(
+			"world: %d territories, %d regions (%d named, %d spawns, %d with bounds), %d nodes (%d named, %d waypoint positions, %d links, %d manager owners/%d affiliates, %d product nodes/%d refs, %d unresolved) -> %s",
+			len(terrs), len(regions), regionsNamed, spawnCount, withBounds, len(nodes),
+			nodeStats.named, nodeStats.waypointPositions, nodeStats.waypointLinks,
+			nodeStats.managerOwners, nodeStats.managerAffiliates,
+			nodeStats.productNodes, nodeStats.productRefs, nodeStats.unresolvedProducts, p,
+		),
+	)
+
+	return nil
+}
+
+// loadTerritories decodes territoryinfo.bss and applies loc names + icon paths.
+func (b *Builder) loadTerritories() ([]model.Territory, error) {
+	tData, err := b.src.Read("territoryinfo.bss")
+	if err != nil {
+		return nil, err
+	}
+	terrs, err := tables.DecodeTerritories(tData)
+	if err != nil {
+		return nil, err
 	}
 	var iconRaws []string
 	for i := range terrs {
@@ -50,16 +92,19 @@ func (b *Builder) buildWorld() error {
 			terrs[i].IconSmall = "icons/territories/" + iconNames[terrs[i].IconSmall]
 		}
 	}
+	return terrs, nil
+}
 
+// loadRegions decodes regioninfo.bss, applies topography names, and marks variants.
+func (b *Builder) loadRegions() (regions []model.WorldRegion, capitals map[int]int, named int, err error) {
 	rData, err := b.src.Read("regioninfo.bss")
 	if err != nil {
-		return err
+		return nil, nil, 0, err
 	}
-	regions, capitals, err := tables.DecodeRegionInfo(rData)
+	regions, capitals, err = tables.DecodeRegionInfo(rData)
 	if err != nil {
-		return err
+		return nil, nil, 0, err
 	}
-	named := 0
 	for i := range regions {
 		if en := b.gs.Topography[uint32(regions[i].Key)]; en != "" {
 			regions[i].Name = en
@@ -67,8 +112,11 @@ func (b *Builder) buildWorld() error {
 		}
 	}
 	markRegionVariants(regions)
+	return regions, capitals, named, nil
+}
 
-	// each territory's capital region key is stored on its region records
+// attachTerritoryCapitals sets each territory's capital key/name from regioninfo.
+func attachTerritoryCapitals(terrs []model.Territory, regions []model.WorldRegion, capitals map[int]int) {
 	regionName := make(map[int]string, len(regions))
 	for i := range regions {
 		regionName[regions[i].Key] = regions[i].Name
@@ -79,14 +127,28 @@ func (b *Builder) buildWorld() error {
 			terrs[i].CapitalName = regionName[ck]
 		}
 	}
+}
 
+// worldNodeStats is the join-side bookkeeping for loadWorldNodes logging.
+type worldNodeStats struct {
+	managerOwners, managerAffiliates int
+	productNodes, productRefs        int
+	unresolvedProducts               int
+	named, waypointPositions         int
+	waypointLinks                    int
+}
+
+// loadWorldNodes builds exploration nodes with managers, plant products, waypoints,
+// localized names, and nearest-region territory membership.
+func (b *Builder) loadWorldNodes(regions []model.WorldRegion) ([]model.WorldNode, worldNodeStats, error) {
+	var stats worldNodeStats
 	nodes, err := b.explorationTable()
 	if err != nil {
-		return err
+		return nil, stats, err
 	}
-	managerOwners, managerAffiliates, err := b.resolveNodeManagerOwners(nodes)
+	stats.managerOwners, stats.managerAffiliates, err = b.resolveNodeManagerOwners(nodes)
 	if err != nil {
-		return err
+		return nil, stats, err
 	}
 	plantFiles, err := b.readFiles(
 		"plantzone.dbss",
@@ -96,15 +158,15 @@ func (b *Builder) buildWorld() error {
 		"itemsubgroupoffset.dbss",
 	)
 	if err != nil {
-		return err
+		return nil, stats, err
 	}
 	products, err := tables.DecodePlantNodeProducts(
 		plantFiles[0], plantFiles[1], plantFiles[2], plantFiles[3], plantFiles[4],
 	)
 	if err != nil {
-		return err
+		return nil, stats, err
 	}
-	productNodes, productRefs := 0, 0
+	stats.unresolvedProducts = len(products.UnresolvedNodes)
 	for i := range nodes {
 		ids := products.ByNode[uint32(nodes[i].Key)]
 		if len(ids) == 0 {
@@ -112,23 +174,22 @@ func (b *Builder) buildWorld() error {
 		}
 		for _, id := range ids {
 			if b.items[id] == nil {
-				return fmt.Errorf("world node %d references missing product item %d", nodes[i].Key, id)
+				return nil, stats, fmt.Errorf("world node %d references missing product item %d", nodes[i].Key, id)
 			}
 		}
 		refs := model.ItemRefList(ids...)
 		nodes[i].Products = &refs
-		productNodes++
-		productRefs += len(ids)
+		stats.productNodes++
+		stats.productRefs += len(ids)
 	}
 	waypoints, err := b.waypointTable()
 	if err != nil {
-		return err
+		return nil, stats, err
 	}
 	nodeByKey := make(map[int]int, len(nodes))
 	for i := range nodes {
 		nodeByKey[nodes[i].Key] = i
 	}
-	waypointPositions, waypointLinks := 0, 0
 	for i := range nodes {
 		waypoint, ok := waypoints[uint32(nodes[i].Key)]
 		if !ok {
@@ -138,7 +199,7 @@ func (b *Builder) buildWorld() error {
 			nodes[i].ExplorationPosition = new(nodes[i].Position)
 		}
 		nodes[i].Position = waypoint.Position
-		waypointPositions++
+		stats.waypointPositions++
 
 		links := make([]urn.URN, 0, len(waypoint.Links))
 		children := make([]urn.URN, 0, len(waypoint.Links))
@@ -155,26 +216,29 @@ func (b *Builder) buildWorld() error {
 		}
 		if len(links) > 0 {
 			nodes[i].Links = new(models.NewEntityRefList[model.WorldNode](links...))
-			waypointLinks += len(links)
+			stats.waypointLinks += len(links)
 		}
 		if len(children) > 0 {
 			nodes[i].Children = new(models.NewEntityRefList[model.WorldNode](children...))
 		}
 	}
-	nodesNamed := 0
 	for i := range nodes {
 		if en := b.gs.NodeNames[uint32(nodes[i].Key)]; en != "" {
 			nodes[i].Name = en
-			nodesNamed++
+			stats.named++
 		}
 		// the node record stores no territory (the client resolves it via the
 		// waypoint system) — derive it from the nearest region's territory
 		nodes[i].Territory = model.TerritoryRef(nearestRegionTerritory(regions, nodes[i].Position))
 	}
+	return nodes, stats, nil
+}
 
-	// Spawn data is layered by RegionInfo key: common data, the resource/language
-	// baseline, then the service-region override. A later layer replaces the whole
-	// region so removed or moved placements are not retained from an earlier layer.
+// attachRegionSpawns layers regionclientdata XML overlays onto regions.
+// Spawn data is keyed by RegionInfo key: common data, the resource/language
+// baseline, then the service-region override. A later layer replaces the whole
+// region so removed or moved placements are not retained from an earlier layer.
+func (b *Builder) attachRegionSpawns(regions []model.WorldRegion) (spawnCount int, loaded []string, err error) {
 	regionFiles := []string{
 		"regionclientdata.xml",
 		fmt.Sprintf("regionclientdata_%s_.xml", strings.ToLower(b.lang)),
@@ -183,57 +247,49 @@ func (b *Builder) buildWorld() error {
 		regionFiles = append(regionFiles, fmt.Sprintf("regionclientdata_%s_.xml", strings.ToLower(b.region)))
 	}
 	spawnsByKey := map[uint32][]model.Spawn{}
-	loadedRegionFiles := make([]string, 0, len(regionFiles))
+	loaded = make([]string, 0, len(regionFiles))
 	for _, regionFile := range regionFiles {
 		regionData, exists, err := b.src.ReadIfExists(regionFile)
 		if err != nil {
-			return fmt.Errorf("read %s: %w", regionFile, err)
+			return 0, nil, fmt.Errorf("read %s: %w", regionFile, err)
 		}
 		if !exists {
 			continue
 		}
 		layer, err := tables.DecodeRegions(regionData)
 		if err != nil {
-			return fmt.Errorf("decode %s: %w", regionFile, err)
+			return 0, nil, fmt.Errorf("decode %s: %w", regionFile, err)
 		}
 		overlayRegionSpawns(spawnsByKey, layer)
-		loadedRegionFiles = append(loadedRegionFiles, regionFile)
+		loaded = append(loaded, regionFile)
 	}
-	if len(loadedRegionFiles) == 0 {
-		return fmt.Errorf("no region spawn data found for language %q and region %q", b.lang, b.region)
+	if len(loaded) == 0 {
+		return 0, nil, fmt.Errorf("no region spawn data found for language %q and region %q", b.lang, b.region)
 	}
-	spawnCount := 0
 	for i := range regions {
 		if sp := spawnsByKey[uint32(regions[i].Key)]; sp != nil {
 			regions[i].Spawns = sp
 			spawnCount += len(sp)
 		}
 	}
+	return spawnCount, loaded, nil
+}
+
+// attachRegionBounds copies region_info.xml AABB bounds onto matching regions.
+func (b *Builder) attachRegionBounds(regions []model.WorldRegion) int {
+	boundsXML, err := b.src.Read("region_info.xml")
+	if err != nil {
+		return 0
+	}
+	bounds := tables.DecodeRegionBounds(boundsXML)
 	withBounds := 0
-	if boundsXML, err := b.src.Read("region_info.xml"); err == nil {
-		bounds := tables.DecodeRegionBounds(boundsXML)
-		for i := range regions {
-			if bx := bounds[uint32(regions[i].Key)]; bx != nil {
-				regions[i].Bounds = bx
-				withBounds++
-			}
+	for i := range regions {
+		if bx := bounds[uint32(regions[i].Key)]; bx != nil {
+			regions[i].Bounds = bx
+			withBounds++
 		}
 	}
-	b.regions = regions
-	b.logf(fmt.Sprintf("region spawns: %s", strings.Join(loadedRegionFiles, " -> ")))
-
-	p, err := b.addJSON("world.json", model.World{Territories: terrs, Regions: regions, Nodes: nodes})
-	if err != nil {
-		return err
-	}
-	b.logf(
-		fmt.Sprintf(
-			"world: %d territories, %d regions (%d named, %d spawns, %d with bounds), %d nodes (%d named, %d waypoint positions, %d links, %d manager owners/%d affiliates, %d product nodes/%d refs, %d unresolved) -> %s",
-			len(terrs), len(regions), named, spawnCount, withBounds, len(nodes), nodesNamed, waypointPositions, waypointLinks, managerOwners, managerAffiliates, productNodes, productRefs, len(products.UnresolvedNodes), p,
-		),
-	)
-
-	return nil
+	return withBounds
 }
 
 func overlayRegionSpawns(dst, layer map[uint32][]model.Spawn) {

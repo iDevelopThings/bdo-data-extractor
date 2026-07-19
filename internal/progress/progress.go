@@ -47,7 +47,7 @@ func (Log) Step(index, total int, phase string) {
 }
 
 func (Log) Phase(name string) {
-	fmt.Printf("[STAGE -> %s]\n", name)
+	fmt.Printf("[stage] %s\n", name)
 }
 
 func (Log) Progress(done, total int64) {

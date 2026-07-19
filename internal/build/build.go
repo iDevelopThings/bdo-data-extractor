@@ -102,7 +102,17 @@ func Run() error {
 	}
 	Active = b
 
-	b.logf(fmt.Sprintf("[INIT] Writing all files to: '%s'", outDir))
+	b.logf(fmt.Sprintf("writing to %s", outDir))
+
+	runStage := func(name string, fn func() error) error {
+		progress.Default().Phase(name)
+		t0 := time.Now()
+		if err := fn(); err != nil {
+			return err
+		}
+		b.logStage(name, time.Since(t0))
+		return nil
+	}
 
 	for _, stage := range []struct {
 		name string
@@ -124,18 +134,30 @@ func Run() error {
 		{name: "manufacture", fn: b.buildManufacture},
 		{name: "caphras", fn: b.buildCaphras},
 	} {
-		progress.Default().Phase(stage.name)
-		if err := stage.fn(); err != nil {
+		if err := runStage(stage.name, stage.fn); err != nil {
 			return err
 		}
 	}
 
-	progress.Default().Phase("write outputs")
-	return b.publishOutputs()
+	if err := runStage("write outputs", b.publishOutputs); err != nil {
+		return err
+	}
+	b.logf(fmt.Sprintf("build finished in %s", utils.FormatDuration(time.Since(b.t0))))
+	return nil
 }
 
 func (b *Builder) logf(msg string) {
-	progress.Default().Log(fmt.Sprintf("  [%5.1fs] %s", time.Since(b.t0).Seconds(), msg))
+	progress.Default().Log("  " + msg)
+}
+
+// logStage records one stage's wall time. Format is stable for scripts:
+//
+//	[done] <name>  <stageSeconds>s  (total <totalSeconds>s)
+func (b *Builder) logStage(name string, d time.Duration) {
+	progress.Default().Log(fmt.Sprintf(
+		"[done] %s  %.3fs  (total %.3fs)",
+		name, d.Seconds(), time.Since(b.t0).Seconds(),
+	))
 }
 
 // loadStrings decodes the localization tables (names, descriptions, market cats,

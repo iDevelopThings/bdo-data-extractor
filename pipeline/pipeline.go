@@ -131,10 +131,13 @@ type Options struct {
 	// manifest so a stale-data check (NeedsExtraction) can tell when the app that
 	// produced the data has since updated. Empty for the CLI.
 	AppVersion string
+	// SkipAssets skips icons and worldmap (~1GB). Use for build-timing A/B runs;
+	// the CLI `build` command never writes those assets.
+	SkipAssets bool
 }
 
-// RunAll runs the pipeline the embedder needs (build → icons), reporting two
-// top-level steps through the current sink.
+// RunAll runs the pipeline the embedder needs (build → icons → worldmap),
+// reporting top-level steps through the current sink.
 func RunAll(o Options) error {
 	if o.Lang == "" {
 		o.Lang = "en"
@@ -160,7 +163,10 @@ func RunAll(o Options) error {
 	}()
 
 	rep := progress.Default()
-	const steps = 3
+	steps := 1
+	if !o.SkipAssets {
+		steps = 3
+	}
 
 	rep.Step(1, steps, "build")
 	if err := build.Run(); err != nil {
@@ -168,17 +174,19 @@ func RunAll(o Options) error {
 	}
 	build.Release() // free the Builder's item/enhancement/loc maps before later steps
 
-	// Icons and the world map are derived art: they depend only on the game files
-	// plus their own codec version, not the app version, so an app-only update reuses
-	// them. A game patch or a codec bump moves the key and forces a rebuild.
-	rep.Step(2, steps, "icons")
-	if err := ensureAsset(iconAsset, o, rep, Icons); err != nil {
-		return err
-	}
+	if !o.SkipAssets {
+		// Icons and the world map are derived art: they depend only on the game files
+		// plus their own codec version, not the app version, so an app-only update reuses
+		// them. A game patch or a codec bump moves the key and forces a rebuild.
+		rep.Step(2, steps, "icons")
+		if err := ensureAsset(iconAsset, o, rep, Icons); err != nil {
+			return err
+		}
 
-	rep.Step(3, steps, "world map")
-	if err := ensureAsset(worldMapAsset, o, rep, WorldMap); err != nil {
-		return err
+		rep.Step(3, steps, "world map")
+		if err := ensureAsset(worldMapAsset, o, rep, WorldMap); err != nil {
+			return err
+		}
 	}
 
 	if err := writeManifest(o.DataDir, o.GameDir, o.AppVersion, o.Lang, o.Region); err != nil {

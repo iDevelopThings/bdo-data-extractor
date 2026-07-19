@@ -19,63 +19,12 @@ import (
 // buildItems decodes the item-stat, max-level, buff/skill, and enchant tables,
 // merges them into one Item per id, flags gathered materials, and registers its outputs.
 func (b *Builder) buildItems() error {
-	pair, err := b.readFiles("itemenchantoffset.dbss", "itemenchant.dbss")
+	t, err := b.loadItemTables()
 	if err != nil {
 		return err
 	}
-	encOff, encDat := pair[0], pair[1]
-	stats, err := tables.DecodeItemStats(encOff, encDat)
-	if err != nil {
-		return err
-	}
-	if err := validateItemMarketCategories(stats, b.gs.MarketCats); err != nil {
-		return err
-	}
-	b.logf(fmt.Sprintf("itemenchant: %d item stat rows", len(stats)))
 
-	pair, err = b.readFiles("itemmaxleveloffset.dbss", "itemmaxlevel.dbss")
-	if err != nil {
-		return err
-	}
-	mlOff, mlDat := pair[0], pair[1]
-	maxlv, err := tables.DecodeMaxLevels(mlOff, mlDat)
-	if err != nil {
-		return err
-	}
-	b.logf(fmt.Sprintf("itemmaxlevel: %d rows", len(maxlv)))
-
-	// consumable effect chain: item->skill->buff (typed effects + cooldown)
-	pair, err = b.readFiles("buffoffset.dbss", "buff.dbss", "skilloffset.dbss", "skill.dbss")
-	if err != nil {
-		return err
-	}
-	buffOff, buffDat, skillOff, skillDat := pair[0], pair[1], pair[2], pair[3]
-	buffs, err := tables.DecodeBuffs(buffOff, buffDat)
-	if err != nil {
-		return err
-	}
-	skills, err := tables.DecodeSkillEffects(skillOff, skillDat, buffs)
-	if err != nil {
-		return err
-	}
-	b.logf(fmt.Sprintf("buffs: %d, skills: %d", len(buffs), len(skills)))
-
-	pair, err = b.readFiles("enchantstaticstatusoffset.dbss", "enchantstaticstatus.dbss")
-	if err != nil {
-		return err
-	}
-	essOff, essDat := pair[0], pair[1]
-	curves, err := tables.DecodeEnchantCurves(essOff, essDat)
-	if err != nil {
-		return err
-	}
-	links, err := tables.EnchantLinks(encOff, encDat, curves, maxlv)
-	if err != nil {
-		return err
-	}
-	b.logf(fmt.Sprintf("enchant curves: %d, item->enchant links: %d", len(curves), len(links)))
-
-	b.items = b.mergeItems(stats, maxlv, buffs, skills, curves, links)
+	b.items = b.mergeItems(t)
 	b.logf(fmt.Sprintf("icons: backfilled %d name-only items from id-named archive icons", b.backfillShellIcons()))
 	b.scanItemInfo() // populates b.recipes (needed to tell raw mats from processed)
 	if err := b.attachItemRentals(); err != nil {
@@ -85,7 +34,7 @@ func (b *Builder) buildItems() error {
 	gathered := b.flagGathered()
 	b.logf(fmt.Sprintf("itemmaking: flagged %d gathered items", gathered))
 
-	untradable, caphrasItems, nv, ng, err := b.finalizeItems(maxlv)
+	untradable, caphrasItems, nv, ng, err := b.finalizeItems(t.maxLevels)
 	if err != nil {
 		return err
 	}
@@ -95,10 +44,10 @@ func (b *Builder) buildItems() error {
 	if err := b.buildItemSets(); err != nil {
 		return err
 	}
-	if err := b.buildLightstoneCombinations(buffs, skills); err != nil {
+	if err := b.buildLightstoneCombinations(t.buffs, t.skills); err != nil {
 		return err
 	}
-	if err := b.buildClassSkills(buffs, skills); err != nil {
+	if err := b.buildClassSkills(t.buffs, t.skills); err != nil {
 		return err
 	}
 	if err := b.buildCrystalRules(); err != nil {
@@ -106,6 +55,84 @@ func (b *Builder) buildItems() error {
 	}
 
 	return b.addItemOutputs()
+}
+
+// itemTables holds the decoded PAZ tables that feed mergeItems and the side stages.
+type itemTables struct {
+	stats     map[uint32]tables.ItemStat
+	maxLevels map[uint32]int
+	buffs     map[uint16]tables.Buff
+	skills    map[uint32]tables.SkillEffect
+	curves    map[uint32]*model.Enhancement
+	links     map[uint32]uint32
+}
+
+// loadItemTables reads the PAZ siblings that feed mergeItems and logs row counts.
+func (b *Builder) loadItemTables() (itemTables, error) {
+	pair, err := b.readFiles("itemenchantoffset.dbss", "itemenchant.dbss")
+	if err != nil {
+		return itemTables{}, err
+	}
+	encOff, encDat := pair[0], pair[1]
+	stats, err := tables.DecodeItemStats(encOff, encDat)
+	if err != nil {
+		return itemTables{}, err
+	}
+	if err := validateItemMarketCategories(stats, b.gs.MarketCats); err != nil {
+		return itemTables{}, err
+	}
+	b.logf(fmt.Sprintf("itemenchant: %d item stat rows", len(stats)))
+
+	pair, err = b.readFiles("itemmaxleveloffset.dbss", "itemmaxlevel.dbss")
+	if err != nil {
+		return itemTables{}, err
+	}
+	maxOff, maxDat := pair[0], pair[1]
+	maxLevels, err := tables.DecodeMaxLevels(maxOff, maxDat)
+	if err != nil {
+		return itemTables{}, err
+	}
+	b.logf(fmt.Sprintf("itemmaxlevel: %d rows", len(maxLevels)))
+
+	// consumable effect chain: item->skill->buff (typed effects + cooldown)
+	pair, err = b.readFiles("buffoffset.dbss", "buff.dbss", "skilloffset.dbss", "skill.dbss")
+	if err != nil {
+		return itemTables{}, err
+	}
+	buffOff, buffDat, skillOff, skillDat := pair[0], pair[1], pair[2], pair[3]
+	buffs, err := tables.DecodeBuffs(buffOff, buffDat)
+	if err != nil {
+		return itemTables{}, err
+	}
+	skills, err := tables.DecodeSkillEffects(skillOff, skillDat, buffs)
+	if err != nil {
+		return itemTables{}, err
+	}
+	b.logf(fmt.Sprintf("buffs: %d, skills: %d", len(buffs), len(skills)))
+
+	pair, err = b.readFiles("enchantstaticstatusoffset.dbss", "enchantstaticstatus.dbss")
+	if err != nil {
+		return itemTables{}, err
+	}
+	essOff, essDat := pair[0], pair[1]
+	curves, err := tables.DecodeEnchantCurves(essOff, essDat)
+	if err != nil {
+		return itemTables{}, err
+	}
+	links, err := tables.EnchantLinks(encOff, encDat, curves, maxLevels)
+	if err != nil {
+		return itemTables{}, err
+	}
+	b.logf(fmt.Sprintf("enchant curves: %d, item->enchant links: %d", len(curves), len(links)))
+
+	return itemTables{
+		stats:     stats,
+		maxLevels: maxLevels,
+		buffs:     buffs,
+		skills:    skills,
+		curves:    curves,
+		links:     links,
+	}, nil
 }
 
 func validateItemMarketCategories(stats map[uint32]tables.ItemStat, categories map[uint32]loc.MarketCat) error {
@@ -126,16 +153,8 @@ func validateItemMarketCategories(stats map[uint32]tables.ItemStat, categories m
 }
 
 // mergeItems folds every decoded source into one Item per id.
-func (b *Builder) mergeItems(
-	stats map[uint32]tables.ItemStat,
-	maxlv map[uint32]int,
-	buffs map[uint16]tables.Buff,
-	skills map[uint32]tables.SkillEffect,
-	curves map[uint32]*model.Enhancement,
-	links map[uint32]uint32,
-) map[uint32]*model.Item {
-
-	items := make(map[uint32]*model.Item, len(stats))
+func (b *Builder) mergeItems(t itemTables) map[uint32]*model.Item {
+	items := make(map[uint32]*model.Item, len(t.stats))
 	get := func(id uint32) *model.Item {
 		it := items[id]
 		if it == nil {
@@ -148,7 +167,7 @@ func (b *Builder) mergeItems(
 		return it
 	}
 
-	for id, s := range stats {
+	for id, s := range t.stats {
 		it := get(id)
 		it.Weight = s.Weight
 		it.BuyPrice = s.Buy
@@ -207,12 +226,12 @@ func (b *Builder) mergeItems(
 			it.MarketCategory = mc.Name
 			it.MarketSubCategory = mc.Subs[uint32(s.MarketSubID)]
 		}
-		merged := mergeItemSkillEffects(s.SkillKeys, skills)
+		merged := mergeItemSkillEffects(s.SkillKeys, t.skills)
 		if len(merged.Buffs) > 0 {
-			it.Effects = b.buildEffects(buffs, merged)
+			it.Effects = b.buildEffects(t.buffs, merged)
 		}
 	}
-	for id, lv := range maxlv {
+	for id, lv := range t.maxLevels {
 		get(id).MaxEnhance = new(lv)
 	}
 	for id, nm := range b.gs.Names {
@@ -221,14 +240,14 @@ func (b *Builder) mergeItems(
 	for id, d := range b.gs.Descs {
 		get(id).Description = d
 	}
-	for id, t := range b.gs.UseTexts {
-		get(id).UseText = t
+	for id, text := range b.gs.UseTexts {
+		get(id).UseText = text
 	}
-	for id, t := range b.gs.ExchangeTexts {
-		get(id).ExchangeInfo = t
+	for id, text := range b.gs.ExchangeTexts {
+		get(id).ExchangeInfo = text
 	}
-	for id, base := range links {
-		if c := curves[base]; c != nil {
+	for id, base := range t.links {
+		if c := t.curves[base]; c != nil {
 			it := get(id)
 
 			labelEnchantLevels(c, it.Category)

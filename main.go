@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/idevelopthings/bdo-data-extractor/internal/build"
@@ -18,7 +19,13 @@ import (
 func main() {
 	conf, cmd, rest := config.InitConfig()
 
-	var err error
+	stopProfile, err := startCPUProfile(conf)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+	defer stopProfile()
+
 	switch cmd {
 	case "meta":
 		err = cmdMeta(*conf.GameDir)
@@ -60,6 +67,24 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+func startCPUProfile(conf *config.Config) (func(), error) {
+	if conf.CPUProfile == nil || *conf.CPUProfile == "" {
+		return func() {}, nil
+	}
+	f, err := os.Create(*conf.CPUProfile)
+	if err != nil {
+		return nil, fmt.Errorf("create cpuprofile: %w", err)
+	}
+	if err := pprof.StartCPUProfile(f); err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("start cpuprofile: %w", err)
+	}
+	return func() {
+		pprof.StopCPUProfile()
+		_ = f.Close()
+	}, nil
 }
 
 func cmdMeta(gameDir string) error {

@@ -20,6 +20,9 @@ type Config struct {
 	Pretty      *bool
 	DumpItemIds []uint32 // optional list of item IDs to dump (for debugging)
 
+	// CPUProfile, when non-empty, writes a pprof CPU profile for the whole process.
+	CPUProfile *string
+
 	// Index CMD related:
 	IgnoreExts *string // comma-separated list of file extensions to ignore when indexing
 	OnlyExts   *string // comma-separated list of file extensions to include when indexing (overrides IgnoreExts)
@@ -57,6 +60,7 @@ func InitConfig() (*Config, string, []string) {
 	GlobalConfig.Lang = fs.String("lang", "en", "localization language (en/de/fr/sp)")
 	GlobalConfig.Region = fs.String("region", "", "game service region, e.g. na")
 	GlobalConfig.Pretty = fs.Bool("pretty", false, "indent JSON output (build command)")
+	GlobalConfig.CPUProfile = fs.String("cpuprofile", "", "write pprof CPU profile to this file")
 
 	// Index cmd related:
 	GlobalConfig.IgnoreExts = fs.String("ignore-exts", ".ai,.txt,.paa,.pae,.vnl,.bnk,.paac,.pac,.xml", "comma-separated list of file extensions to ignore when indexing")
@@ -118,7 +122,7 @@ func usage() {
 
 flags: --game DIR (game install, read-only)  --out DIR (output, default "data")
        --lang en|de|fr|sp   --region na (game service region; default: language only)
-       --pretty (indent JSON)`,
+       --pretty (indent JSON)  --cpuprofile FILE (pprof CPU profile)`,
 	)
 	if err != nil {
 		log.Fatalf("failed to write usage: %v", err)

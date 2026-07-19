@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
 // Source bundles the parsed archive index with read access to the archive. It
@@ -42,9 +40,6 @@ func OpenSource(gameDir string) (*Source, error) {
 
 // Read returns the decoded bytes of the file whose basename is name.
 func (s *Source) Read(name string) ([]byte, error) {
-	timed := utils.Timed(fmt.Sprintf("paz.Read[%q]", name))
-	defer timed()
-
 	b, exists, err := s.read(name)
 	if err != nil {
 		return nil, err
@@ -58,9 +53,6 @@ func (s *Source) Read(name string) ([]byte, error) {
 
 // ReadIfExists returns decoded file bytes and whether the basename exists.
 func (s *Source) ReadIfExists(name string) ([]byte, bool, error) {
-	timed := utils.Timed(fmt.Sprintf("paz.ReadIfExists[%q]", name))
-	defer timed()
-
 	return s.read(name)
 }
 

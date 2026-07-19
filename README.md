@@ -137,6 +137,19 @@ language's default placements.
 A full `build` reads each source table once and finishes in a few seconds for
 ~72,000 items. Output is compact and deterministic (sorted by id).
 
+### Perf A/B Data Testing
+```shell
+# microbench
+go test ./internal/tables/ -bench=BenchmarkDecodeItemStats -benchmem -count=10
+
+# full-build A/B (no images)
+.\scripts\bench-build.ps1 -Runs 5 -Region na -Pretty
+
+# profile a hot run
+.\.tmp\bdo-data-extractor.exe build --region=na --out=.tmp\p --cpuprofile=.tmp\cpu.pprof
+go tool pprof .tmp\cpu.pprof
+```
+
 ## Output
 
 | File | Contents |
