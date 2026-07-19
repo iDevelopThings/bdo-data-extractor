@@ -59,32 +59,32 @@ var itemGradeInfos = map[ItemGrade]ItemGradeInfo{
 	ItemGradeWhite: {
 		ItemGrade: ItemGradeWhite,
 		Name:      "white",
-		Color:     "#e8eaed",
+		Color:     "#e2e5e9",
 	},
 	ItemGradeGreen: {
 		ItemGrade: ItemGradeGreen,
 		Name:      "green",
-		Color:     "#7dc86e",
+		Color:     "#79d68f",
 	},
 	ItemGradeBlue: {
 		ItemGrade: ItemGradeBlue,
 		Name:      "blue",
-		Color:     "#5b9dff",
+		Color:     "#64aaf0",
 	},
 	ItemGradeYellow: {
 		ItemGrade: ItemGradeYellow,
 		Name:      "yellow",
-		Color:     "#e6c84e",
+		Color:     "#e6c45a",
 	},
 	ItemGradeRed: {
 		ItemGrade: ItemGradeRed,
 		Name:      "red",
-		Color:     "#db4d3d",
+		Color:     "#ef675c",
 	},
 	ItemGradePurple: {
 		ItemGrade: ItemGradePurple,
 		Name:      "purple",
-		Color:     "#c084e6",
+		Color:     "#bf93f1",
 	},
 }
 

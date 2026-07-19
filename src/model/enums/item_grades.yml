@@ -10,24 +10,24 @@ values:
 
   - name: "white"
     wire: 0
-    color: "#e8eaed"
+    color: "#e2e5e9"
 
   - name: "green"
     wire: 1
-    color: "#7dc86e"
+    color: "#79d68f"
 
   - name: "blue"
     wire: 2
-    color: "#5b9dff"
+    color: "#64aaf0"
 
   - name: "yellow"
     wire: 3
-    color: "#e6c84e"
+    color: "#e6c45a"
 
   - name: "red"
     wire: 4
-    color: "#db4d3d"
+    color: "#ef675c"
 
   - name: "purple"
     wire: 5
-    color: "#c084e6"
+    color: "#bf93f1"
