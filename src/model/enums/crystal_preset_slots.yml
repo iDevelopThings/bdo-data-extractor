@@ -1,0 +1,154 @@
+package: model
+type: CrystalPresetSlot
+underlying: int
+marshalText: false
+out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/crystal-preset-slots.gen.ts
+# Viewer transfusion-preset socket layout (not the BSS special-slot wire ids).
+# kind groups UI rows; specialSlot / dawnEquipSlot are typed enum refs (omit = unset).
+# Only read dawnEquipSlot when kind is dawn (SlotName zero is MainWeapon, not "unset").
+fields:
+  title: string
+  kind: string
+  crystalGroup: uint32
+  specialSlot: CrystalSpecialSlot
+  dawnEquipSlot: SlotName
+values:
+  - name: Base0
+    wire: 0
+    title: "Crystal"
+    kind: base
+
+  - name: Base1
+    wire: 1
+    title: "Crystal"
+    kind: base
+
+  - name: Base2
+    wire: 2
+    title: "Crystal"
+    kind: base
+
+  - name: Base3
+    wire: 3
+    title: "Crystal"
+    kind: base
+
+  - name: Base4
+    wire: 4
+    title: "Crystal"
+    kind: base
+
+  - name: Base5
+    wire: 5
+    title: "Crystal"
+    kind: base
+
+  - name: Base6
+    wire: 6
+    title: "Crystal"
+    kind: base
+
+  - name: Base7
+    wire: 7
+    title: "Crystal"
+    kind: base
+
+  - name: Base8
+    wire: 8
+    title: "Crystal"
+    kind: base
+
+  - name: Base9
+    wire: 9
+    title: "Crystal"
+    kind: base
+
+  - name: Base10
+    wire: 10
+    title: "Crystal"
+    kind: base
+
+  - name: Base11
+    wire: 11
+    title: "Crystal"
+    kind: base
+
+  - name: Costume
+    wire: 12
+    title: "Costume"
+    kind: costume
+    crystalGroup: 101
+    specialSlot: PearlAvatarChest
+
+  - name: HeartL
+    wire: 13
+    title: "Heart L"
+    kind: heart
+
+  - name: HeartR
+    wire: 14
+    title: "Heart R"
+    kind: heart
+
+  - name: LoMLL
+    wire: 15
+    title: "LoML L"
+    kind: loml
+
+  - name: LoMLR
+    wire: 16
+    title: "LoML R"
+    kind: loml
+
+  - name: DawnNecklace
+    wire: 17
+    title: "Necklace"
+    kind: dawn
+    crystalGroup: 103
+    specialSlot: Necklace
+    dawnEquipSlot: Necklace
+
+  - name: DawnRingI
+    wire: 18
+    title: "Ring I"
+    kind: dawn
+    crystalGroup: 103
+    specialSlot: RingI
+    dawnEquipSlot: RingI
+
+  - name: DawnRingII
+    wire: 19
+    title: "Ring II"
+    kind: dawn
+    crystalGroup: 103
+    specialSlot: RingII
+    dawnEquipSlot: RingII
+
+  - name: DawnEarringI
+    wire: 20
+    title: "Earring I"
+    kind: dawn
+    crystalGroup: 103
+    specialSlot: EarringI
+    dawnEquipSlot: EarringI
+
+  - name: DawnEarringII
+    wire: 21
+    title: "Earring II"
+    kind: dawn
+    crystalGroup: 103
+    specialSlot: EarringII
+    dawnEquipSlot: EarringII
+
+  - name: DawnBelt
+    wire: 22
+    title: "Belt"
+    kind: dawn
+    crystalGroup: 103
+    specialSlot: Belt
+    dawnEquipSlot: Belt
+
+  - name: MAX
+    wire: 23
+    sentinel: true

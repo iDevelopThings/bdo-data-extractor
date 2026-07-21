@@ -72,6 +72,10 @@ type ItemStat struct {
 
 	FamilyInventory  bool // icon-end+13 == 2 — the Lua's checkPushFamilyInventory (can be stored in the account-wide Family Inventory; ~1,089 shareable consumables/materials)
 	ContributionCost int  // NeedContribute — Contribution Points to rent/place (tail cpMarker+20; "[CP]" rental gear + placeable fences/tents; 0 = none)
+	// EnhancementGroupKey identifies the item's specific enhancement family.
+	EnhancementGroupKey uint32
+	// EnhancementType classifies the broader enhancement system used by the item.
+	EnhancementType model.ItemEnhancementType
 
 	// Still-unidentified item-row bytes as typed, deviation-only fields (see
 	// model.ItemUnknowns). A nil field holds its default; decodeItemRow reads
@@ -410,8 +414,8 @@ func decodeItemRow(rec []byte, id uint32) (ItemStat, error) {
 
 			// Fixed prefix following the variable strings and market limit.
 			st.U.UnknownAfterMarketLimit0 = dev(p.U8(), 0)
-			st.U.UnknownAfterMarketLimit1 = dev(int(p.U32()), 0)
-			st.U.UnknownAfterMarketLimit5 = dev(int(p.U32()), 0)
+			st.EnhancementGroupKey = p.U32()
+			st.EnhancementType = model.ItemEnhancementType(p.U32())
 			for i := range st.U.UnknownAfterMarketLimitSlots {
 				st.U.UnknownAfterMarketLimitSlots[i] = p.Byte()
 			}

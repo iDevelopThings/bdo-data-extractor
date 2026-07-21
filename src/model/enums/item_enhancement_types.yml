@@ -1,0 +1,132 @@
+package: model
+type: ItemEnhancementType
+underlying: uint32
+marshalText: false
+out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/item-enhancement-types.gen.ts
+# Item enhancement families stored beside the more specific enhancement-group
+# key in itemenchant.dbss. Names describe the observed member distribution;
+# 3-5 have no members in the table.
+values:
+  - name: None
+    wire: 0
+    title: "None"
+
+  - name: Equipment
+    wire: 1
+    title: "Equipment"
+
+  - name: Blackstar
+    wire: 2
+    title: "Blackstar"
+
+  - name: Reserved3
+    wire: 3
+    title: "Reserved 3"
+    reserved: true
+
+  - name: Reserved4
+    wire: 4
+    title: "Reserved 4"
+    reserved: true
+
+  - name: Reserved5
+    wire: 5
+    title: "Reserved 5"
+    reserved: true
+
+  - name: SlumberingOrigin
+    wire: 6
+    title: "Slumbering Origin"
+
+  - name: LifeSkillClothing
+    wire: 7
+    title: "Life Skill Clothing"
+
+  - name: UtilityEquipment
+    wire: 8
+    title: "Utility Equipment"
+
+  - name: CaravelGalleassEquipment
+    wire: 9
+    title: "Caravel and Galleass Equipment"
+
+  - name: ImprovedCaravelGalleassEquipment
+    wire: 10
+    title: "Improved Caravel and Galleass Equipment"
+
+  - name: CarrackPanokseonEquipment
+    wire: 11
+    title: "Carrack and Panokseon Equipment"
+
+  - name: ChiroEquipment
+    wire: 12
+    title: "Chiro Equipment"
+
+  - name: Accessory
+    wire: 13
+    title: "Accessory"
+
+  - name: CapotiaAccessory
+    wire: 14
+    title: "Capotia Accessory"
+
+  - name: LifeSkillAccessory
+    wire: 15
+    title: "Life Skill Accessory"
+
+  - name: TuvalaAccessory
+    wire: 16
+    title: "Tuvala Accessory"
+
+  - name: SealedAsulaAccessory
+    wire: 17
+    title: "Sealed and Asula Accessory"
+
+  - name: QuestAccessory
+    wire: 18
+    title: "Quest Accessory"
+
+  - name: SovereignWeapon
+    wire: 19
+    title: "Sovereign Weapon"
+
+  - name: TarnishedSword
+    wire: 20
+    title: "Tarnished Sword"
+
+  - name: KharazadAccessory
+    wire: 21
+    title: "Kharazad Accessory"
+
+  - name: PreonneAccessory
+    wire: 22
+    title: "Preonne Accessory"
+
+  - name: TuvalaEquipment
+    wire: 23
+    title: "Tuvala Equipment"
+
+  - name: EdanaArmor
+    wire: 24
+    title: "Edana Armor"
+
+  - name: ImperfectAlchemyStone
+    wire: 25
+    title: "Imperfect Alchemy Stone"
+
+  - name: SturdyAlchemyStone
+    wire: 26
+    title: "Sturdy Alchemy Stone"
+
+  - name: SharpAlchemyStone
+    wire: 27
+    title: "Sharp Alchemy Stone"
+
+  - name: ResplendentAlchemyStone
+    wire: 28
+    title: "Resplendent Alchemy Stone"
+
+  - name: SplendidAlchemyStone
+    wire: 29
+    title: "Splendid Alchemy Stone"

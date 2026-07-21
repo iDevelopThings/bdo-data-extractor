@@ -3,6 +3,7 @@ type: CrystalSpecialSlot
 underlying: uint8
 marshalText: false
 out: ..
+tsOut: ../../../../bdo-viewer/frontend/src/lib/types/crystal-special-slots.gen.ts
 # These are the special crystal-preset slots referenced by
 # jewelspecialslotsgroupstaticstatus.bss. Other values belong to ordinary or
 # separately unlocked preset slots and are not present in that restriction table.

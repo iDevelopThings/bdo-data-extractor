@@ -38,7 +38,7 @@ func TestDecodeItemRowVariablePostIconStrings(t *testing.T) {
 
 	record = append(record, 0)
 	record = binary.LittleEndian.AppendUint32(record, 0)
-	record = binary.LittleEndian.AppendUint32(record, 0)
+	record = binary.LittleEndian.AppendUint32(record, 21)
 	record = append(record, 0x77, 0x77, 0x77)
 	for range 43 {
 		record = append(record, 0x77)
@@ -71,6 +71,15 @@ func TestDecodeItemRowVariablePostIconStrings(t *testing.T) {
 	if got := stat.U.UnknownPostIconTail; len(got) != 2 || got[0] != 0xaa || got[1] != 0xbb {
 		t.Fatalf("opaque tail = %x, want aabb", got)
 	}
+	if stat.EnhancementGroupKey != 0 {
+		t.Fatalf("enhancement group key = %d, want 0", stat.EnhancementGroupKey)
+	}
+	if stat.EnhancementType != model.ItemEnhancementTypeKharazadAccessory {
+		t.Fatalf("enhancement type = %v, want Kharazad", stat.EnhancementType)
+	}
+	if !stat.EnhancementType.UnlocksDawnCrystalSlot() {
+		t.Fatal("Kharazad enhancement type did not unlock its Dawn crystal slot")
+	}
 }
 
 func TestOwnItemTailsDetachesSource(t *testing.T) {
@@ -88,6 +97,24 @@ func TestOwnItemTailsDetachesSource(t *testing.T) {
 	}
 	if got := stats[2].U.UnknownPostIconTail; !bytes.Equal(got, []byte{3, 4, 5}) || cap(got) != len(got) {
 		t.Fatalf("second owned tail = %v len/cap %d/%d", got, len(got), cap(got))
+	}
+}
+
+func TestItemEnhancementTypeUnlocksDawnCrystalSlot(t *testing.T) {
+	tests := []struct {
+		typeID model.ItemEnhancementType
+		want   bool
+	}{
+		{typeID: model.ItemEnhancementTypeNone},
+		{typeID: model.ItemEnhancementTypeTarnishedSword},
+		{typeID: model.ItemEnhancementTypeKharazadAccessory, want: true},
+		{typeID: model.ItemEnhancementTypePreonneAccessory, want: true},
+		{typeID: model.ItemEnhancementTypeTuvalaEquipment},
+	}
+	for _, tt := range tests {
+		if got := tt.typeID.UnlocksDawnCrystalSlot(); got != tt.want {
+			t.Errorf("ItemEnhancementType(%d).UnlocksDawnCrystalSlot() = %t, want %t", tt.typeID, got, tt.want)
+		}
 	}
 }
 

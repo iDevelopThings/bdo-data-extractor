@@ -66,6 +66,9 @@ func (b *Builder) buildItems() error {
 	if err := b.buildCrystalRules(); err != nil {
 		return err
 	}
+	if err := b.buildItemImprovements(); err != nil {
+		return err
+	}
 	if err := b.addItemOutputs(); err != nil {
 		return err
 	}
@@ -221,6 +224,9 @@ func (b *Builder) mergeItems(t itemTables) map[uint32]*model.Item {
 		it.NodeFreeTrade = s.NodeFreeTrade
 		it.FamilyInventory = s.FamilyInventory
 		it.ContributionCost = s.ContributionCost
+		it.EnhancementGroupKey = s.EnhancementGroupKey
+		it.EnhancementType = s.EnhancementType
+		it.UnlocksDawnCrystalSlot = s.EnhancementType.UnlocksDawnCrystalSlot()
 		it.ItemUnknowns = s.U
 		if s.JewelGroup >= 0 {
 			if g, ok := b.gs.JewelGroups[uint32(s.JewelGroup)]; ok {

@@ -27,6 +27,13 @@ type Config struct {
 	IgnoreExts *string // comma-separated list of file extensions to ignore when indexing
 	OnlyExts   *string // comma-separated list of file extensions to include when indexing (overrides IgnoreExts)
 	OnlyDirs   *string // comma-separated list of directories to include when indexing (overrides IgnoreExts)
+
+	// Textures CMD related: when SliceCell is set, each matched atlas is cut into a
+	// uniform grid of named cells instead of written whole.
+	SliceCell   *string // cell pitch "WxH", e.g. "53x53"
+	SliceOrigin *string // top-left of cell (0,0) "X,Y", e.g. "2,5" (default "0,0")
+	SliceGrid   *string // grid size "COLSxROWS", e.g. "3x9"
+	SliceNames  *string // row-major cell names: comma list or a file path (one per line); "-" or blank skips a cell
 }
 
 var GlobalConfig *Config
@@ -66,6 +73,12 @@ func InitConfig() (*Config, string, []string) {
 	GlobalConfig.IgnoreExts = fs.String("ignore-exts", ".ai,.txt,.paa,.pae,.vnl,.bnk,.paac,.pac,.xml", "comma-separated list of file extensions to ignore when indexing")
 	GlobalConfig.OnlyExts = fs.String("only-exts", "", "comma-separated list of file extensions to include when indexing (overrides ignore-exts)")
 	GlobalConfig.OnlyDirs = fs.String("only-dirs", "", "comma-separated list of directories to include when indexing (overrides ignore-exts)")
+
+	// Textures cmd related:
+	GlobalConfig.SliceCell = fs.String("slice-cell", "", "textures: cut each matched atlas into a WxH grid of cells, e.g. 53x53")
+	GlobalConfig.SliceOrigin = fs.String("slice-origin", "0,0", "textures: top-left X,Y of cell (0,0)")
+	GlobalConfig.SliceGrid = fs.String("slice-grid", "", "textures: grid COLSxROWS to slice, e.g. 3x9")
+	GlobalConfig.SliceNames = fs.String("slice-names", "", "textures: row-major cell names (comma list or file path); - skips a cell")
 
 	fs.Func("dump-item-ids", "comma-separated list of item IDs to dump (for debugging)", func(s string) error {
 		if s == "" {
@@ -111,6 +124,8 @@ func usage() {
                              compare two build dirs via .build-outputs.json (owned files only)
   meta                       parse pad00000.meta, print summary
   extract <substr> <outDir>  extract decoded files whose path contains substr
+  textures <substr> <outDir> decode .dds textures whose path contains substr -> PNG (mirrors archive layout)
+                             add -slice-cell/-slice-grid/-slice-origin/-slice-names to cut an atlas into named cells
   index <outDir> <(opt)ignore-exts> <(opt)only-exts> <(opt)only-dirs> dump the archive listing -> <out>/paz_files.json + paz_dirs.json
   icons [outDir]             decode each item's icon to <id>.webp (default <out>/icons)
   knowledge-icons            decode each knowledge card's encyclopedia image to <out>/knowledge_icons/<image>

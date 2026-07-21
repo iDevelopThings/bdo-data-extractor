@@ -2,6 +2,7 @@
 package model
 
 import (
+	"iter"
 	"reflect"
 	"strings"
 
@@ -52,7 +53,17 @@ type Item struct {
 	MaxStack            int64         `json:"maxStack,omitempty"`            // explicit stack limit (u32 @101); absent = unlimited/default
 	DyeParts            int           `json:"dyeParts,omitempty"`            // dyeable part count (@160)
 	CrystalGroup        *CrystalGroup `json:"crystalGroup,omitempty"`        // crystal transfusion group (record footer + loc table 121)
-	Gathered            bool          `json:"gathered,omitempty"`            // a raw/gathered material (itemmaking.xml node/collect/fishing)
+	// EnhancementGroupKey identifies the item's specific enhancement family.
+	EnhancementGroupKey uint32 `json:"enhancementGroupKey,omitempty"`
+	// EnhancementType identifies the broader enhancement system used by the item.
+	EnhancementType ItemEnhancementType `json:"enhancementType,omitempty"`
+	// UnlocksDawnCrystalSlot is the client static-status predicate used to
+	// unlock the matching necklace, ring, earring or belt crystal-preset slot.
+	UnlocksDawnCrystalSlot bool `json:"unlocksDawnCrystalSlot,omitempty"`
+	// ReformsFrom / ReformsInto come from itemimprovement.dbss (gear reform chains).
+	ReformsFrom *models.EntityRefList[Item] `json:"reformsFrom,omitempty"` // source items that can reform into this one
+	ReformsInto *models.EntityRefList[Item] `json:"reformsInto,omitempty"` // results this item can reform into
+	Gathered    bool                        `json:"gathered,omitempty"`    // a raw/gathered material (itemmaking.xml node/collect/fishing)
 	// ItemMaterial (@62) groups gear into material/model families: melee &
 	// staff weapons 40, longbow 42, kunai 51, classic boss armor 71 vs other
 	// armor 72, accessories by slot (necklace 73, ring 74, earring 75,
@@ -311,8 +322,6 @@ type ItemUnknowns struct {
 	// UnknownAfterMarketLimit0 begins the fixed property prefix after the three
 	// variable strings and market registration limit.
 	UnknownAfterMarketLimit0  *int `json:"unknownAfterMarketLimit0,omitempty"`
-	UnknownAfterMarketLimit1  *int `json:"unknownAfterMarketLimit1,omitempty"`
-	UnknownAfterMarketLimit5  *int `json:"unknownAfterMarketLimit5,omitempty"`
 	UnknownAfterMarketLimit55 *int `json:"unknownAfterMarketLimit55,omitempty"`
 	UnknownAfterMarketLimit56 *int `json:"unknownAfterMarketLimit56,omitempty"`
 	UnknownAfterMarketLimit58 *int `json:"unknownAfterMarketLimit58,omitempty"`
@@ -366,6 +375,28 @@ func (i *Item) HasEffect(q string) bool {
 	}
 
 	return false
+}
+
+// HasStatIds reports whether the item grants all the given stats.
+func (i *Item) HasStatIds(stats ...StatId) bool {
+	if i.Effects == nil {
+		return false
+	}
+
+	for _, want := range stats {
+		found := false
+		for _, stat := range i.Effects.Stats.Stats {
+			if stat.StatID == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
 }
 
 var recoveryStats = []StatId{StatIdHpRecovery, StatIdResourceRecovery, StatIdEnergyRecovery}
@@ -477,6 +508,16 @@ type Effects struct {
 	ClearsBuffCategories BuffStackingCategories `json:"clearsBuffCategories,omitempty"`
 }
 
+func (e *Effects) AllStatGroups() iter.Seq[EffectGroup] {
+	return func(yield func(EffectGroup) bool) {
+		if !yield(e.Stats) {
+			return
+		}
+		if !yield(e.Hidden) {
+			return
+		}
+	}
+}
 func (e *Effects) IsEmpty() bool {
 	return len(e.Stats.Stats) == 0 && len(e.Hidden.Stats) == 0 && len(e.BuffCategories) == 0 && len(e.ClearsBuffCategories) == 0
 }

@@ -34,6 +34,11 @@ func main() {
 			config.DumpUsageAndExit()
 		}
 		err = cmdExtract(*conf.GameDir, rest[0], rest[1])
+	case "textures":
+		if len(rest) < 2 {
+			config.DumpUsageAndExit()
+		}
+		err = pipeline.TextureExtract(rest[0], rest[1])
 	case "build":
 		err = build.Run()
 	case "diff-outputs":
