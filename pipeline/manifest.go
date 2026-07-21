@@ -54,7 +54,7 @@ func GameFingerprint(gameDir string) (string, error) {
 // IconCodecVersion identifies the icon-producing logic (which items get icons, the
 // icon paths, the DDS decode, the output encoding). BUMP IT whenever a change alters
 // icon output — otherwise stale icons are kept.
-const IconCodecVersion = 2
+const IconCodecVersion = 3
 
 // WorldMapCodecVersion identifies the world-map-producing logic (the tile pyramid,
 // its encoding, and the tiles.pack layout). BUMP IT whenever a change alters the

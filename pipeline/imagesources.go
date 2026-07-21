@@ -11,6 +11,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/internal/paz"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tex"
+	"github.com/idevelopthings/bdo-data-extractor/src/urn"
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
@@ -60,7 +61,7 @@ func (s *item) Prepare(src *paz.Source, dataDir string) error {
 		low := strings.ReplaceAll(strings.ToLower(it.Icon), "\\", "/")
 		slug := utils.IconFileName(low)
 		s.archiveOf["ui_texture/icon/"+low] = slug
-		s.redirects[fmt.Sprintf("icons/%d%s", it.ID, utils.IconExt)] = "icons/" + slug
+		s.redirects[urn.Item.New(it.ID).String()] = "icons/" + slug
 	}
 	return nil
 }
@@ -119,7 +120,7 @@ func (s *knowledge) Prepare(src *paz.Source, dataDir string) error {
 			continue
 		}
 		s.dest["ui_texture/"+strings.TrimSuffix(e.Image, utils.IconExt)+".dds"] = e.Image
-		s.redirects[fmt.Sprintf("knowledge_icons/%d%s", e.Key, utils.IconExt)] = "knowledge_icons/" + e.Image
+		s.redirects[urn.Knowledge.New("entry", e.Key).String()] = "knowledge_icons/" + e.Image
 	}
 	return nil
 }
@@ -148,7 +149,8 @@ func (s *knowledge) Redirects(matched []string) map[string]string {
 // territoryinfo.bss.
 type territory struct {
 	base
-	want map[string]string // wanted archive path -> output file name
+	want      map[string]string // wanted archive path -> output file name
+	redirects map[string]string // "urn::world:territory:<index>" -> shared icon file
 }
 
 func territoryIcons() imageSource {
@@ -174,14 +176,22 @@ func (s *territory) Prepare(src *paz.Source, dataDir string) error {
 	}
 	names := tables.TerritoryIconFiles(raws)
 	s.want = map[string]string{}
+	s.redirects = map[string]string{}
 	for _, t := range terrs {
 		for _, icon := range []string{t.IconLarge, t.IconSmall} {
 			if icon != "" {
 				s.want[tables.TerritoryIconArchivePath(icon)] = names[icon]
 			}
 		}
+		if t.IconLarge != "" {
+			s.redirects[urn.World.New("territory", t.Index).String()] = "icons/territories/" + names[t.IconLarge]
+		}
 	}
 	return nil
+}
+
+func (s *territory) Redirects(matched []string) map[string]string {
+	return s.redirects
 }
 
 func (s *territory) Wants(path string) bool {
