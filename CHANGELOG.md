@@ -11,6 +11,11 @@ Consumers should re-run extraction after upgrading — most releases change the 
 
 ## [Unreleased]
 
+### Added
+
+- **`item_improvements.json`** from `itemimprovement.dbss` — gear reform chains (`result` + `bases` + raw `flag`). Participating items gain `reformsFrom` / `reformsInto`.
+- **Dawn crystal-slot eligibility** — Kharazad and Preonne accessories expose `unlocksDawnCrystalSlot`; generated preset-slot metadata maps the six Dawn sockets to their required equipment slots.
+
 ## [0.1.6] — 2026-07-19
 
 Mainly a **refactor, performance, and stability** pass on the extract pipeline — shared BSS

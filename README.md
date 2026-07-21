@@ -56,7 +56,8 @@ game and community references for correctness.
 
 The format notes are written down in **[FORMATS.md](FORMATS.md)** on purpose —
 so the next person who needs this doesn't have to start from nothing. Take it,
-learn from it, extend it.
+learn from it, extend it. For wiring a **new data source** into the build
+(pipeline, tables, loc, outputs), see **[EXTENDING.md](EXTENDING.md)**.
 
 Release notes, and every breaking change to the Go API or the extracted JSON, are
 tracked in **[CHANGELOG.md](CHANGELOG.md)**. The JSON output is part of the contract
@@ -154,10 +155,11 @@ go tool pprof .tmp\cpu.pprof
 
 | File | Contents |
 |---|---|
-| `data/items.json` | every item: name, description, icon path, grade, category, **market category/sub** (real when market-listed, else *derived* for untradeable gear — see `tradeable`), **`equipInfo`** (slot / kind / type, plus `slots` for multi-slot costumes; `type` = the market-style item type, present even for untradeable items like Tuvala), weight, buy/sell/repair prices, **max durability**, **class restriction** (`classes` — absent = all classes), **`crystalGroup`** (transfusion group + max count for socket crystals), **`expirationMinutes`** (timed items), **`requiredLevel`**, **`maxStack`**, **`dyeParts`**, max enhance, enhancement curve, consumable effects, and acquisition (`vendors` that sell it, `gatheredFrom`/`gatherNodes`; unmatched source text remains in `unresolvedVendors`/`unresolvedGatherNodes`) |
+| `data/items.json` | every item: name, description, icon path, grade, category, **market category/sub** (real when market-listed, else *derived* for untradeable gear — see `tradeable`), **`equipInfo`** (slot / kind / type, plus `slots` for multi-slot costumes; `type` = the market-style item type, present even for untradeable items like Tuvala), weight, buy/sell/repair prices, **max durability**, **class restriction** (`classes` — absent = all classes), **`crystalGroup`** (transfusion group + max count for socket crystals), **`unlocksDawnCrystalSlot`** (Kharazad/Preonne accessories), **`expirationMinutes`** (timed items), **`requiredLevel`**, **`maxStack`**, **`dyeParts`**, max enhance, enhancement curve, consumable effects, and acquisition (`vendors` that sell it, `gatheredFrom`/`gatherNodes`; unmatched source text remains in `unresolvedVendors`/`unresolvedGatherNodes`) |
 | `data/lightstone_combinations.json` | artifact/lightstone combination bonuses: localized names and descriptions, required item refs (including duplicate requirements), decoded skill/buff effects, and amplified-lightstone equivalences |
 | `data/class_skills.json` | playable-class combat/awakening skill grids plus every referenced skill-group rank; ranks include localized/source names, active/passive kind, and decoded canonical stat effects for passives |
 | `data/crystal_rules.json` | all crystal transfusion groups and maximum equipped counts, plus special costume/accessory slot restrictions and their accepted groups |
+| `data/item_improvements.json` | gear reform chains from `itemimprovement.dbss` (`result` + `bases` + raw `flag`); participating items also carry `reformsFrom` / `reformsInto` |
 | `data/quests.json` | localized quest records with the raw client `acceptDsl` prerequisite and `completeDsl` objective expressions; the DSL preserves quest, level, class, item, equipment, time and content checks without parsing localized prose |
 | `data/adventure_journals.json` | the Adventure Log bookshelf hierarchy, localized book requirements and ordered quest pages, plus each permanent family-stat reward and the summed totals |
 | `data/recipes.json` | crafting recipes `{output, type, station, inputs:[{item,count}]}` — cooking/alchemy/processing **and House Crafting** (`station` = the workshop, e.g. "Jeweler"); merged from both the localized and base per-item XMLs |

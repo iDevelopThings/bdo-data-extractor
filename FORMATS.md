@@ -252,8 +252,8 @@ The limit is followed by an 84-byte fixed prefix:
 | Relative @ from limit end | Type | Field | Notes |
 |---:|---|---|---|
 | 0 | u8 | unknown | small enum |
-| 1 | u32 | unknown | |
-| 5 | u32 | unknown | |
+| 1 | u32 | enhancement group key | specific family; normally `enhancementType × 1000 + subtype` |
+| 5 | u32 | enhancement type | broad enhancement system listed below |
 | 9 | byte×3 | unknown enum array | front-packed |
 | 12 | byte×43 | filler | always `0x77` |
 | 55 | u8 | unknown | |
@@ -262,6 +262,41 @@ The limit is followed by an 84-byte fixed prefix:
 | 58 | u8 | unknown | flag-like |
 | 59 | u8 | unknown | small enum |
 | 60 | u32×6 | unknown rates | commonly 1,000,000 |
+
+The enhancement key distinguishes families within one type. For example, Kharazad
+uses keys 21000–21003 for necklace, ring, belt and earring, while Preonne uses
+22000–22003. The type distribution identifies these enhancement systems:
+
+| Type | Item family |
+|---:|---|
+| 0 | none |
+| 1 | ordinary weapons and armor |
+| 2 | Blackstar |
+| 3–5 | no records |
+| 6 | Slumbering Origin armor |
+| 7 | life-skill clothing |
+| 8 | utility equipment such as rods, matchlocks and vehicle gear |
+| 9–10 | Caravel and Galleass equipment tiers |
+| 11 | Carrack Toro and Panokseon Haemo equipment |
+| 12 | Carrack Chiro equipment |
+| 13 | ordinary accessories |
+| 14 | Capotia accessories |
+| 15 | life-skill accessories |
+| 16 | Tuvala accessories |
+| 17 | sealed, Asula and related event accessories |
+| 18 | quest accessories |
+| 19 | Sovereign weapons |
+| 20 | Tarnished Sword |
+| 21 | Kharazad accessories |
+| 22 | Preonne accessories |
+| 23 | Tuvala weapons and armor |
+| 24 | Edana armor |
+| 25–29 | Imperfect, Sturdy, Sharp, Resplendent and Splendid alchemy stones |
+
+`itemviewstackenchantgroupss.bss` is a different relation despite its similar
+name. Its 1,130 variable records contain a representative item, two equal member
+counts, a zero field and the member item keys. It groups items for enhancement-stack
+display and does not define the enhancement-type values above.
 
 The remaining type-dependent bytes are consumed and preserved as
 `ItemUnknowns.UnknownPostIconTail` for Go consumers. They are excluded from JSON to
@@ -791,7 +826,24 @@ file is ~1.38M strings across ~114 `key0` tables. The ones this tool joins:
 | 121 | crystal transfusion group — id = group, key1 = max count, text = name |
 | 123 | workshop / house names (by `eHouseIconType`) |
 
-### Crystal transfusion rules
+### Item reform chains (`itemimprovement.dbss`)
+
+Gear reform recipes (Kharazad → Dawnbound/Sunstarved/…, and many other
+base→result upgrades) live in an offset-indexed pair:
+
+- `itemimprovementoffset.dbss` — `[u32 count][count × {key, offset, size}]`
+- `itemimprovement.dbss` — `[u32 count][records…]`
+
+| Size | Count | Layout |
+|-----:|------:|--------|
+| 41 | ~3,736 | `u32 disc(=5)`, `u32 0`, `u32 resultItem`, `u32 baseItem×4`, `u32 flag`, `u8×9 zero` |
+| 25 | ~87 | `u32 disc(=1)`, `u32 0`, `u32 item`, `u32 flag`, `u8×9 zero`; item-only rule with no source relation |
+
+Unused base slots repeat the primary base id. `flag` is always `N×256`, but its
+meaning remains unidentified. The build emits `item_improvements.json` and attaches
+`reformsFrom` / `reformsInto` on participating items. The 25-byte rows are fully
+validated but omitted from the reform list because they contain no base/source item.
+
 
 An item's footer carries its crystal group number. Localization table 121 supplies the
 display name and limit, while `jewelgroupstaticstatus.bss` independently defines the
@@ -809,6 +861,15 @@ groupNo]`. Confirmed special-slot values are 14 costume armor, 17 necklace, 18/1
 rings, 20/21 earrings and 22 belt. Costume armor accepts Ancient Spirit group 101;
 the six accessory slots accept Dawn group 103. The extracted `crystal_rules.json`
 keeps the numeric relations so consumers do not need localized-name matching.
+
+`allowedGroups` answers which crystal family can occupy a special slot; it does
+not unlock that slot. For special slots 17–22, the UI checks the corresponding
+equipped necklace/ring/earring/belt with the item static-status predicate
+`isKarazardAccessory()`. This predicate accepts enhancement types 21 (Kharazad)
+and 22 (Preonne). Items expose the full `enhancementType` and `enhancementGroupKey`
+alongside the derived `unlocksDawnCrystalSlot`; consumers combine the predicate
+with the equipped item slot. The preset-slot enum maps each Dawn slot to its
+required equipment slot.
 
 Internal table text (Name fields in `.dbss`) is **Korean** even on the EU client; the
 display text is resolved through `.loc` by id. Searching the binaries for English finds
