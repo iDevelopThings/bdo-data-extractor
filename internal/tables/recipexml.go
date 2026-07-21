@@ -9,16 +9,12 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/src/utils"
 )
 
-// The per-item recipe XMLs (ui_html/xml/<itemId>.xml) are <itemInfo> docs that
-// list, for the item the file is named after, the recipes that PRODUCE it:
-//   <cook>/<alchemy>      = cooking / alchemy ingredients
-//   <manufacture action="MANUFACTURE_HEAT|GRIND|DRY|THINNING|COOK|...">
-//                         = processing (the action attr is the recipe type)
-//   <house type="N">      = worker-building (House Crafting) recipe, e.g. Jeweler;
-//                           the type attr selects the workshop
-// Each block holds <item><id>N</id>…</item> ingredient entries; several blocks
-// of one kind = alternative ingredient sets (e.g. Grain Juice from any grain).
-// The <house> blocks carry <count>; the others usually don't.
+// The per-item recipe XMLs (ui_html/xml/<itemId>.xml) are <itemInfo> docs listing
+// the recipes that PRODUCE the named item: <cook>/<alchemy> ingredient sets,
+// <manufacture action="MANUFACTURE_*"> processing (action = recipe type), and
+// <house type="N"> workshop recipes (type = workshop). Several blocks of one kind
+// are alternative ingredient sets; only <house> carries <count> — see ingredientsOf
+// for how the others encode quantity.
 
 type xmlSection struct {
 	Action string `xml:"action,attr"`
@@ -134,13 +130,27 @@ func charNames(blocks []xmlCharBlock) []string {
 	return out
 }
 
-// ingredientsOf collects a section's non-empty ingredient entries.
+// ingredientsOf folds a section's items into one entry per item with a summed count.
+// Cook/alchemy/manufacture blocks encode quantity by repeating an item with no count
+// attr (each occurrence = one unit); house blocks carry an explicit count. Collapse
+// both into a per-item total (missing/zero = 1), in first-seen order, so downstream
+// never sees a duplicate ingredient or a countless one.
 func ingredientsOf(s xmlSection) []model.Ingredient {
-	ins := make([]model.Ingredient, 0, len(s.Items))
+	order := make([]uint32, 0, len(s.Items))
+	counts := make(map[uint32]int, len(s.Items))
 	for _, it := range s.Items {
-		if it.ID != 0 {
-			ins = append(ins, model.Ingredient{Item: model.ItemRef(it.ID), Count: it.Count})
+		if it.ID == 0 {
+			continue
 		}
+		if _, seen := counts[it.ID]; !seen {
+			order = append(order, it.ID)
+		}
+		counts[it.ID] += max(1, it.Count)
+	}
+
+	ins := make([]model.Ingredient, 0, len(order))
+	for _, id := range order {
+		ins = append(ins, model.Ingredient{Item: model.ItemRef(id), Count: counts[id]})
 	}
 
 	return ins
