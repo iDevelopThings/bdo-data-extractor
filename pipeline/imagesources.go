@@ -28,11 +28,11 @@ func (b *base) Redirects(matched []string) map[string]string { return nil }
 
 // item decodes item icons (DXT-compressed .dds) to shared PNGs under icons/. Items
 // share icons heavily, so each unique icon path is decoded once (named by its slug);
-// asset_redirects.json then maps every item's id-based request to the shared file.
+// asset_redirects.json then maps every item's urn to the shared file.
 type item struct {
 	base
 	archiveOf map[string]string // wanted archive path -> output slug (icons/-relative)
-	redirects map[string]string // "icons/<id>.png" -> "icons/<slug>.png"
+	redirects map[string]string // "urn::item:<id>" -> "icons/<slug>.webp"
 }
 
 func itemIcons() imageSource {
@@ -88,11 +88,11 @@ func (s *item) Redirects(matched []string) map[string]string {
 // knowledge decodes each knowledge card's encyclopedia image to knowledge_icons/,
 // mirroring the image path stored in knowledge.json. Cards mostly share category
 // art, so each unique image decodes once; asset_redirects.json maps each card's
-// key-based request to the shared file.
+// urn to the shared file.
 type knowledge struct {
 	base
 	dest      map[string]string // wanted archive path -> output rel path (mirrors source subdir)
-	redirects map[string]string // "knowledge_icons/<key>.png" -> shared image
+	redirects map[string]string // "urn::knowledge:entry:<key>" -> shared image
 }
 
 func knowledgeIcons() imageSource {

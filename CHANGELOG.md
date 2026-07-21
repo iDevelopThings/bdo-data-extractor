@@ -11,10 +11,72 @@ Consumers should re-run extraction after upgrading — most releases change the 
 
 ## [Unreleased]
 
+## [0.1.7] — 2026-07-21
+
+Adds gear reform chains and the data behind Dawn crystal sockets, and decodes two more item
+fields that were previously unknown. Recipe ingredient counts are fixed, and icon redirects are
+now keyed by urn — both change the output, so re-extract.
+
+### ⚠ Breaking (output changed — re-extract)
+
+- **`asset_redirects.json` is keyed by urn, not by file path.** Keys change from source-relative
+  paths (`icons/123.webp`, `knowledge_icons/45.webp`) to urns (`urn::item:123`,
+  `urn::knowledge:entry:45`). The values — the files on disk — are unchanged, so only lookups
+  break: `asset_redirects["icons/123.webp"]` must become `asset_redirects["urn::item:123"]`.
+  Territories now emit redirects too (`IconLarge` only).
+- **`unknownAfterMarketLimit1` and `unknownAfterMarketLimit5` are gone from `ItemUnknowns`.** The
+  same bytes are now decoded as `enhancementGroupKey` (uint32) and `enhancementType`
+  (`ItemEnhancementType`) on the item itself. Byte offsets and wire values are identical — this
+  is a reinterpretation, not a data change — but the field names moved.
+- **Recipe `inputs` changed shape.** Ingredients are now summed per item rather than listed per
+  XML occurrence, so arrays get shorter for any recipe that repeated an ingredient, and those
+  repeats now carry a real count instead of omitting it (see Fixed).
+- **`IconCodecVersion` 2 → 3**, forcing a full icon re-extraction so the urn-keyed redirects
+  regenerate.
+
 ### Added
 
-- **`item_improvements.json`** from `itemimprovement.dbss` — gear reform chains (`result` + `bases` + raw `flag`). Participating items gain `reformsFrom` / `reformsInto`.
-- **Dawn crystal-slot eligibility** — Kharazad and Preonne accessories expose `unlocksDawnCrystalSlot`; generated preset-slot metadata maps the six Dawn sockets to their required equipment slots.
+- **Gear reform chains** — `itemimprovement.dbss` is now decoded into a new `item_improvements.json`
+  (`result`, `bases`, and the raw `flag`, whose meaning is still unidentified). 3,736 reform rows
+  plus 87 item-only rows in live data. Items participating in a chain gain **`reformsFrom` /
+  `reformsInto`**, so a chain can be walked in either direction without loading the improvements
+  table. New public types `ItemImprovements` / `ItemImprovement`.
+- **Dawn crystal-slot eligibility** — new `ItemEnhancementType` enum (30 values) with
+  `UnlocksDawnCrystalSlot()`, true only for Kharazad and Preonne accessories, surfaced on items as
+  `unlocksDawnCrystalSlot`.
+- **`CrystalPresetSlot`** (24 values) describing the transfusion-preset socket layout, with
+  `Title` / `Kind` / `CrystalGroup` / `SpecialSlot` / `DawnEquipSlot`. Note this is a UI layout
+  description rather than decoded wire data — it has no Go consumer and exists to be used from the
+  generated TypeScript.
+- **`textures` command** and exported `pipeline.TextureExtract(substr, outDir)` — decodes matching
+  `.dds` to PNG mirroring the archive layout, with optional uniform-grid atlas slicing
+  (`--slice-cell`, `--slice-origin`, `--slice-grid`, `--slice-names`). A reverse-engineering tool:
+  it isn't a build stage and produces no `data/*.json`.
+- `Item.HasStatIds(...)` (AND across `Effects.Stats`, ignoring hidden) and
+  `Effects.AllStatGroups()`.
+
+### Fixed
+
+- **Recipe ingredient counts.** A recipe that used the same item several times emitted one entry
+  per occurrence with `count: 0` — and since `count` is `omitempty`, the key vanished entirely,
+  leaving consumers with no quantity at all. Ingredients parsed from the recipe XML now appear
+  once per distinct item, with the occurrences summed into a real count. (The synthetic imperial
+  delivery-box recipes still carry no count — they're generated to break a cycle in the game's own
+  data, not parsed from a recipe.)
+- **Stale icon redirects are pruned again.** Ownership of a redirect entry moved from its key to
+  its value when keys became urns, but the prune still tested the key — so it silently stopped
+  matching and entries for removed items accumulated forever. Pruning now runs for every
+  contributing source before any re-adds, since the source directories nest.
+- Builds hard-fail if a reform row references an unknown item id, rather than emitting a dangling
+  reference.
+
+### Changed
+
+- `crystal_special_slots.yml` and `item_slots.yml` now emit TypeScript alongside Go, so downstream
+  TS consumers get these generated rather than hand-maintained.
+- **New `EXTENDING.md`** — an end-to-end guide to wiring up a new data source, and where the "the
+  JSON output is a public contract" rule is now written down. `FORMATS.md` documents the new item
+  footer fields and the reform-chain record layout.
 
 ## [0.1.6] — 2026-07-19
 
@@ -437,7 +499,8 @@ the PAZ archives, the `.bss`/`.dbss` binary tables, the per-item recipe XMLs and
 localization — into JSON (`items.json`, `recipes.json`, and more), plus decoded item icons.
 Distributed via `go install …@latest`.
 
-[Unreleased]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/iDevelopThings/bdo-data-extractor/compare/v0.1.3...v0.1.4

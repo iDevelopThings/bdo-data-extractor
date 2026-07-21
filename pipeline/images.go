@@ -183,24 +183,34 @@ func runImages(sources ...imageSource) error {
 
 	// Merge this run's aliases into the shared table rather than overwriting it, so a
 	// granular command (e.g. just knowledge icons) doesn't drop another source's
-	// entries. Each source owns the keys under its Dir/, so clear that namespace and
-	// re-add — dropping aliases for items removed since the last run.
+	// entries. Keys are urns, so ownership is identified by the value — each source owns
+	// the entries pointing under its Dir/. Clear those and re-add, dropping aliases for
+	// items removed since the last run.
 	nAlias := 0
 	if aliasSources(sources) {
 		path := filepath.Join(dataDir, assetRedirectFile)
 		redirects := map[string]string{}
 		_ = jsonio.ReadFile(path, &redirects) // absent/unreadable -> start empty
+
+		current := make([]map[string]string, len(sources))
 		for si, s := range sources {
-			m := s.Redirects(matched[si])
-			if m == nil {
+			current[si] = s.Redirects(matched[si])
+		}
+		// Prune every contributing source before adding any, since source dirs nest
+		// (icons/ contains icons/territories/) — pruning one would otherwise drop
+		// another's freshly-added entries depending on iteration order.
+		for si, s := range sources {
+			if current[si] == nil {
 				continue
 			}
 			prefix := s.Dir() + "/"
-			for k := range redirects {
-				if strings.HasPrefix(k, prefix) {
+			for k, v := range redirects {
+				if strings.HasPrefix(v, prefix) {
 					delete(redirects, k)
 				}
 			}
+		}
+		for _, m := range current {
 			for k, v := range m {
 				redirects[k] = v
 			}
