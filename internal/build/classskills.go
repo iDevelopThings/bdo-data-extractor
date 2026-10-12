@@ -8,7 +8,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/src/model"
 )
 
-func (b *Builder) buildClassSkills(buffs map[uint16]tables.Buff, effects map[uint32]tables.SkillEffect) error {
+func (b *Builder) buildClassSkills(buffs map[uint32]tables.Buff, effects map[uint32]tables.SkillEffect) error {
 	groupData, err := b.src.Read("skillgroup.bss")
 	if err != nil {
 		return err

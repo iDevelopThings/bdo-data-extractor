@@ -11,6 +11,18 @@ Consumers should re-run extraction after upgrading — most releases change the 
 
 ## [Unreleased]
 
+### Fixed
+
+- `build` runs against client version 3464 (2026-10-07). Both layouts below are detected
+  from the data, so older clients still decode.
+  - `buffoffset.dbss` keys buffs by `u32` in 12-byte rows, each `buff.dbss` record leads
+    with a `u32` index, and `skill.dbss` lists `u32` buff indices. The items stage
+    failed with `buff: offset index has 832 usable rows, want 44683`, and the world and
+    NPC stages failed after it.
+  - `experience.bss` records are 236 bytes: the reserved block after the class and
+    level grew from 20 to 28 bytes. The character progression stage failed with
+    `experience: 1453240 record-area bytes do not tile into 29872-byte class groups`.
+
 ## [0.1.9] — 2026-08-15
 
 ### ⚠ Breaking (output changed — re-extract)

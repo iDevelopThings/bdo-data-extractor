@@ -32,7 +32,7 @@ const (
 // of EffectData; Group replaces an existing buff in the same narrow effect
 // family, while StackingCategory supports broader consumable-family rules.
 type Buff struct {
-	Index            uint16
+	Index            uint32
 	NameKR           string
 	Category         int16
 	CategoryLevel    byte
@@ -76,18 +76,19 @@ func (b Buff) ClearsStackingCategory() (byte, bool) {
 // SkillEffect is one consumable skill: its use cooldown and the buffs it applies.
 type SkillEffect struct {
 	CooldownMs int
-	Buffs      []uint16
+	Buffs      []uint32
 }
 
 // DecodeBuffs reads buffoffset.dbss and buff.dbss, keyed by buff Index. The
 // offset index gives authoritative variable-record boundaries and must tile the
 // data after its row-count header exactly.
-func DecodeBuffs(offsetData, data []byte) (map[uint16]Buff, error) {
+func DecodeBuffs(offsetData, data []byte) (map[uint32]Buff, error) {
 	if len(data) < 4 {
 		return nil, fmt.Errorf("buff: data is truncated")
 	}
 	rowCount := int(bss.U32(data, 0))
-	entries, err := bss.ParseU16OffsetIndex("buff", offsetData, len(data))
+	wideIndex := bss.HasU32KeyRows(offsetData)
+	entries, err := parseBuffIndex(offsetData, len(data), wideIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -109,12 +110,12 @@ func DecodeBuffs(offsetData, data []byte) (map[uint16]Buff, error) {
 		return nil, fmt.Errorf("buff: indexed records end at %d, want %d", expected, len(data))
 	}
 
-	out := make(map[uint16]Buff, len(entries))
+	out := make(map[uint32]Buff, len(entries))
 	for rec, err := range bss.RecordsFromEntries(entries, data) {
 		if err != nil {
 			return nil, fmt.Errorf("buff %d: %w", rec.Entry.Key, err)
 		}
-		buff, err := decodeBuffRecord(rec.Data)
+		buff, err := decodeBuffRecord(rec.Data, wideIndex)
 		if err != nil {
 			return nil, fmt.Errorf("buff %d: %w", rec.Entry.Key, err)
 		}
@@ -129,10 +130,25 @@ func DecodeBuffs(offsetData, data []byte) (map[uint16]Buff, error) {
 	return out, nil
 }
 
-func decodeBuffRecord(record []byte) (Buff, error) {
+// parseBuffIndex reads buffoffset.dbss. Older clients key buffs by u16 in
+// 10-byte rows; client 3464 keys them by u32 in 12-byte rows.
+func parseBuffIndex(offsetData []byte, dataLen int, wideIndex bool) ([]bss.IndexEntry, error) {
+	if wideIndex {
+		return bss.ParseU32KeyOffsetIndex("buff", offsetData, dataLen)
+	}
+	return bss.ParseU16OffsetIndex("buff", offsetData, dataLen)
+}
+
+// decodeBuffRecord reads one buff.dbss record. Its leading index has the width
+// of the offset index's keys.
+func decodeBuffRecord(record []byte, wideIndex bool) (Buff, error) {
 	var buff Buff
 	c := bss.NewCursor(record, 0, len(record))
-	buff.Index = uint16(c.U16())
+	if wideIndex {
+		buff.Index = c.U32()
+	} else {
+		buff.Index = uint32(c.U16())
+	}
 	buff.NameKR = c.UTF16()
 	buff.Category = c.I16()
 	buff.CategoryLevel = c.Byte()
@@ -164,14 +180,20 @@ func decodeBuffRecord(record []byte) (Buff, error) {
 
 // DecodeSkillEffects maps skill key -> {cooldown, buff list}, from skilloffset.dbss
 // + skill.dbss. buffs (from DecodeBuffs) terminates the variable-length buff list.
-func DecodeSkillEffects(offsetRaw, data []byte, buffs map[uint16]Buff) (map[uint32]SkillEffect, error) {
+// wideBuffIDs selects u32 list entries, which clients whose buffoffset.dbss has
+// u32 keys (bss.HasU32KeyRows) use; older clients list u16 buff indices.
+func DecodeSkillEffects(offsetRaw, data []byte, buffs map[uint32]Buff, wideBuffIDs bool) (map[uint32]SkillEffect, error) {
+	idSize := 2
+	if wideBuffIDs {
+		idSize = 4
+	}
 	out := make(map[uint32]SkillEffect)
 	for e, err := range bss.IndexedRecords(offsetRaw, data) {
 		if err != nil {
 			return nil, err
 		}
 		rec := e.Data
-		if len(rec) < skillBuffList+2 {
+		if len(rec) < skillBuffList+idSize {
 			continue
 		}
 		if _, seen := out[e.Entry.Key]; seen {
@@ -181,8 +203,13 @@ func DecodeSkillEffects(offsetRaw, data []byte, buffs map[uint16]Buff) (map[uint
 		if cd := int(bss.U32(rec, skillCooldown)); cd > 0 && cd <= 100_000_000 && cd%1000 == 0 {
 			se.CooldownMs = cd
 		}
-		for j := skillBuffList; j+2 <= len(rec); j += 2 {
-			id := bss.U16(rec, j)
+		for j := skillBuffList; j+idSize <= len(rec); j += idSize {
+			var id uint32
+			if wideBuffIDs {
+				id = bss.U32(rec, j)
+			} else {
+				id = uint32(bss.U16(rec, j))
+			}
 			if id == 0 {
 				break
 			}

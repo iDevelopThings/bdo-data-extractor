@@ -102,26 +102,55 @@ func ParseOffsetIndex(b []byte, dataLen int) ([]IndexEntry, error) {
 // and skipped, so one odd row from a patch can't drop the table; a malformed
 // header, or an index where no row survives, is still an error.
 func ParseU16OffsetIndex(name string, b []byte, dataLen int) ([]IndexEntry, error) {
-	if len(b) < 4 {
-		return nil, fmt.Errorf("%s: u16 offset index too small (%d bytes)", name, len(b))
-	}
-	header := 4
-	count := int(U32(b, 0))
+	return parseKeyedOffsetIndex(name, b, dataLen, 2)
+}
+
+// ParseU32KeyOffsetIndex decodes an offset index whose records are
+// [u32 key, u32 offset, u32 size], with the same headers and row handling as
+// ParseU16OffsetIndex. Tables whose keys outgrew u16 moved to this layout.
+func ParseU32KeyOffsetIndex(name string, b []byte, dataLen int) ([]IndexEntry, error) {
+	return parseKeyedOffsetIndex(name, b, dataLen, 4)
+}
+
+// HasU32KeyRows reports whether an offset index's declared rows are 12 bytes
+// wide ([u32 key, u32 offset, u32 size]) rather than 10 ([u16 key, …]): its
+// body holds count*12 bytes, which a 10-byte index of any real size cannot.
+func HasU32KeyRows(b []byte) bool {
+	header, count, ok := offsetIndexHeader(b)
+	return ok && count > 0 && header+count*12 <= len(b)
+}
+
+func offsetIndexHeader(b []byte) (header, count int, ok bool) {
 	if len(b) >= 8 && string(b[:4]) == "PABR" {
-		header = 8
-		count = int(U32(b, 4))
+		return 8, int(U32(b, 4)), true
 	}
-	if count <= 0 || header+count*10 > len(b) {
-		return nil, fmt.Errorf("%s: bad u16 offset-index count %d (index is %d bytes)", name, count, len(b))
+	if len(b) >= 4 {
+		return 4, int(U32(b, 0)), true
+	}
+	return 0, 0, false
+}
+
+func parseKeyedOffsetIndex(name string, b []byte, dataLen, keySize int) ([]IndexEntry, error) {
+	rowSize := keySize + 8
+	header, count, ok := offsetIndexHeader(b)
+	if !ok {
+		return nil, fmt.Errorf("%s: u%d offset index too small (%d bytes)", name, keySize*8, len(b))
+	}
+	if count <= 0 || header+count*rowSize > len(b) {
+		return nil, fmt.Errorf("%s: bad u%d offset-index count %d (index is %d bytes)", name, keySize*8, count, len(b))
 	}
 
 	out := make([]IndexEntry, 0, count)
 	for i := range count {
-		o := header + i*10
+		o := header + i*rowSize
+		key := U32(b, o)
+		if keySize == 2 {
+			key = uint32(U16(b, o))
+		}
 		entry := IndexEntry{
-			Key:    uint32(U16(b, o)),
-			Offset: U32(b, o+2),
-			Size:   U32(b, o+6),
+			Key:    key,
+			Offset: U32(b, o+keySize),
+			Size:   U32(b, o+keySize+4),
 		}
 		switch {
 		case entry.Size == 0:

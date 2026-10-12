@@ -581,8 +581,10 @@ record's stride, not contiguously.
 Food and elixirs use `ItemTypeSkill` (`itemType = 2`): using one casts a skill that applies buffs.
 The data is a three-table chain (`internal/tables/buffs.go`). A consumable's skill keys
 (`u32[2] @204/@208` in the item row) indexes `skilloffset.dbss` → records in `skill.dbss`, which
-carries the cooldown (`u32 @95`, ms; kept when >0, ≤1e8, %1000==0) and a `u16` buff-index
-list from `@99` (read until a 0, or an index absent from `buff.dbss`). Effects from both
+carries the cooldown (`u32 @95`, ms; kept when >0, ≤1e8, %1000==0) and a buff-index
+list from `@99` (read until a 0, or an index absent from `buff.dbss`). The list's entries
+are `u32` when `buffoffset.dbss` has `u32` keys, as on client 3464, and `u16` on older
+clients. Effects from both
 skill slots are combined in slot order. Each index →
 a `buff.dbss` record. A skill therefore applies several buff records; a module does not
 contain or grant skills. Each buff has one `ModuleType` selecting how its arguments are
@@ -590,15 +592,18 @@ interpreted.
 
 ### `buff.dbss` schema
 
-`buffoffset.dbss` is a PABR index with 10-byte rows `[u16 key, u32 offset, u32 size]`.
-Its 44,295 entries tile `buff.dbss` exactly after the four-byte row count, and every
-index key equals the `Index` at the start of its record. The index supplies the record
-boundaries; fields are then consumed sequentially because inline strings make the
-records variable-length:
+`buffoffset.dbss` is a PABR index with 12-byte rows `[u32 key, u32 offset, u32 size]`;
+on older clients its rows were 10 bytes, `[u16 key, u32 offset, u32 size]`,
+and the decoder tells them apart by whether the declared rows fit at 12 bytes each.
+Its 44,683 entries (44,295 on older clients) tile `buff.dbss` exactly after the
+four-byte row count, and every index key equals the `Index` at the start of its record,
+which has the key's width; a few keys exceed `u16`, such as 4,100,000,000. The index
+supplies the record boundaries; fields are then consumed sequentially because inline
+strings make the records variable-length:
 
 | Type | Field | Notes |
 |---|---|---|
-| u16 | Index | |
+| u32 (u16 on older clients) | Index | |
 | Text | Name | UTF-16 |
 | i16 | Category | |
 | u8 | CategoryLevel | |
@@ -1080,43 +1085,45 @@ is 29 bytes.
 
 `experience.bss` stores generic rules indexed by ClassType and character level. Its
 PABR record area contains 47 counted class groups, one for every stored class slot 0
-through 46. Each group is `[u32 levelCount = 131][131 x 228-byte records]` and covers
-levels 0 through 130.
+through 46. Each group is `[u32 levelCount = 131][131 x 236-byte records]` and covers
+levels 0 through 130. Older clients use 228-byte records whose
+reserved block is 20 bytes, so their stat structure starts at 28; the decoder picks the
+record size that tiles the record area.
 
 | Relative @ | Type | Field | Notes |
 |---:|---|---|---|
 | 0 | u32 | classType | Matches the containing class-group index |
 | 4 | u32 | level | Character level, 0 through 130 |
-| 8 | 20 bytes | reserved | Zero |
-| 28 | 200 bytes | characterLevelStat | Shared character-stat structure described below |
+| 8 | 28 bytes | reserved | Zero (20 bytes on older clients) |
+| 36 | 200 bytes | characterLevelStat | Shared character-stat structure described below (@28 on older clients) |
 
 The 200-byte stat structure is also the complete body of each row in
 `hardcorecharacterstatstaticstatus.bss`. After its `PABR` marker it has 47 fixed
 201-byte rows, each keyed by a leading u8 ClassType; all 47 bodies match the level-60
 `experience.bss` stat structure exactly.
-Offsets below are relative to the stat structure, so add 28 for their record offsets:
+Offsets below are relative to the stat structure, so add 36 for their record offsets (28 on older clients):
 
 | Stat @ | Record @ | Type | Field | Notes |
 |---:|---:|---|---|---|
-| 0 | 28 | u32 | reserved | Zero |
-| 4 | 32 | f32 | unknownStat4 | 1 in every row |
-| 8 | 36 | u32 | unknownStat8 | 1 in every row |
-| 12 | 40 | 20 bytes | reserved | Zero |
-| 32 | 60 | f32 | unknownStat32 | 1 in every row |
-| 36 | 64 | 24 bytes | reserved | Zero |
-| 60 | 88 | u32 | unknownStat60 | 0 at level 0, otherwise 5 |
-| 64 | 92 | u32 | unknownStat64 | 0 at level 0, otherwise 5 |
-| 68 | 96 | u32 | unknownStat68 | 0 at level 0, otherwise 5 |
-| 72 | 100 | 8 bytes | reserved | Zero |
-| 80 | 108 | f32 | unknownStat80 | 1 in every row |
-| 84 | 112 | 16 bytes | reserved | Zero |
-| 100 | 128 | u32 | unknownStat100 | 0 at level 0, otherwise 5 |
-| 104 | 132 | u32 | unknownStat104 | 0 at level 0, otherwise 5 |
-| 108 | 136 | u32 | unknownStat108 | 0 at level 0, otherwise 5 |
-| 112 | 140 | f32 | unknownStat112 | 1 in every row |
-| 116 | 144 | f32 | apBonus | 0 below level 60, then 1 |
-| 120 | 148 | f32 | dpBonus | 0 below level 56, then 1 |
-| 124 | 152 | 76 bytes | reserved | Zero |
+| 0 | 36 | u32 | reserved | Zero |
+| 4 | 40 | f32 | unknownStat4 | 1 in every row |
+| 8 | 44 | u32 | unknownStat8 | 1 in every row |
+| 12 | 48 | 20 bytes | reserved | Zero |
+| 32 | 68 | f32 | unknownStat32 | 1 in every row |
+| 36 | 72 | 24 bytes | reserved | Zero |
+| 60 | 96 | u32 | unknownStat60 | 0 at level 0, otherwise 5 |
+| 64 | 100 | u32 | unknownStat64 | 0 at level 0, otherwise 5 |
+| 68 | 104 | u32 | unknownStat68 | 0 at level 0, otherwise 5 |
+| 72 | 108 | 8 bytes | reserved | Zero |
+| 80 | 116 | f32 | unknownStat80 | 1 in every row |
+| 84 | 120 | 16 bytes | reserved | Zero |
+| 100 | 136 | u32 | unknownStat100 | 0 at level 0, otherwise 5 |
+| 104 | 140 | u32 | unknownStat104 | 0 at level 0, otherwise 5 |
+| 108 | 144 | u32 | unknownStat108 | 0 at level 0, otherwise 5 |
+| 112 | 148 | f32 | unknownStat112 | 1 in every row |
+| 116 | 152 | f32 | apBonus | 0 below level 60, then 1 |
+| 120 | 156 | f32 | dpBonus | 0 below level 56, then 1 |
+| 124 | 160 | 76 bytes | reserved | Zero |
 
 The AP and DP fields are the one-time level milestones shown by the client: level 56
 grants 1 DP and level 60 grants 1 AP. Corresponding records for different classes are

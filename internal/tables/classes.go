@@ -213,9 +213,16 @@ func readFloatArray(c *bss.Cursor, count int) []float64 {
 
 const (
 	experienceLevelCount = 131
-	experienceRecordSize = 228
 	experienceFooterSize = 200
 )
+
+// experienceRecordLayouts are the per-level record sizes clients have shipped,
+// with the zero bytes that follow the class and level. Client 3464 grew them
+// from 24 to 32 bytes; the rest of the record is unchanged.
+var experienceRecordLayouts = []struct{ size, leadingReserved int }{
+	{size: 228, leadingReserved: 24},
+	{size: 236, leadingReserved: 32},
+}
 
 // DecodeCharacterLevelRules reads every class and level record in experience.bss.
 func DecodeCharacterLevelRules(data []byte) ([]model.CharacterLevelRule, error) {
@@ -227,10 +234,17 @@ func DecodeCharacterLevelRules(data []byte) ([]model.CharacterLevelRule, error) 
 		return nil, fmt.Errorf("experience: first class has %d levels, want %d", pabr.Rows, experienceLevelCount)
 	}
 
-	groupSize := 4 + experienceLevelCount*experienceRecordSize
 	recordAreaSize := pabr.StringTablePos - 4 - experienceFooterSize
-	if recordAreaSize <= 0 || recordAreaSize%groupSize != 0 {
-		return nil, fmt.Errorf("experience: %d record-area bytes do not tile into %d-byte class groups", recordAreaSize, groupSize)
+	experienceRecordSize, leadingReserved, groupSize := 0, 0, 0
+	for _, layout := range experienceRecordLayouts {
+		size := 4 + experienceLevelCount*layout.size
+		if recordAreaSize > 0 && recordAreaSize%size == 0 {
+			experienceRecordSize, leadingReserved, groupSize = layout.size, layout.leadingReserved, size
+			break
+		}
+	}
+	if groupSize == 0 {
+		return nil, fmt.Errorf("experience: %d record-area bytes do not tile into class groups of any known record size", recordAreaSize)
 	}
 	classCount := recordAreaSize / groupSize
 	out := make([]model.CharacterLevelRule, 0, classCount*experienceLevelCount)
@@ -245,7 +259,7 @@ func DecodeCharacterLevelRules(data []byte) ([]model.CharacterLevelRule, error) 
 			c := bss.NewCursor(data, pos, pos+experienceRecordSize)
 			recordClassType := model.CharacterClassType(c.U32())
 			recordLevel := int(c.U32())
-			reservedOK := c.Zero(24)
+			reservedOK := c.Zero(leadingReserved)
 			rule := model.CharacterLevelRule{
 				ClassType: recordClassType,
 				Level:     recordLevel,

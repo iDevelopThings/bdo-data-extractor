@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/idevelopthings/bdo-data-extractor/internal/bss"
 	"github.com/idevelopthings/bdo-data-extractor/internal/config"
 	"github.com/idevelopthings/bdo-data-extractor/internal/loc"
 	"github.com/idevelopthings/bdo-data-extractor/internal/tables"
@@ -80,7 +81,7 @@ func (b *Builder) buildItems() error {
 type itemTables struct {
 	stats     map[uint32]tables.ItemStat
 	maxLevels map[uint32]int
-	buffs     map[uint16]tables.Buff
+	buffs     map[uint32]tables.Buff
 	skills    map[uint32]tables.SkillEffect
 	curves    map[uint32]*model.Enhancement
 	links     map[uint32]uint32
@@ -123,7 +124,7 @@ func (b *Builder) loadItemTables() (itemTables, error) {
 	if err != nil {
 		return itemTables{}, err
 	}
-	skills, err := tables.DecodeSkillEffects(skillOff, skillDat, buffs)
+	skills, err := tables.DecodeSkillEffects(skillOff, skillDat, buffs, bss.HasU32KeyRows(buffOff))
 	if err != nil {
 		return itemTables{}, err
 	}
@@ -278,7 +279,7 @@ func (b *Builder) mergeItems(t itemTables) map[uint32]*model.Item {
 // order. Shared component buffs are applied once and the longest cooldown wins.
 func mergeItemSkillEffects(keys [2]uint32, skills map[uint32]tables.SkillEffect) tables.SkillEffect {
 	var merged tables.SkillEffect
-	seenBuffs := make(map[uint16]bool)
+	seenBuffs := make(map[uint32]bool)
 	for _, key := range keys {
 		se, ok := skills[key]
 		if !ok || key == 0 {
@@ -445,7 +446,7 @@ func labelEnchantLevels(enh *model.Enhancement, category string) {
 // loc name when it parses as a single stat, for modules not in the static
 // table; (3) the Korean-name parser, kept as "hidden" effects. Duration is
 // the longest buff duration among the resolved effects. Returns nil if empty.
-func (b *Builder) buildEffects(buffs map[uint16]tables.Buff, se tables.SkillEffect) *model.Effects {
+func (b *Builder) buildEffects(buffs map[uint32]tables.Buff, se tables.SkillEffect) *model.Effects {
 	var stats, hidden []model.StatMod
 	var categories, clears model.BuffStackingCategories
 	dur := 0

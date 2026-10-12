@@ -8,7 +8,7 @@ import (
 	"github.com/idevelopthings/bdo-data-extractor/src/models"
 )
 
-func (b *Builder) buildLightstoneCombinations(buffs map[uint16]tables.Buff, skills map[uint32]tables.SkillEffect) error {
+func (b *Builder) buildLightstoneCombinations(buffs map[uint32]tables.Buff, skills map[uint32]tables.SkillEffect) error {
 	data, err := b.src.Read("lightstoneset.bss")
 	if err != nil {
 		return err

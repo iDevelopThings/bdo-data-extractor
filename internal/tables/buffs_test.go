@@ -13,7 +13,7 @@ import (
 func TestDecodeBuffs(t *testing.T) {
 	t.Parallel()
 
-	record := testBuffRecord(t, 321)
+	record := testBuffRecord(t, uint16(321))
 	data := make([]byte, 4, 4+len(record))
 	binary.LittleEndian.PutUint32(data, 1)
 	data = append(data, record...)
@@ -44,10 +44,86 @@ func TestDecodeBuffs(t *testing.T) {
 	}
 }
 
+// On client 3464 buffoffset.dbss keys buffs by u32 in 12-byte
+// rows, each record leads with a u32 index, and skill records list u32 buffs.
+func TestDecodeBuffsWithU32Keys(t *testing.T) {
+	t.Parallel()
+
+	const first, second = uint32(4_100_000_000), uint32(55_558)
+	// A real skill key: small keys are ambiguous with offsets to the index column detection.
+	const skillKey = uint32(3_735_879_681)
+	firstRecord := testBuffRecord(t, first)
+	secondRecord := testBuffRecord(t, second)
+	data := binary.LittleEndian.AppendUint32(nil, 2)
+	data = append(data, firstRecord...)
+	data = append(data, secondRecord...)
+
+	offset := append([]byte("PABR"), 0, 0, 0, 0)
+	binary.LittleEndian.PutUint32(offset[4:], 2)
+	offset = binary.LittleEndian.AppendUint32(offset, first)
+	offset = binary.LittleEndian.AppendUint32(offset, 4)
+	offset = binary.LittleEndian.AppendUint32(offset, uint32(len(firstRecord)))
+	offset = binary.LittleEndian.AppendUint32(offset, second)
+	offset = binary.LittleEndian.AppendUint32(offset, uint32(4+len(firstRecord)))
+	offset = binary.LittleEndian.AppendUint32(offset, uint32(len(secondRecord)))
+
+	buffs, err := DecodeBuffs(offset, data)
+	if err != nil {
+		t.Fatalf("DecodeBuffs() error = %v", err)
+	}
+	if buffs[first].Index != first || buffs[second].Index != second || buffs[second].NameKR != "시험" {
+		t.Fatalf("DecodeBuffs() = %#v", buffs)
+	}
+
+	skill := make([]byte, skillBuffList)
+	binary.LittleEndian.PutUint32(skill[skillCooldown:], 5_000)
+	skill = binary.LittleEndian.AppendUint32(skill, second)
+	skill = binary.LittleEndian.AppendUint32(skill, first)
+	skill = binary.LittleEndian.AppendUint32(skill, 0)
+	skillOffset := append([]byte("PABR"), 0, 0, 0, 0)
+	binary.LittleEndian.PutUint32(skillOffset[4:], 1)
+	skillOffset = binary.LittleEndian.AppendUint32(skillOffset, skillKey)
+	skillOffset = binary.LittleEndian.AppendUint32(skillOffset, 4)
+	skillOffset = binary.LittleEndian.AppendUint32(skillOffset, uint32(len(skill)))
+	skillData := append(binary.LittleEndian.AppendUint32(nil, 1), skill...)
+
+	effects, err := DecodeSkillEffects(skillOffset, skillData, buffs, true)
+	if err != nil {
+		t.Fatalf("DecodeSkillEffects() error = %v", err)
+	}
+	if got := effects[skillKey]; got.CooldownMs != 5_000 || len(got.Buffs) != 2 || got.Buffs[0] != second || got.Buffs[1] != first {
+		t.Fatalf("DecodeSkillEffects() = %#v", got)
+	}
+}
+
+// Older clients list u16 buff indices, and a record may end on the last one.
+func TestDecodeSkillEffectsWithU16Buffs(t *testing.T) {
+	t.Parallel()
+
+	const buffIndex, skillKey = uint32(321), uint32(3_735_879_681)
+	buffs := map[uint32]Buff{buffIndex: {Index: buffIndex}}
+	skill := make([]byte, skillBuffList)
+	skill = binary.LittleEndian.AppendUint16(skill, uint16(buffIndex))
+	skillOffset := append([]byte("PABR"), 0, 0, 0, 0)
+	binary.LittleEndian.PutUint32(skillOffset[4:], 1)
+	skillOffset = binary.LittleEndian.AppendUint32(skillOffset, skillKey)
+	skillOffset = binary.LittleEndian.AppendUint32(skillOffset, 4)
+	skillOffset = binary.LittleEndian.AppendUint32(skillOffset, uint32(len(skill)))
+	skillData := append(binary.LittleEndian.AppendUint32(nil, 1), skill...)
+
+	effects, err := DecodeSkillEffects(skillOffset, skillData, buffs, false)
+	if err != nil {
+		t.Fatalf("DecodeSkillEffects() error = %v", err)
+	}
+	if got := effects[skillKey]; len(got.Buffs) != 1 || got.Buffs[0] != buffIndex {
+		t.Fatalf("DecodeSkillEffects() = %#v", got)
+	}
+}
+
 func TestDecodeBuffsRejectsIndexKeyMismatch(t *testing.T) {
 	t.Parallel()
 
-	record := testBuffRecord(t, 321)
+	record := testBuffRecord(t, uint16(321))
 	data := binary.LittleEndian.AppendUint32(nil, 1)
 	data = append(data, record...)
 	offset := binary.LittleEndian.AppendUint32(nil, 1)
@@ -130,7 +206,9 @@ func TestResolveBuffStatUsesModuleSemantics(t *testing.T) {
 	}
 }
 
-func testBuffRecord(t *testing.T, index uint16) []byte {
+// testBuffRecord encodes a buff record; index is a uint16 or, for the wide
+// layout, a uint32.
+func testBuffRecord(t *testing.T, index any) []byte {
 	t.Helper()
 
 	var out bytes.Buffer

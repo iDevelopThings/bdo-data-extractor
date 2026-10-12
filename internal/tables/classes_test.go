@@ -2,6 +2,7 @@ package tables
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"testing"
 )
@@ -124,28 +125,40 @@ func appendTestUTF8(dst []byte, value string) []byte {
 }
 
 func TestDecodeCharacterLevelRules(t *testing.T) {
+	// The layouts clients have shipped: 228-byte records, and client 3464's 236-byte
+	// records with every field 8 bytes later.
+	for _, layout := range []struct{ size, shift int }{{size: 228, shift: 0}, {size: 236, shift: 8}} {
+		t.Run(fmt.Sprintf("%d-byte records", layout.size), func(t *testing.T) {
+			testDecodeCharacterLevelRules(t, layout.size, layout.shift)
+		})
+	}
+}
+
+// testDecodeCharacterLevelRules encodes 37 classes of records whose fields sit
+// shift bytes after where the 228-byte layout puts them.
+func testDecodeCharacterLevelRules(t *testing.T, recordSize, shift int) {
 	data := []byte{'P', 'A', 'B', 'R'}
 	for classType := range 37 {
 		data = binary.LittleEndian.AppendUint32(data, experienceLevelCount)
 		for level := range experienceLevelCount {
-			record := make([]byte, experienceRecordSize)
+			record := make([]byte, recordSize)
 			binary.LittleEndian.PutUint32(record, uint32(classType))
 			binary.LittleEndian.PutUint32(record[4:], uint32(level))
-			binary.LittleEndian.PutUint32(record[32:], math.Float32bits(1))
-			binary.LittleEndian.PutUint32(record[36:], 1)
-			binary.LittleEndian.PutUint32(record[60:], math.Float32bits(1))
-			binary.LittleEndian.PutUint32(record[108:], math.Float32bits(1))
-			binary.LittleEndian.PutUint32(record[140:], math.Float32bits(1))
+			binary.LittleEndian.PutUint32(record[shift+32:], math.Float32bits(1))
+			binary.LittleEndian.PutUint32(record[shift+36:], 1)
+			binary.LittleEndian.PutUint32(record[shift+60:], math.Float32bits(1))
+			binary.LittleEndian.PutUint32(record[shift+108:], math.Float32bits(1))
+			binary.LittleEndian.PutUint32(record[shift+140:], math.Float32bits(1))
 			if level > 0 {
 				for _, offset := range []int{88, 92, 96, 128, 132, 136} {
-					binary.LittleEndian.PutUint32(record[offset:], 5)
+					binary.LittleEndian.PutUint32(record[shift+offset:], 5)
 				}
 			}
 			if level >= 60 {
-				binary.LittleEndian.PutUint32(record[144:], math.Float32bits(1))
+				binary.LittleEndian.PutUint32(record[shift+144:], math.Float32bits(1))
 			}
 			if level >= 56 {
-				binary.LittleEndian.PutUint32(record[148:], math.Float32bits(1))
+				binary.LittleEndian.PutUint32(record[shift+148:], math.Float32bits(1))
 			}
 			data = append(data, record...)
 		}
